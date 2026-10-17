@@ -1,0 +1,107 @@
+@page "/workouts"
+@attribute [Authorize]
+@inject FitTrackApiClient Api
+
+<PageTitle>My workouts</PageTitle>
+
+<h1>My workouts</h1>
+
+<p><a class="button" href="/today">Today's workout</a></p>
+
+@if (_loading)
+{
+    <p class="muted">Loading…</p>
+}
+else if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+else if (_sessions.Count == 0)
+{
+    <p class="muted">No workouts recorded yet.</p>
+}
+else
+{
+    @foreach (var session in _sessions)
+    {
+        <article class="card">
+            <h2>@session.WorkoutDate.ToString("yyyy-MM-dd")</h2>
+
+            <p class="muted">
+                @if (session.IsRunning)
+                {
+                    <span>Running since @session.StartedAt.ToLocalTime().ToString("HH:mm").</span>
+                }
+                else
+                {
+                    <span>@Duration(session.DurationSeconds) — started at @session.StartedAt.ToLocalTime().ToString("HH:mm").</span>
+                }
+            </p>
+
+            @if (session.Sets.Count == 0)
+            {
+                <p class="muted">No sets.</p>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Exercise</th>
+                            <th>Load (kg)</th>
+                            <th>Repetitions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var set in session.Sets)
+                        {
+                            <tr>
+                                <td>@ExerciseName(set.ExerciseId)</td>
+                                <td>@set.LoadKilograms</td>
+                                <td>@set.Repetitions</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </article>
+    }
+}
+
+@code {
+    private IReadOnlyList<WorkoutSessionResponse> _sessions = [];
+    private Dictionary<Guid, string> _exerciseNames = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var exercises = await Api.GetExercisesAsync();
+            _exerciseNames = exercises.ToDictionary(exercise => exercise.Id, exercise => exercise.Name);
+
+            _sessions = await Api.GetSessionsAsync();
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string ExerciseName(Guid exerciseId) =>
+        _exerciseNames.TryGetValue(exerciseId, out var name) ? name : exerciseId.ToString();
+
+    private static string Duration(int seconds)
+    {
+        var elapsed = TimeSpan.FromSeconds(seconds);
+
+        return elapsed.TotalHours >= 1
+            ? elapsed.ToString(@"h\:mm\:ss")
+            : elapsed.ToString(@"m\:ss");
+    }
+}

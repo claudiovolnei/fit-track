@@ -1,0 +1,14 @@
+namespace FitTrack.UI.Api;
+
+/// <summary>Wire contract: a workout session of the current user, with the clock it measured.</summary>
+public sealed record WorkoutSessionResponse(
+    Guid Id,
+    DateOnly WorkoutDate,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? FinishedAt,
+    int DurationSeconds,
+    Guid? WorkoutPlanOptionId,
+    IReadOnlyList<PerformedSetResponse> Sets)
+{
+    public bool IsRunning => FinishedAt is null;
+}

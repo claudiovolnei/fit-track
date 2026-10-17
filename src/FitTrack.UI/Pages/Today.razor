@@ -1,0 +1,247 @@
+@page "/today"
+@attribute [Authorize]
+@implements IDisposable
+@inject FitTrackApiClient Api
+
+<PageTitle>Today</PageTitle>
+
+<h1>Today</h1>
+
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+
+@if (_loading)
+{
+    <p class="muted">Loading your plan…</p>
+}
+else if (_plan is null)
+{
+    <p class="muted">Your trainer has not assigned a plan yet.</p>
+}
+else if (_plan.Options.Count == 0)
+{
+    <p class="muted">Your plan has no workout options yet.</p>
+}
+else
+{
+    @foreach (var option in _plan.Options)
+    {
+        <article class="card">
+            <h2>Option @option.Position</h2>
+            <p class="muted">@MuscleGroups(option)</p>
+
+            @if (option.Today is null)
+            {
+                <button type="button" disabled="@_busy" @onclick="() => StartAsync(option.Id)">Start workout</button>
+            }
+            else if (option.Today.IsRunning)
+            {
+                <p class="timer" title="Time since you started">@Clock(option.Today)</p>
+
+                @if (option.Today.Sets.Count > 0)
+                {
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Exercise</th>
+                                <th>Load (kg)</th>
+                                <th>Repetitions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var set in option.Today.Sets)
+                            {
+                                <tr>
+                                    <td>@ExerciseName(set.ExerciseId)</td>
+                                    <td>@set.LoadKilograms</td>
+                                    <td>@set.Repetitions</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                <div class="field">
+                    <label for="set-exercise-@option.Id">Exercise</label>
+                    <select id="set-exercise-@option.Id" @bind="_newSet.ExerciseId">
+                        @foreach (var exercise in _catalog)
+                        {
+                            <option value="@exercise.Id">@exercise.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="set-load-@option.Id">Load (kg)</label>
+                    <input id="set-load-@option.Id" type="number" min="0" step="0.5" @bind="_newSet.LoadKilograms" />
+                </div>
+
+                <div class="field">
+                    <label for="set-reps-@option.Id">Repetitions</label>
+                    <input id="set-reps-@option.Id" type="number" min="1" @bind="_newSet.Repetitions" />
+                </div>
+
+                <p>
+                    <button type="button" disabled="@(_busy || _catalog.Count == 0)" @onclick="() => LogSetAsync(option.Today.WorkoutSessionId)">
+                        Log set
+                    </button>
+                    <button type="button" class="secondary" disabled="@_busy" @onclick="() => FinishAsync(option.Today.WorkoutSessionId)">
+                        Finish workout
+                    </button>
+                    <button type="button" class="secondary" disabled="@_busy" @onclick="() => CancelAsync(option.Today.WorkoutSessionId)">
+                        Cancel
+                    </button>
+                </p>
+
+                <p class="muted">Started at @option.Today.StartedAt.ToLocalTime().ToString("HH:mm:ss").</p>
+            }
+            else if (option.Today is not null)
+            {
+                <p class="muted">Done — @Duration(option.Today.ElapsedSeconds) recorded.</p>
+
+                @if (option.Today.Sets.Count > 0)
+                {
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Exercise</th>
+                                <th>Load (kg)</th>
+                                <th>Repetitions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var set in option.Today.Sets)
+                            {
+                                <tr>
+                                    <td>@ExerciseName(set.ExerciseId)</td>
+                                    <td>@set.LoadKilograms</td>
+                                    <td>@set.Repetitions</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+        </article>
+    }
+}
+
+@code {
+    private WorkoutPlanResponse? _plan;
+    private IReadOnlyList<ExerciseResponse> _catalog = [];
+    private readonly SetModel _newSet = new();
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+    private System.Timers.Timer? _ticker;
+    private DateTimeOffset _loadedAt = DateTimeOffset.UtcNow;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _ticker = new System.Timers.Timer(1000);
+        _ticker.Elapsed += async (_, _) => await InvokeAsync(StateHasChanged);
+        _ticker.AutoReset = true;
+        _ticker.Start();
+
+        await RunAsync(ReloadAsync);
+    }
+
+    public void Dispose() => _ticker?.Dispose();
+
+    private async Task StartAsync(Guid optionId) =>
+        await RunAsync(async () =>
+        {
+            await Api.StartWorkoutAsync(new StartWorkoutRequest(optionId));
+            await ReloadAsync();
+        });
+
+    private async Task LogSetAsync(Guid sessionId) =>
+        await RunAsync(async () =>
+        {
+            await Api.LogPerformedSetAsync(
+                sessionId,
+                new LogPerformedSetRequest(_newSet.ExerciseId, _newSet.LoadKilograms, _newSet.Repetitions));
+
+            await ReloadAsync();
+        });
+
+    private async Task FinishAsync(Guid sessionId) =>
+        await RunAsync(async () =>
+        {
+            await Api.FinishWorkoutAsync(sessionId);
+            await ReloadAsync();
+        });
+
+    private async Task CancelAsync(Guid sessionId) =>
+        await RunAsync(async () =>
+        {
+            await Api.CancelWorkoutAsync(sessionId);
+            await ReloadAsync();
+        });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await action();
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _catalog = await Api.GetExercisesAsync();
+
+        if (_catalog.Count > 0 && _newSet.ExerciseId == Guid.Empty)
+        {
+            _newSet.ExerciseId = _catalog[0].Id;
+        }
+
+        _plan = await Api.GetMyPlanAsync();
+        _loadedAt = DateTimeOffset.UtcNow;
+        _loading = false;
+    }
+
+    private string MuscleGroups(WorkoutPlanOptionResponse option) =>
+        string.Join(", ", option.MuscleGroups.Select(group => group.Name));
+
+    private string ExerciseName(Guid exerciseId) =>
+        _catalog.FirstOrDefault(exercise => exercise.Id == exerciseId)?.Name ?? exerciseId.ToString();
+
+    /// <summary>
+    /// The running clock. It counts from the seconds the server measured and adds only the time that
+    /// passed on this page, so a skewed browser clock cannot invent a duration.
+    /// </summary>
+    private string Clock(TodayWorkoutResponse today) =>
+        Duration(today.ElapsedSeconds + (int)(DateTimeOffset.UtcNow - _loadedAt).TotalSeconds);
+
+    private static string Duration(int seconds)
+    {
+        var elapsed = TimeSpan.FromSeconds(seconds);
+
+        return elapsed.TotalHours >= 1
+            ? elapsed.ToString(@"h\:mm\:ss")
+            : elapsed.ToString(@"m\:ss");
+    }
+
+    private sealed class SetModel
+    {
+        public Guid ExerciseId { get; set; }
+
+        public decimal LoadKilograms { get; set; } = 20m;
+
+        public int Repetitions { get; set; } = 10;
+    }
+}

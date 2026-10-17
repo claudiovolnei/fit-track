@@ -1,0 +1,180 @@
+@page "/athletes"
+@attribute [Authorize(Roles = "PersonalTrainer")]
+@inject FitTrackApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Athletes</PageTitle>
+
+<h1>Athletes</h1>
+
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+
+@if (_loading)
+{
+    <p class="muted">Loading accounts…</p>
+}
+else if (_athletes.Count == 0)
+{
+    <p class="muted">No account has the athlete profile yet.</p>
+}
+else
+{
+    @foreach (var athlete in _athletes)
+    {
+        <article class="card">
+            <h2>@athlete.Email</h2>
+
+            <p>
+                @if (athlete.HasPlan)
+                {
+                    <span class="muted">Has a plan. </span>
+                    <button type="button" class="secondary" disabled="@_busy" @onclick="() => OpenPlanAsync(athlete)">
+                        Open plan
+                    </button>
+                }
+                else
+                {
+                    <span class="muted">No plan yet. </span>
+                    <button type="button" disabled="@_busy" @onclick="() => AssignAsync(athlete)">
+                        Assign plan
+                    </button>
+                }
+            </p>
+
+            <details @ontoggle="() => LoadWorkoutsAsync(athlete)">
+                <summary>Workouts</summary>
+
+                @if (_workouts.Count == 0)
+                {
+                    <p class="muted">Nothing recorded yet.</p>
+                }
+                else
+                {
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Duration</th>
+                                <th>Sets</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var session in _workouts)
+                            {
+                                <tr>
+                                    <td>@session.WorkoutDate.ToString("yyyy-MM-dd")</td>
+                                    <td>@(session.IsRunning ? "running" : Duration(session.DurationSeconds))</td>
+                                    <td>@session.Sets.Count</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </details>
+        </article>
+    }
+}
+
+@code {
+    private IReadOnlyList<AthleteResponse> _athletes = [];
+    private IReadOnlyList<WorkoutSessionResponse> _workouts = [];
+    private Guid _workoutsAthlete = Guid.Empty;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _athletes = await Api.GetAthletesAsync();
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task AssignAsync(AthleteResponse athlete)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var plan = await Api.AssignPlanAsync(new AssignWorkoutPlanRequest(athlete.UserId));
+
+            Navigation.NavigateTo($"/plans/{plan.Id}");
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task OpenPlanAsync(AthleteResponse athlete)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var plans = await Api.GetPlansAsync();
+            var plan = plans.FirstOrDefault(candidate => candidate.UserId == athlete.UserId);
+
+            if (plan is null)
+            {
+                _error = "The account has a plan, but it is not one of yours.";
+                return;
+            }
+
+            Navigation.NavigateTo($"/plans/{plan.Id}");
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task LoadWorkoutsAsync(AthleteResponse athlete)
+    {
+        if (_workoutsAthlete == athlete.UserId && _workouts.Count > 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _workouts = await Api.GetAthleteWorkoutsAsync(athlete.UserId);
+            _workoutsAthlete = athlete.UserId;
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
+    private static string Duration(int seconds)
+    {
+        var elapsed = TimeSpan.FromSeconds(seconds);
+
+        return elapsed.TotalHours >= 1
+            ? elapsed.ToString(@"h\:mm\:ss")
+            : elapsed.ToString(@"m\:ss");
+    }
+}

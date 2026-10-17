@@ -1,0 +1,70 @@
+@page "/plans"
+@attribute [Authorize(Roles = "PersonalTrainer")]
+@inject FitTrackApiClient Api
+
+<PageTitle>Training plans</PageTitle>
+
+<h1>Training plans</h1>
+
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+
+@if (_loading)
+{
+    <p class="muted">Loading plans…</p>
+}
+else if (_plans.Count == 0)
+{
+    <p class="muted">No plan assigned yet. Open <a href="/athletes">Athletes</a> to assign one.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Athlete</th>
+                <th>Options</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var plan in _plans)
+            {
+                <tr @key="plan.Id">
+                    <td>@Email(plan.UserId)</td>
+                    <td>@plan.Options.Count</td>
+                    <td><a class="button secondary" href="/plans/@plan.Id">Open</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<WorkoutPlanResponse> _plans = [];
+    private IReadOnlyList<AthleteResponse> _athletes = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _athletes = await Api.GetAthletesAsync();
+            _plans = await Api.GetPlansAsync();
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string Email(Guid userId) =>
+        _athletes.FirstOrDefault(athlete => athlete.UserId == userId)?.Email ?? userId.ToString();
+}

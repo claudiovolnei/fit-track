@@ -1,0 +1,247 @@
+@page "/exercises/manage"
+@attribute [Authorize(Roles = "PersonalTrainer")]
+@inject FitTrackApiClient Api
+
+<PageTitle>Manage catalog</PageTitle>
+
+<h1>Manage catalog</h1>
+
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+
+<section class="card">
+    <h2>Muscle groups</h2>
+
+    <EditForm Model="_newGroup" OnValidSubmit="CreateGroupAsync">
+        <DataAnnotationsValidator />
+
+        <div class="field">
+            <label for="new-group">Name</label>
+            <InputText id="new-group" @bind-Value="_newGroup.Name" />
+            <ValidationMessage For="() => _newGroup.Name" />
+        </div>
+
+        <button type="submit" disabled="@_busy">Add muscle group</button>
+    </EditForm>
+
+    @if (_groups.Count == 0)
+    {
+        <p class="muted">No muscle group yet — create one before adding exercises.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var group in _groups)
+                {
+                    <tr @key="group.Id">
+                        <td><input @bind="group.Name" /></td>
+                        <td>
+                            <button type="button" class="secondary" @onclick="() => SaveGroupAsync(group)">Save</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section class="card">
+    <h2>New exercise</h2>
+
+    <EditForm Model="_create" OnValidSubmit="CreateAsync">
+        <DataAnnotationsValidator />
+
+        <div class="field">
+            <label for="new-name">Name</label>
+            <InputText id="new-name" @bind-Value="_create.Name" />
+            <ValidationMessage For="() => _create.Name" />
+        </div>
+
+        <div class="field">
+            <label for="new-exercise-group">Muscle group</label>
+            <InputSelect id="new-exercise-group" @bind-Value="_create.MuscleGroupId">
+                <option value="@Guid.Empty">Select a muscle group…</option>
+                @foreach (var group in _groups)
+                {
+                    <option value="@group.Id">@group.Name</option>
+                }
+            </InputSelect>
+        </div>
+
+        <button type="submit" disabled="@(_busy || _groups.Count == 0)">Add exercise</button>
+    </EditForm>
+</section>
+
+<section>
+    <h2>Exercises</h2>
+
+    @if (_rows.Count == 0)
+    {
+        <p class="muted">Nothing to manage yet.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Muscle group</th>
+                    <th>Active</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr @key="row.Id">
+                        <td><input @bind="row.Name" /></td>
+                        <td>
+                            <select @bind="row.MuscleGroupId">
+                                @foreach (var group in _groups)
+                                {
+                                    <option value="@group.Id">@group.Name</option>
+                                }
+                            </select>
+                        </td>
+                        <td><input type="checkbox" @bind="row.IsActive" /></td>
+                        <td><button type="button" class="secondary" @onclick="() => SaveAsync(row)">Save</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@code {
+    private readonly Model _newGroup = new();
+    private readonly Model _create = new();
+    private List<GroupRowModel> _groups = [];
+    private List<RowModel> _rows = [];
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task CreateGroupAsync()
+    {
+        await RunAsync(async () =>
+        {
+            await Api.CreateMuscleGroupAsync(new CreateMuscleGroupRequest(_newGroup.Name));
+            _newGroup.Name = string.Empty;
+        });
+    }
+
+    private async Task SaveGroupAsync(GroupRowModel group)
+    {
+        await RunAsync(() => Api.UpdateMuscleGroupAsync(group.Id, new UpdateMuscleGroupRequest(group.Name)));
+    }
+
+    private async Task CreateAsync()
+    {
+        if (_create.MuscleGroupId == Guid.Empty)
+        {
+            _error = "Select a muscle group for the exercise.";
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            await Api.CreateExerciseAsync(new CreateExerciseRequest(_create.Name, _create.MuscleGroupId));
+            _create.Name = string.Empty;
+            _create.MuscleGroupId = Guid.Empty;
+        });
+    }
+
+    private async Task SaveAsync(RowModel row)
+    {
+        await RunAsync(() =>
+            Api.UpdateExerciseAsync(
+                row.Id,
+                new UpdateExerciseRequest(row.Name, row.MuscleGroupId, row.IsActive)));
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await action();
+            await ReloadAsync();
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            var groups = await Api.GetMuscleGroupsAsync();
+            var exercises = await Api.GetExercisesAsync();
+
+            _groups = [.. groups.Select(GroupRowModel.From)];
+            _rows = [.. exercises.Select(RowModel.From)];
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
+    private sealed class Model
+    {
+        [Required(ErrorMessage = "Name is required.")]
+        public string Name { get; set; } = string.Empty;
+
+        public Guid MuscleGroupId { get; set; } = Guid.Empty;
+    }
+
+    private sealed class GroupRowModel
+    {
+        public Guid Id { get; init; }
+
+        public string Name { get; set; } = string.Empty;
+
+        public static GroupRowModel From(MuscleGroupResponse group) => new()
+        {
+            Id = group.Id,
+            Name = group.Name,
+        };
+    }
+
+    private sealed class RowModel
+    {
+        public Guid Id { get; init; }
+
+        public string Name { get; set; } = string.Empty;
+
+        public Guid MuscleGroupId { get; set; }
+
+        public bool IsActive { get; set; }
+
+        public static RowModel From(ExerciseResponse exercise) => new()
+        {
+            Id = exercise.Id,
+            Name = exercise.Name,
+            MuscleGroupId = exercise.MuscleGroupId,
+            IsActive = exercise.IsActive,
+        };
+    }
+}

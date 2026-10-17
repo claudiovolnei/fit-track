@@ -1,0 +1,64 @@
+@page "/exercises"
+@attribute [Authorize]
+@inject FitTrackApiClient Api
+
+<PageTitle>Exercises</PageTitle>
+
+<h1>Exercise catalog</h1>
+
+@if (_loading)
+{
+    <p class="muted">Loading…</p>
+}
+else if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+else if (_exercises.Count == 0)
+{
+    <p class="muted">The catalog is empty.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Muscle group</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var exercise in _exercises)
+            {
+                <tr>
+                    <td>@exercise.Name</td>
+                    <td>@exercise.MuscleGroupName</td>
+                    <td>@(exercise.IsActive ? "Active" : "Inactive")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<ExerciseResponse> _exercises = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _exercises = await Api.GetExercisesAsync();
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

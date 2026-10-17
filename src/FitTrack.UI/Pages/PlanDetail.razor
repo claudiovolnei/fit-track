@@ -1,0 +1,238 @@
+@page "/plans/{PlanId:guid}"
+@attribute [Authorize(Roles = "PersonalTrainer")]
+@inject FitTrackApiClient Api
+
+<PageTitle>Training plan</PageTitle>
+
+<p><a href="/plans">&larr; Training plans</a></p>
+
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+
+@if (_loading)
+{
+    <p class="muted">Loading plan…</p>
+}
+else if (_plan is null)
+{
+    <p class="muted">Plan not found.</p>
+}
+else
+{
+    <h1>Plan for @Email(_plan.UserId)</h1>
+
+    @if (_plan.Options.Count == 0)
+    {
+        <p class="muted">No option yet — add the first workout below.</p>
+    }
+    else
+    {
+        @foreach (var option in _optionRows)
+        {
+            <article class="card">
+                <h2>Option @option.Position</h2>
+                <p class="muted">@option.Summary</p>
+
+                <fieldset>
+                    <legend>Muscle groups</legend>
+                    @foreach (var group in _groups)
+                    {
+                        <label class="check">
+                            <input type="checkbox" @bind="group.Selected" />
+                            @group.Name
+                        </label>
+                    }
+                </fieldset>
+
+                <p>
+                    <button type="button" disabled="@_busy" @onclick="() => SaveOptionAsync(option)">Save</button>
+                    <button type="button" class="secondary" disabled="@_busy" @onclick="() => RemoveOptionAsync(option)">Remove</button>
+                </p>
+            </article>
+        }
+    }
+
+    @if (_plan.Options.Count >= MaxOptions)
+    {
+        <p class="muted">A plan holds at most @MaxOptions options. Remove one to add another.</p>
+    }
+    else
+    {
+        <section class="card">
+            <h2>New option</h2>
+
+            <fieldset>
+                <legend>Muscle groups</legend>
+                @foreach (var group in _newGroups)
+                {
+                    <label class="check">
+                        <input type="checkbox" @bind="group.Selected" />
+                        @group.Name
+                    </label>
+                }
+            </fieldset>
+
+            <button type="button" disabled="@(_busy || _groups.Count == 0)" @onclick="AddOptionAsync">Add option</button>
+        </section>
+    }
+
+    <section>
+        <h2>Workouts of @Email(_plan.UserId)</h2>
+
+        @if (_workouts.Count == 0)
+        {
+            <p class="muted">Nothing recorded yet.</p>
+        }
+        else
+        {
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Duration</th>
+                        <th>Sets</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var session in _workouts)
+                    {
+                        <tr>
+                            <td>@session.WorkoutDate.ToString("yyyy-MM-dd")</td>
+                            <td>@(session.IsRunning ? "running" : Duration(session.DurationSeconds))</td>
+                            <td>@session.Sets.Count</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+}
+
+@code {
+    private const int MaxOptions = 7;
+
+    [Parameter]
+    public Guid PlanId { get; set; }
+
+    private WorkoutPlanResponse? _plan;
+    private IReadOnlyList<MuscleGroupResponse> _muscleGroups = [];
+    private IReadOnlyList<AthleteResponse> _athletes = [];
+    private IReadOnlyList<WorkoutSessionResponse> _workouts = [];
+    private List<OptionRow> _optionRows = [];
+    private List<GroupPick> _groups = [];
+    private List<GroupPick> _newGroups = [];
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await RunAsync(async () => await ReloadAsync());
+
+    private async Task AddOptionAsync() =>
+        await RunAsync(async () =>
+        {
+            await Api.AddPlanOptionAsync(PlanId, new SetWorkoutPlanOptionRequest(Selected(_newGroups)));
+            await ReloadAsync();
+        });
+
+    private async Task SaveOptionAsync(OptionRow option) =>
+        await RunAsync(async () =>
+        {
+            await Api.ChangePlanOptionAsync(PlanId, option.Id, new SetWorkoutPlanOptionRequest(Selected(option.Picks)));
+            await ReloadAsync();
+        });
+
+    private async Task RemoveOptionAsync(OptionRow option) =>
+        await RunAsync(async () =>
+        {
+            await Api.RemovePlanOptionAsync(PlanId, option.Id);
+            await ReloadAsync();
+        });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await action();
+        }
+        catch (ApiException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _plan = await Api.GetPlanAsync(PlanId);
+        _muscleGroups = await Api.GetMuscleGroupsAsync();
+        _athletes = await Api.GetAthletesAsync();
+        _workouts = await Api.GetAthleteWorkoutsAsync(_plan.UserId);
+
+        _optionRows =
+        [
+            .. _plan.Options.Select(option => new OptionRow
+            {
+                Id = option.Id,
+                Position = option.Position,
+                Names = [.. option.MuscleGroups.Select(group => group.Name)],
+                Picks = [.. _muscleGroups.Select(group => GroupPick.Create(group, option))],
+            }),
+        ];
+
+        _groups = [.. _muscleGroups.Select(group => GroupPick.Create(group, option: null))];
+        _newGroups = [.. _muscleGroups.Select(group => GroupPick.Create(group, option: null))];
+        _loading = false;
+    }
+
+    private static IReadOnlyList<Guid> Selected(IEnumerable<GroupPick> picks) =>
+        [.. picks.Where(pick => pick.Selected).Select(pick => pick.Id)];
+
+    private string Email(Guid userId) =>
+        _athletes.FirstOrDefault(athlete => athlete.UserId == userId)?.Email ?? userId.ToString();
+
+    private static string Duration(int seconds)
+    {
+        var elapsed = TimeSpan.FromSeconds(seconds);
+
+        return elapsed.TotalHours >= 1
+            ? elapsed.ToString(@"h\:mm\:ss")
+            : elapsed.ToString(@"m\:ss");
+    }
+
+    private sealed class OptionRow
+    {
+        public Guid Id { get; init; }
+
+        public int Position { get; init; }
+
+        public IReadOnlyList<string> Names { get; init; } = [];
+
+        public List<GroupPick> Picks { get; init; } = [];
+
+        public string Summary => string.Join(", ", Names);
+    }
+
+    private sealed class GroupPick
+    {
+        public Guid Id { get; init; }
+
+        public string Name { get; init; } = string.Empty;
+
+        public bool Selected { get; set; }
+
+        public static GroupPick Create(MuscleGroupResponse group, WorkoutPlanOptionResponse? option) => new()
+        {
+            Id = group.Id,
+            Name = group.Name,
+            Selected = option is not null && option.MuscleGroups.Any(covered => covered.Id == group.Id),
+        };
+    }
+}

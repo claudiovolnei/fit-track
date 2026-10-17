@@ -1,0 +1,45 @@
+@inject UserSession Session
+@inject NavigationManager Navigation
+
+<nav class="app-nav" aria-label="Main">
+    <NavLink class="app-nav-brand" href="/" Match="NavLinkMatch.All">fit-track</NavLink>
+
+    <div class="app-nav-links">
+        <AuthorizeView>
+            <Authorized>
+                <NavLink href="/today">Today</NavLink>
+                <NavLink href="/exercises">Exercises</NavLink>
+                <NavLink href="/workouts">My workouts</NavLink>
+            </Authorized>
+            <NotAuthorized>
+                <NavLink href="/login">Sign in</NavLink>
+                <NavLink href="/register">Create account</NavLink>
+            </NotAuthorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="PersonalTrainer">
+            <Authorized>
+                <NavLink href="/athletes">Athletes</NavLink>
+                <NavLink href="/plans">Training plans</NavLink>
+                <NavLink href="/exercises/manage">Manage catalog</NavLink>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="app-nav-account">
+                <span class="app-nav-user">@context.User.Identity?.Name</span>
+                <button type="button" class="link-button" @onclick="SignOutAsync">Sign out</button>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</nav>
+
+@code {
+    private async Task SignOutAsync()
+    {
+        await Session.SignOutAsync();
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}

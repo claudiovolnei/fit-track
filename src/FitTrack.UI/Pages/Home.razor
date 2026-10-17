@@ -1,0 +1,27 @@
+@page "/"
+
+<PageTitle>fit-track</PageTitle>
+
+<h1>fit-track</h1>
+<p class="muted">Plan exercises and record every workout session.</p>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="card">
+            <p>Signed in as <strong>@context.User.Identity?.Name</strong>.</p>
+            <p>
+                <a class="button" href="/today">Today's workout</a>
+                <a class="button secondary" href="/workouts">My workouts</a>
+            </p>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="card">
+            <p>Sign in to record your workouts.</p>
+            <p>
+                <a class="button" href="/login">Sign in</a>
+                <a class="button secondary" href="/register">Create account</a>
+            </p>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>

@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FitTrack.Adapters.In.Api/FitTrack.Adapters.In.Api.csproj" />
+    <Project Path="src/FitTrack.Adapters.Out.Persistence/FitTrack.Adapters.Out.Persistence.csproj" />
+    <Project Path="src/FitTrack.AppHost/FitTrack.AppHost.csproj" />
+    <Project Path="src/FitTrack.Application/FitTrack.Application.csproj" />
+    <Project Path="src/FitTrack.Domain/FitTrack.Domain.csproj" />
+    <Project Path="src/FitTrack.ServiceDefaults/FitTrack.ServiceDefaults.csproj" />
+    <Project Path="src/FitTrack.UI/FitTrack.UI.csproj" />
+    <Project Path="src/FitTrack.Web/FitTrack.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FitTrack.Integration/FitTrack.Integration.csproj" />
+    <Project Path="tests/FitTrack.Unit/FitTrack.Unit.csproj" />
+  </Folder>
+</Solution>
