@@ -13,6 +13,7 @@ const offlineAssetsExclude = [ /^service-worker\.js$/ ];
 
 async function onInstall(event) {
     console.info('Service worker: install');
+    self.skipWaiting();
     const assetsRequests = self.assetsManifest.assets
         .filter((asset) => offlineAssetsInclude.some((pattern) => pattern.test(asset.url)))
         .filter((asset) => !offlineAssetsExclude.some((pattern) => pattern.test(asset.url)))
@@ -22,6 +23,7 @@ async function onInstall(event) {
 
 async function onActivate(event) {
     console.info('Service worker: activate');
+    self.clients.claim();
     const cacheKeys = await caches.keys();
     await Promise.all(
         cacheKeys

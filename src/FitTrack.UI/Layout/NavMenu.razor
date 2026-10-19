@@ -191,11 +191,18 @@
 @code {
     private string? _avatarUrl;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         _avatarUrl = AvatarState.AvatarUrl;
-
         AvatarState.Changed += OnAvatarChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
 
         if (_avatarUrl is null)
         {
@@ -203,6 +210,7 @@
             {
                 _avatarUrl = await Api.GetMyAvatarAsync();
                 AvatarState.Set(_avatarUrl);
+                await InvokeAsync(StateHasChanged);
             }
             catch
             {

@@ -369,7 +369,21 @@ else
     {
         _catalog = await Api.GetExercisesAsync();
         _mine = await Api.GetMyWorkoutSeriesAsync();
-        _trainerAvatarUrl = _mine is null ? null : await Api.GetUserAvatarAsync(_mine.Series.TrainerId);
+        if (_mine is null)
+        {
+            _trainerAvatarUrl = null;
+        }
+        else
+        {
+            try
+            {
+                _trainerAvatarUrl = await Api.GetUserAvatarAsync(_mine.Series.TrainerId);
+            }
+            catch
+            {
+                _trainerAvatarUrl = null;
+            }
+        }
         _loadedAt = DateTimeOffset.UtcNow;
 
         var workouts = _mine?.Series.Workouts ?? Enumerable.Empty<WorkoutSeriesWorkoutResponse>();

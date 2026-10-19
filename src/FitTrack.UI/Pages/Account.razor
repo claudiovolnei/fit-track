@@ -104,11 +104,20 @@
     {
         var state = await AuthState.GetAuthenticationStateAsync();
         _userName = state.User.Identity?.Name;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _avatarPreview is not null)
+        {
+            return;
+        }
 
         try
         {
             _avatarPreview = await Api.GetMyAvatarAsync();
             AvatarState.Set(_avatarPreview);
+            await InvokeAsync(StateHasChanged);
         }
         catch
         {
