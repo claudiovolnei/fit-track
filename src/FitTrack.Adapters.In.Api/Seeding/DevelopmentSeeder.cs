@@ -37,9 +37,9 @@ internal static class DevelopmentSeeder
         }
 
         var users = services.GetRequiredService<UserManager<AppUser>>();
-        await EnsureAccountAsync(users, AdminEmail, AdminPassword, Roles.Admin);
-        await EnsureAccountAsync(users, TrainerEmail, TrainerPassword, Roles.PersonalTrainer);
-        await EnsureAccountAsync(users, AthleteEmail, AthletePassword, Roles.User);
+        await EnsureAccountAsync(users, AdminEmail, "Administrador", AdminPassword, Roles.Admin);
+        await EnsureAccountAsync(users, TrainerEmail, "Claudio Volnei", TrainerPassword, Roles.PersonalTrainer);
+        await EnsureAccountAsync(users, AthleteEmail, "Atleta FitTrack", AthletePassword, Roles.User);
 
         await EnsureCatalogAsync(services.GetRequiredService<FitTrackDbContext>());
     }
@@ -93,18 +93,27 @@ internal static class DevelopmentSeeder
     private static async Task EnsureAccountAsync(
         UserManager<AppUser> users,
         string email,
+        string name,
         string password,
         string role)
     {
         var account = await users.FindByEmailAsync(email);
         if (account is not null)
         {
+            // The column arrived after these accounts existed; fill it so the screens show a name.
+            if (string.IsNullOrWhiteSpace(account.Name))
+            {
+                account.Name = name;
+                await users.UpdateAsync(account);
+            }
+
             return;
         }
 
         account = new AppUser
         {
             Id = Guid.NewGuid(),
+            Name = name,
             UserName = email,
             Email = email,
             EmailConfirmed = true,

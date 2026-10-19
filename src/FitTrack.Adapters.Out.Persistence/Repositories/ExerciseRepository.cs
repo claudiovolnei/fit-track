@@ -16,6 +16,20 @@ internal sealed class ExerciseRepository(FitTrackDbContext dbContext) : IExercis
         return record is null ? null : ExerciseMapper.ToDomain(record);
     }
 
+    public async Task<IReadOnlyList<Exercise>> GetByIdsAsync(
+        IReadOnlyList<ExerciseId> ids,
+        CancellationToken cancellationToken)
+    {
+        var wanted = ids.Select(id => id.Value).ToList();
+
+        var records = await dbContext.Exercises
+            .AsNoTracking()
+            .Where(exercise => wanted.Contains(exercise.Id))
+            .ToListAsync(cancellationToken);
+
+        return [.. records.Select(ExerciseMapper.ToDomain)];
+    }
+
     public async Task SaveAsync(Exercise exercise, CancellationToken cancellationToken)
     {
         var record = await dbContext.Exercises

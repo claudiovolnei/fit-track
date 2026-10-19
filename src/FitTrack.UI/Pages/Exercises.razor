@@ -1,50 +1,111 @@
 @page "/exercises"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "PersonalTrainer,Admin")]
 @inject FitTrackApiClient Api
 
-<PageTitle>Exercises</PageTitle>
+<PageTitle>Exercícios — FitTrack</PageTitle>
 
-<h1>Exercise catalog</h1>
+<PageHeader Eyebrow="Catálogo"
+            Title="Exercícios"
+            Subtitle="Consulte os exercícios disponíveis e o grupo muscular de cada um." />
 
 @if (_loading)
 {
-    <p class="muted">Loading…</p>
+    <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Carregando o catálogo…</span>
+    </div>
 }
 else if (_error is not null)
 {
-    <p class="error">@_error</p>
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
 }
 else if (_exercises.Count == 0)
 {
-    <p class="muted">The catalog is empty.</p>
+    <div class="empty-state">
+        <AppIcon Name="library" Size="28" />
+        <h2>Catálogo vazio</h2>
+        <p>Nenhum exercício cadastrado ainda.</p>
+    </div>
 }
 else
 {
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Muscle group</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var exercise in _exercises)
-            {
-                <tr>
-                    <td>@exercise.Name</td>
-                    <td>@exercise.MuscleGroupName</td>
-                    <td>@(exercise.IsActive ? "Active" : "Inactive")</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="search-box" style="margin-bottom: 14px;">
+        <AppIcon Name="search" Size="18" />
+        <input type="search" placeholder="Buscar por exercício ou grupo muscular"
+               aria-label="Buscar exercício"
+               @bind="_query" @bind:event="oninput" />
+    </div>
+
+    <div class="chip-row" style="margin-bottom: 20px;">
+        <button type="button" class="chip @(_group is null ? "active" : "")" @onclick="() => _group = null">
+            Todos
+        </button>
+        @foreach (var group in Groups)
+        {
+            <button type="button" class="chip @(_group == group.Id ? "active" : "")"
+                    @onclick="() => _group = group.Id">
+                @group.Name
+            </button>
+        }
+    </div>
+
+    <div class="section-head">
+        <h2>@Filtered.Count @(Filtered.Count == 1 ? "exercício" : "exercícios")</h2>
+    </div>
+
+    @if (Filtered.Count == 0)
+    {
+        <div class="empty-state">
+            <AppIcon Name="search" Size="26" />
+            <h3>Nada encontrado</h3>
+            <p>Tente outro nome ou remova o filtro de grupo muscular.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card card--flat">
+            <div class="entity-list">
+                @foreach (var exercise in Filtered)
+                {
+                    <div class="entity-row entity-row--group" @key="exercise.Id">
+                        <div>
+                            <span class="exercise-name">@exercise.Name</span>
+                            <span class="exercise-meta">@exercise.MuscleGroupName</span>
+                        </div>
+                        <span class="chip @(exercise.IsActive ? "chip--success" : "")">
+                            @(exercise.IsActive ? "Ativo" : "Inativo")
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 }
 
 @code {
     private IReadOnlyList<ExerciseResponse> _exercises = [];
     private bool _loading = true;
     private string? _error;
+    private string _query = string.Empty;
+    private Guid? _group;
+
+    private IReadOnlyList<(Guid Id, string Name)> Groups =>
+        [.. _exercises
+            .Select(exercise => (exercise.MuscleGroupId, exercise.MuscleGroupName))
+            .Distinct()
+            .OrderBy(group => group.MuscleGroupName)];
+
+    private IReadOnlyList<ExerciseResponse> Filtered =>
+        [.. _exercises
+            .Where(exercise =>
+                (_group is null || exercise.MuscleGroupId == _group) &&
+                (string.IsNullOrWhiteSpace(_query) ||
+                 exercise.Name.Contains(_query, StringComparison.OrdinalIgnoreCase) ||
+                 exercise.MuscleGroupName.Contains(_query, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(exercise => exercise.Name)];
 
     protected override async Task OnInitializedAsync()
     {
@@ -54,7 +115,7 @@ else
         }
         catch (ApiException exception)
         {
-            _error = exception.Message;
+            _error = ErrorMessages.Describe(exception);
         }
         finally
         {

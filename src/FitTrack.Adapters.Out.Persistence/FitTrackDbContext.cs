@@ -20,12 +20,15 @@ public sealed class FitTrackDbContext(DbContextOptions<FitTrackDbContext> option
 
     public DbSet<WorkoutSessionRecord> WorkoutSessions => Set<WorkoutSessionRecord>();
 
-    public DbSet<WorkoutPlanRecord> WorkoutPlans => Set<WorkoutPlanRecord>();
+    public DbSet<WorkoutSeriesRecord> WorkoutSeries => Set<WorkoutSeriesRecord>();
 
-    public DbSet<WorkoutPlanOptionRecord> WorkoutPlanOptions => Set<WorkoutPlanOptionRecord>();
+    public DbSet<WorkoutSeriesWorkoutRecord> WorkoutSeriesWorkouts => Set<WorkoutSeriesWorkoutRecord>();
 
-    public DbSet<WorkoutPlanOptionMuscleGroupRecord> WorkoutPlanOptionMuscleGroups =>
-        Set<WorkoutPlanOptionMuscleGroupRecord>();
+    public DbSet<WorkoutSeriesWorkoutExerciseRecord> WorkoutSeriesWorkoutExercises =>
+        Set<WorkoutSeriesWorkoutExerciseRecord>();
+
+    public DbSet<WorkoutSeriesAssignmentRecord> WorkoutSeriesAssignments =>
+        Set<WorkoutSeriesAssignmentRecord>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

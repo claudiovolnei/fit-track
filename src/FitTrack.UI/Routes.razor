@@ -9,8 +9,12 @@
     </Found>
     <NotFound>
         <LayoutView Layout="typeof(MainLayout)">
-            <h1>Not found</h1>
-            <p>This page does not exist.</p>
+            <div class="empty-state" style="margin-top: 32px;">
+                <AppIcon Name="search" Size="30" />
+                <h1>Página não encontrada</h1>
+                <p>O endereço que você abriu não existe ou foi movido.</p>
+                <a class="btn btn-primary" href="/">Voltar ao início</a>
+            </div>
         </LayoutView>
     </NotFound>
 </Router>

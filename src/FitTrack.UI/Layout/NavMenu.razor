@@ -1,38 +1,153 @@
+@* Navegação do app: barra lateral no desktop, barra superior e abas inferiores no celular. *@
+
 @inject UserSession Session
 @inject NavigationManager Navigation
 
-<nav class="app-nav" aria-label="Main">
-    <NavLink class="app-nav-brand" href="/" Match="NavLinkMatch.All">fit-track</NavLink>
+<aside class="sidebar" aria-label="Navegação principal">
+    <a class="brand" href="/">
+        <span class="brand-mark"><AppIcon Name="dumbbell" Size="22" /></span>
+        <span class="brand-name">fit<span>track</span></span>
+    </a>
 
-    <div class="app-nav-links">
-        <AuthorizeView>
+    <nav class="side-nav">
+        <span class="nav-label">Visão geral</span>
+        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+            <AppIcon Name="home" />
+            <span>Início</span>
+        </NavLink>
+
+        <AuthorizeView Roles="User">
             <Authorized>
-                <NavLink href="/today">Today</NavLink>
-                <NavLink href="/exercises">Exercises</NavLink>
-                <NavLink href="/workouts">My workouts</NavLink>
+                <span class="nav-label">Treino</span>
+                <NavLink class="nav-link" href="/today">
+                    <AppIcon Name="dumbbell" />
+                    <span>Hoje</span>
+                </NavLink>
+                <NavLink class="nav-link" href="/workouts">
+                    <AppIcon Name="history" />
+                    <span>Meus treinos</span>
+                </NavLink>
             </Authorized>
-            <NotAuthorized>
-                <NavLink href="/login">Sign in</NavLink>
-                <NavLink href="/register">Create account</NavLink>
-            </NotAuthorized>
         </AuthorizeView>
 
         <AuthorizeView Roles="PersonalTrainer">
             <Authorized>
-                <NavLink href="/athletes">Athletes</NavLink>
-                <NavLink href="/plans">Training plans</NavLink>
-                <NavLink href="/exercises/manage">Manage catalog</NavLink>
+                <span class="nav-label">Gestão</span>
+                <NavLink class="nav-link" href="/series">
+                    <AppIcon Name="layers" />
+                    <span>Séries de treino</span>
+                </NavLink>
+                <NavLink class="nav-link" href="/athletes">
+                    <AppIcon Name="users" />
+                    <span>Atletas</span>
+                </NavLink>
+                <NavLink class="nav-link" href="/exercises/manage">
+                    <AppIcon Name="library" />
+                    <span>Catálogo</span>
+                </NavLink>
             </Authorized>
         </AuthorizeView>
+
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <span class="nav-label">Catálogo</span>
+                <NavLink class="nav-link" href="/exercises">
+                    <AppIcon Name="library" />
+                    <span>Exercícios</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+    </nav>
+
+    <div class="sidebar-footer">
+        <AuthorizeView>
+            <Authorized>
+                <div class="user-chip">
+                    <span class="avatar">@DisplayText.Initials(context.User.Identity?.Name)</span>
+                    <span class="user-meta">
+                        <strong>@DisplayText.NameFromEmail(context.User.Identity?.Name)</strong>
+                        <small>@Role(context.User)</small>
+                    </span>
+                </div>
+                <button type="button" class="icon-button" title="Sair" aria-label="Sair" @onclick="SignOutAsync">
+                    <AppIcon Name="logout" />
+                </button>
+            </Authorized>
+            <NotAuthorized>
+                <a class="btn btn-primary btn-block" href="/login">Entrar</a>
+            </NotAuthorized>
+        </AuthorizeView>
     </div>
+</aside>
+
+<header class="topbar">
+    <a class="brand brand--compact" href="/">
+        <span class="brand-mark"><AppIcon Name="dumbbell" Size="19" /></span>
+        <span class="brand-name">fit<span>track</span></span>
+    </a>
 
     <AuthorizeView>
         <Authorized>
-            <div class="app-nav-account">
-                <span class="app-nav-user">@context.User.Identity?.Name</span>
-                <button type="button" class="link-button" @onclick="SignOutAsync">Sign out</button>
+            <div class="topbar-user">
+                <span class="avatar avatar--sm">@DisplayText.Initials(context.User.Identity?.Name)</span>
+                <button type="button" class="icon-button" title="Sair" aria-label="Sair" @onclick="SignOutAsync">
+                    <AppIcon Name="logout" />
+                </button>
             </div>
         </Authorized>
+        <NotAuthorized>
+            <a class="btn btn-primary btn-sm" href="/login">Entrar</a>
+        </NotAuthorized>
+    </AuthorizeView>
+</header>
+
+<nav class="tabbar" aria-label="Navegação principal">
+    <NavLink class="tab-link" href="/" Match="NavLinkMatch.All">
+        <AppIcon Name="home" Size="22" />
+        <span>Início</span>
+    </NavLink>
+
+    <AuthorizeView Roles="User">
+        <Authorized>
+            <NavLink class="tab-link" href="/today">
+                <AppIcon Name="dumbbell" Size="22" />
+                <span>Hoje</span>
+            </NavLink>
+            <NavLink class="tab-link" href="/workouts">
+                <AppIcon Name="history" Size="22" />
+                <span>Histórico</span>
+            </NavLink>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="PersonalTrainer">
+        <Authorized>
+            <NavLink class="tab-link" href="/series">
+                <AppIcon Name="layers" Size="22" />
+                <span>Séries</span>
+            </NavLink>
+            <NavLink class="tab-link" href="/athletes">
+                <AppIcon Name="users" Size="22" />
+                <span>Atletas</span>
+            </NavLink>
+            <NavLink class="tab-link" href="/exercises/manage">
+                <AppIcon Name="library" Size="22" />
+                <span>Catálogo</span>
+            </NavLink>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView>
+        <NotAuthorized>
+            <NavLink class="tab-link" href="/login">
+                <AppIcon Name="user" Size="22" />
+                <span>Entrar</span>
+            </NavLink>
+            <NavLink class="tab-link" href="/register">
+                <AppIcon Name="sparkles" Size="22" />
+                <span>Criar conta</span>
+            </NavLink>
+        </NotAuthorized>
     </AuthorizeView>
 </nav>
 
@@ -40,6 +155,14 @@
     private async Task SignOutAsync()
     {
         await Session.SignOutAsync();
-        Navigation.NavigateTo("/login", forceLoad: true);
+
+        // Navegação SPA (sem recarregar a página): o token já foi limpo, então o estado de
+        // autenticação cai para anônimo e a tela de login assume. Um forceLoad aqui competiria
+        // com o redirecionamento disparado pela própria mudança de autenticação e podia derrubar
+        // a UI com um erro inesperado.
+        Navigation.NavigateTo("/login", replace: true);
     }
+
+    private static string Role(ClaimsPrincipal user) =>
+        user.IsInRole("PersonalTrainer") ? "Personal trainer" : "Atleta";
 }

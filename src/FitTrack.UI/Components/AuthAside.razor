@@ -1,0 +1,38 @@
+@* Painel de marca compartilhado pelas telas de entrar e criar conta. *@
+
+<aside class="auth-aside">
+    <a class="brand" href="/">
+        <span class="brand-mark"><AppIcon Name="dumbbell" Size="22" /></span>
+        <span class="brand-name">fit<span>track</span></span>
+    </a>
+
+    <div>
+        <p class="eyebrow">@Eyebrow</p>
+        <h2>@Title</h2>
+        <p>@Text</p>
+    </div>
+
+    <ul class="auth-points">
+        @foreach (var point in Points)
+        {
+            <li>
+                <AppIcon Name="check-circle" Size="18" />
+                <span>@point</span>
+            </li>
+        }
+    </ul>
+</aside>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Eyebrow { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Text { get; set; } = string.Empty;
+
+    [Parameter]
+    public IReadOnlyList<string> Points { get; set; } = [];
+}

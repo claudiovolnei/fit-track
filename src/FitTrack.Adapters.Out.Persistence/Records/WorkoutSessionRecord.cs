@@ -10,10 +10,10 @@ public sealed class WorkoutSessionRecord
     public DateOnly WorkoutDate { get; set; }
 
     /// <summary>
-    /// Option of the plan the workout came from. No foreign key on purpose: the plan lives in another
-    /// context, and removing an option must never rewrite or erase someone's history.
+    /// Workout of the series the workout came from. No foreign key on purpose: the series lives in
+    /// another context, and removing a workout must never rewrite or erase someone's history.
     /// </summary>
-    public Guid? WorkoutPlanOptionId { get; set; }
+    public Guid? WorkoutSeriesWorkoutId { get; set; }
 
     public DateTimeOffset StartedAt { get; set; }
 

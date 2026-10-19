@@ -11,13 +11,13 @@ internal static class WorkoutSessionMapper
 {
     public static WorkoutSession ToDomain(WorkoutSessionRecord record)
     {
-        var session = record.WorkoutPlanOptionId is { } optionId
+        var session = record.WorkoutSeriesWorkoutId is { } workoutId
             ? WorkoutSession.StartFromPlannedWorkout(
                 new WorkoutSessionId(record.Id),
                 new UserId(record.UserId),
                 new WorkoutDate(record.WorkoutDate),
                 record.StartedAt,
-                new WorkoutPlanOptionId(optionId))
+                new WorkoutSeriesWorkoutId(workoutId))
             : WorkoutSession.Start(
                 new WorkoutSessionId(record.Id),
                 new UserId(record.UserId),
@@ -46,7 +46,7 @@ internal static class WorkoutSessionMapper
         Id = session.Id.Value,
         UserId = session.UserId.Value,
         WorkoutDate = session.WorkoutDate.Value,
-        WorkoutPlanOptionId = session.PlannedOptionId?.Value,
+        WorkoutSeriesWorkoutId = session.PlannedWorkoutId?.Value,
         StartedAt = session.StartedAt,
         FinishedAt = session.FinishedAt,
         Sets = [.. ToSetRecords(session)],

@@ -16,7 +16,7 @@ internal static class WorkoutSessionMapping
             session.StartedAt,
             session.FinishedAt,
             (int)session.Duration(now).TotalSeconds,
-            session.PlannedOptionId?.Value,
+            session.PlannedWorkoutId?.Value,
             [.. session.PerformedSets.Select(set => new PerformedSetDto(
                 set.ExerciseId.Value,
                 set.Load.Kilograms,

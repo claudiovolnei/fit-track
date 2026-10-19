@@ -1,27 +1,358 @@
 @page "/"
+@inject FitTrackApiClient Api
+@inject AuthenticationStateProvider AuthState
 
-<PageTitle>fit-track</PageTitle>
-
-<h1>fit-track</h1>
-<p class="muted">Plan exercises and record every workout session.</p>
+<PageTitle>FitTrack — treinos</PageTitle>
 
 <AuthorizeView>
     <Authorized>
-        <div class="card">
-            <p>Signed in as <strong>@context.User.Identity?.Name</strong>.</p>
-            <p>
-                <a class="button" href="/today">Today's workout</a>
-                <a class="button secondary" href="/workouts">My workouts</a>
+        <section class="hero">
+            <p class="eyebrow">@DisplayText.Today</p>
+            <h1>@Greeting</h1>
+            <p class="page-subtitle">
+                @if (_isTrainer)
+                {
+                    <text>Suas séries, seus atletas e o próximo treino em um só lugar.</text>
+                }
+                else
+                {
+                    <text>Seu treino de hoje, seu histórico e sua evolução em um só lugar.</text>
+                }
             </p>
-        </div>
+
+            <div class="hero-actions">
+                @if (_isTrainer)
+                {
+                    <a class="btn btn-primary" href="/series">
+                        <AppIcon Name="layers" />
+                        Gerenciar séries
+                    </a>
+                    <a class="btn btn-secondary" href="/athletes">Ver atletas</a>
+                }
+                else
+                {
+                    <a class="btn btn-primary" href="/today">
+                        <AppIcon Name="play" />
+                        Ir para o treino
+                    </a>
+                    <a class="btn btn-secondary" href="/workouts">Meu histórico</a>
+                }
+            </div>
+        </section>
+
+        @if (_error is not null)
+        {
+            <div class="alert alert--error" style="margin-top: 18px;">
+                <AppIcon Name="info" Size="18" />
+                <span>@_error</span>
+            </div>
+        }
+
+        @if (_loading)
+        {
+            <div class="loading-state">
+                <span class="spinner"></span>
+                <span>Carregando seu painel…</span>
+            </div>
+        }
+        else if (_isTrainer)
+        {
+            <div class="stat-grid">
+                <article class="stat">
+                    <span class="stat-label">Séries</span>
+                    <span class="stat-value">@_seriesCount</span>
+                </article>
+                <article class="stat">
+                    <span class="stat-label">Treinos montados</span>
+                    <span class="stat-value">@_workoutCount</span>
+                </article>
+                <article class="stat">
+                    <span class="stat-label">Atletas</span>
+                    <span class="stat-value">@_athleteCount</span>
+                </article>
+                <article class="stat">
+                    <span class="stat-label">Vinculados</span>
+                    <span class="stat-value">@_assignedCount <small>/ @_athleteCount</small></span>
+                </article>
+            </div>
+
+            <section class="section">
+                <div class="section-head">
+                    <h2>Suas séries</h2>
+                    <a href="/series">Ver todas</a>
+                </div>
+
+                @if (_series.Count == 0)
+                {
+                    <div class="empty-state">
+                        <AppIcon Name="layers" Size="26" />
+                        <h3>Nenhuma série criada</h3>
+                        <p>Monte a primeira ficha e vincule aos seus atletas.</p>
+                        <a class="btn btn-primary" href="/series">Criar série</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="card">
+                        <div class="session-mini-list">
+                            @foreach (var series in _series.Take(4))
+                            {
+                                <a class="session-mini" href="/series/@series.Id">
+                                    <span class="session-mini-icon"><AppIcon Name="layers" /></span>
+                                    <span class="session-mini-text">
+                                        <strong>@series.Name</strong>
+                                        <span>@series.Workouts.Count @(series.Workouts.Count == 1 ? "treino" : "treinos")</span>
+                                    </span>
+                                    <AppIcon Name="chevron-right" Size="18" />
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+            </section>
+        }
+        else
+        {
+            @if (_mine is not null)
+            {
+                <section class="series-banner">
+                    <div class="series-banner-main">
+                        <span class="chip chip--accent">Sua série</span>
+                        <h2>@_mine.Series.Name</h2>
+                        <p>
+                            @_mine.Series.Workouts.Count @(_mine.Series.Workouts.Count == 1 ? "treino" : "treinos")
+                            @if (_mine.IsExpired)
+                            {
+                                <text> · série vencida</text>
+                            }
+                            else
+                            {
+                                <text> · @_mine.DaysRemaining @(_mine.DaysRemaining == 1 ? "dia restante" : "dias restantes")</text>
+                            }
+                        </p>
+                    </div>
+
+                    <div class="series-term">
+                        <div class="series-term-head">
+                            <span>Validade</span>
+                            <strong>@TermPercent%</strong>
+                        </div>
+                        <div class="progress">
+                            <span style="width: @TermPercent%"></span>
+                        </div>
+                    </div>
+                </section>
+            }
+            else
+            {
+                <div class="alert alert--info" style="margin-top: 18px;">
+                    <AppIcon Name="info" Size="18" />
+                    <span>Seu personal trainer ainda não vinculou uma série. Fale com ele para receber seus treinos.</span>
+                </div>
+            }
+
+            <div class="stat-grid">
+                <article class="stat">
+                    <span class="stat-label">Treinos</span>
+                    <span class="stat-value">@_totalSessions</span>
+                </article>
+                <article class="stat">
+                    <span class="stat-label">Esta semana</span>
+                    <span class="stat-value">@_weekSessions</span>
+                </article>
+                <article class="stat">
+                    <span class="stat-label">Séries feitas</span>
+                    <span class="stat-value">@_totalSets</span>
+                </article>
+                <article class="stat">
+                    <span class="stat-label">Volume total</span>
+                    <span class="stat-value">@DisplayText.Volume(_volume)</span>
+                </article>
+            </div>
+
+            <section class="section">
+                <div class="section-head">
+                    <h2>Últimos treinos</h2>
+                    <a href="/workouts">Ver histórico</a>
+                </div>
+
+                @if (_recentSessions.Count == 0)
+                {
+                    <div class="empty-state">
+                        <AppIcon Name="history" Size="26" />
+                        <h3>Seu histórico começa no primeiro treino</h3>
+                        <p>Quando você iniciar um treino, ele aparece aqui com carga, repetições e duração.</p>
+                        <a class="btn btn-primary" href="/today">Começar agora</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="card">
+                        <div class="session-mini-list">
+                            @foreach (var session in _recentSessions)
+                            {
+                                <a class="session-mini" href="/workouts">
+                                    <span class="session-mini-icon"><AppIcon Name="dumbbell" /></span>
+                                    <span class="session-mini-text">
+                                        <strong>Treino de @DisplayText.LongDate(session.WorkoutDate)</strong>
+                                        <span>
+                                            @DisplayText.Duration(session.DurationSeconds) ·
+                                            @session.Sets.Count @(session.Sets.Count == 1 ? "série" : "séries") ·
+                                            @DisplayText.Volume(Volume(session))
+                                        </span>
+                                    </span>
+                                    <AppIcon Name="chevron-right" Size="18" />
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+            </section>
+        }
     </Authorized>
+
     <NotAuthorized>
-        <div class="card">
-            <p>Sign in to record your workouts.</p>
-            <p>
-                <a class="button" href="/login">Sign in</a>
-                <a class="button secondary" href="/register">Create account</a>
-            </p>
-        </div>
+        <section class="hero hero--marketing">
+            <div>
+                <span class="chip chip--accent">
+                    <AppIcon Name="bolt" Size="14" />
+                    Treino sem complicação
+                </span>
+                <h1 style="margin-top: 16px;">Seu treino,<br /><span class="text-accent">série por série.</span></h1>
+                <p class="page-subtitle">
+                    Receba a ficha do seu personal, registre cada série na academia e acompanhe
+                    sua evolução — direto do celular.
+                </p>
+
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="/login">
+                        Entrar na minha conta
+                        <AppIcon Name="chevron-right" Size="18" />
+                    </a>
+                    <a class="btn btn-secondary" href="/register">Criar conta grátis</a>
+                </div>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature">
+                    <AppIcon Name="layers" />
+                    <div>
+                        <strong>Ficha do seu personal</strong>
+                        <span>Séries A–E organizadas e sempre à mão.</span>
+                    </div>
+                </div>
+                <div class="feature">
+                    <AppIcon Name="dumbbell" />
+                    <div>
+                        <strong>Registro rápido</strong>
+                        <span>Carga e repetições em poucos toques.</span>
+                    </div>
+                </div>
+                <div class="feature">
+                    <AppIcon Name="chart" />
+                    <div>
+                        <strong>Evolução visível</strong>
+                        <span>Histórico, volume e frequência semanal.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
     </NotAuthorized>
 </AuthorizeView>
+
+@code {
+    private readonly List<WorkoutSessionResponse> _recentSessions = [];
+    private IReadOnlyList<WorkoutSeriesResponse> _series = [];
+    private MyWorkoutSeriesResponse? _mine;
+    private bool _isTrainer;
+    private bool _loading = true;
+    private string _displayName = string.Empty;
+    private string? _error;
+
+    private int _totalSessions;
+    private int _weekSessions;
+    private int _totalSets;
+    private decimal _volume;
+
+    private int _seriesCount;
+    private int _workoutCount;
+    private int _athleteCount;
+    private int _assignedCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            _loading = false;
+            return;
+        }
+
+        _isTrainer = state.User.IsInRole("PersonalTrainer");
+        _displayName = DisplayText.NameFromEmail(state.User.Identity.Name);
+
+        try
+        {
+            if (_isTrainer)
+            {
+                _series = await Api.GetWorkoutSeriesAsync();
+                var athletes = await Api.GetAthletesAsync();
+
+                _seriesCount = _series.Count;
+                _workoutCount = _series.Sum(series => series.Workouts.Count);
+                _athleteCount = athletes.Count;
+                _assignedCount = athletes.Count(athlete => athlete.WorkoutSeriesId is not null);
+            }
+            else
+            {
+                var sessions = await Api.GetSessionsAsync();
+                _mine = await Api.GetMyWorkoutSeriesAsync();
+
+                _totalSessions = sessions.Count;
+                _totalSets = sessions.Sum(session => session.Sets.Count);
+                _volume = sessions.SelectMany(session => session.Sets).Sum(set => set.LoadKilograms * set.Repetitions);
+
+                var monday = Monday();
+                _weekSessions = sessions.Count(session => session.WorkoutDate >= monday);
+
+                _recentSessions.AddRange(sessions
+                    .OrderByDescending(session => session.StartedAt)
+                    .Take(3));
+            }
+        }
+        catch (ApiException exception)
+        {
+            _error = ErrorMessages.Describe(exception);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string Greeting
+    {
+        get
+        {
+            var hour = DateTime.Now.Hour;
+            var greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+            var firstName = _displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+
+            return string.IsNullOrWhiteSpace(firstName) ? greeting : $"{greeting}, {firstName}";
+        }
+    }
+
+    private int TermPercent =>
+        _mine is null ? 0 : Math.Clamp((int)Math.Round(_mine.DaysRemaining / 60d * 100), 0, 100);
+
+    private static decimal Volume(WorkoutSessionResponse session) =>
+        session.Sets.Sum(set => set.LoadKilograms * set.Repetitions);
+
+    private static DateOnly Monday()
+    {
+        var today = DateTime.Today;
+        var offset = ((int)today.DayOfWeek + 6) % 7;
+
+        return DateOnly.FromDateTime(today.AddDays(-offset));
+    }
+}

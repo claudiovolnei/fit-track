@@ -22,7 +22,7 @@ internal sealed class WorkoutSessionRepository(FitTrackDbContext dbContext) : IW
     public async Task<WorkoutSession?> GetByPlannedWorkoutAsync(
         UserId userId,
         DateOnly workoutDate,
-        WorkoutPlanOptionId optionId,
+        WorkoutSeriesWorkoutId workoutId,
         CancellationToken cancellationToken)
     {
         var record = await dbContext.WorkoutSessions
@@ -31,7 +31,7 @@ internal sealed class WorkoutSessionRepository(FitTrackDbContext dbContext) : IW
             .FirstOrDefaultAsync(
                 session => session.UserId == userId.Value
                     && session.WorkoutDate == workoutDate
-                    && session.WorkoutPlanOptionId == optionId.Value,
+                    && session.WorkoutSeriesWorkoutId == workoutId.Value,
                 cancellationToken);
 
         return record is null ? null : WorkoutSessionMapper.ToDomain(record);

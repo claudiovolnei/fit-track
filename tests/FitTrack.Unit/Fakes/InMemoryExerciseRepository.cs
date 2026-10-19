@@ -13,6 +13,12 @@ internal sealed class InMemoryExerciseRepository : IExerciseRepository
     public Task<Exercise?> GetByIdAsync(ExerciseId id, CancellationToken cancellationToken) =>
         Task.FromResult(_byId.TryGetValue(id, out var exercise) ? exercise : null);
 
+    public Task<IReadOnlyList<Exercise>> GetByIdsAsync(
+        IReadOnlyList<ExerciseId> ids,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Exercise>>(
+            [.. ids.Where(_byId.ContainsKey).Select(id => _byId[id])]);
+
     public Task SaveAsync(Exercise exercise, CancellationToken cancellationToken)
     {
         _byId[exercise.Id] = exercise;

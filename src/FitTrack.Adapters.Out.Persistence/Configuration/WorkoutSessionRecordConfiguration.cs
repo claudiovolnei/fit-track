@@ -25,11 +25,11 @@ internal sealed class WorkoutSessionRecordConfiguration : IEntityTypeConfigurati
 
         builder.HasIndex(session => session.UserId);
 
-        // One workout per option per day, race-proof. The filter keeps the ongoing workouts started
-        // outside a plan (no option) out of the rule.
-        builder.HasIndex(session => new { session.UserId, session.WorkoutDate, session.WorkoutPlanOptionId })
+        // One workout per series workout per day, race-proof. The filter keeps the ongoing workouts
+        // started outside a series (no workout) out of the rule.
+        builder.HasIndex(session => new { session.UserId, session.WorkoutDate, session.WorkoutSeriesWorkoutId })
             .IsUnique()
-            .HasFilter("\"WorkoutPlanOptionId\" IS NOT NULL");
+            .HasFilter("\"WorkoutSeriesWorkoutId\" IS NOT NULL");
 
         builder.HasMany(session => session.Sets)
             .WithOne()

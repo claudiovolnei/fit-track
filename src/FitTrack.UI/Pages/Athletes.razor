@@ -1,121 +1,151 @@
 @page "/athletes"
 @attribute [Authorize(Roles = "PersonalTrainer")]
 @inject FitTrackApiClient Api
-@inject NavigationManager Navigation
 
-<PageTitle>Athletes</PageTitle>
+<PageTitle>Atletas — FitTrack</PageTitle>
 
-<h1>Athletes</h1>
+<PageHeader Eyebrow="Gestão"
+            Title="Atletas"
+            Subtitle="Vincule uma série a cada atleta. Uma nova vinculação substitui a anterior e reinicia o prazo de 60 dias.">
+    <Actions>
+        <a class="btn btn-secondary" href="/series">
+            <AppIcon Name="layers" Size="18" />
+            Ver séries
+        </a>
+    </Actions>
+</PageHeader>
 
 @if (_error is not null)
 {
-    <p class="error">@_error</p>
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
 }
 
 @if (_loading)
 {
-    <p class="muted">Loading accounts…</p>
+    <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Carregando atletas…</span>
+    </div>
 }
 else if (_athletes.Count == 0)
 {
-    <p class="muted">No account has the athlete profile yet.</p>
+    <div class="empty-state">
+        <AppIcon Name="users" Size="28" />
+        <h2>Nenhum atleta ainda</h2>
+        <p>Quando uma conta com perfil de atleta for criada, ela aparece aqui para receber uma série.</p>
+    </div>
 }
 else
 {
-    @foreach (var athlete in _athletes)
+    @if (_series.Count == 0)
     {
-        <article class="card">
-            <h2>@athlete.Email</h2>
-
-            <p>
-                @if (athlete.HasPlan)
-                {
-                    <span class="muted">Has a plan. </span>
-                    <button type="button" class="secondary" disabled="@_busy" @onclick="() => OpenPlanAsync(athlete)">
-                        Open plan
-                    </button>
-                }
-                else
-                {
-                    <span class="muted">No plan yet. </span>
-                    <button type="button" disabled="@_busy" @onclick="() => AssignAsync(athlete)">
-                        Assign plan
-                    </button>
-                }
-            </p>
-
-            <details @ontoggle="() => LoadWorkoutsAsync(athlete)">
-                <summary>Workouts</summary>
-
-                @if (_workouts.Count == 0)
-                {
-                    <p class="muted">Nothing recorded yet.</p>
-                }
-                else
-                {
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Duration</th>
-                                <th>Sets</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var session in _workouts)
-                            {
-                                <tr>
-                                    <td>@session.WorkoutDate.ToString("yyyy-MM-dd")</td>
-                                    <td>@(session.IsRunning ? "running" : Duration(session.DurationSeconds))</td>
-                                    <td>@session.Sets.Count</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </details>
-        </article>
+        <div class="alert alert--info">
+            <AppIcon Name="info" Size="18" />
+            <span>
+                Você ainda não tem séries. <a href="/series">Crie uma</a> para poder vincular aos atletas.
+            </span>
+        </div>
     }
+
+    <div class="card-grid">
+        @foreach (var athlete in _athletes)
+        {
+            <article class="card athlete-card" @key="athlete.UserId">
+                <div class="athlete-head">
+                    <span class="avatar avatar--lg">@DisplayText.Initials(athlete.Email)</span>
+                    <div style="min-width: 0;">
+                        <h2>@DisplayText.NameFromEmail(athlete.Email)</h2>
+                        <p>@athlete.Email</p>
+                    </div>
+                </div>
+
+                <div class="athlete-status">
+                    @if (athlete.SeriesId is null)
+                    {
+                        <span class="chip">Sem série vinculada</span>
+                    }
+                    else
+                    {
+                        <span class="chip chip--accent">@athlete.SeriesName</span>
+                        @if (athlete.DaysRemaining == 0)
+                        {
+                            <span class="chip chip--danger">Série vencida</span>
+                        }
+                        else
+                        {
+                            <span class="muted" style="font-size: 0.76rem;">
+                                @athlete.DaysRemaining @(athlete.DaysRemaining == 1 ? "dia restante" : "dias restantes")
+                            </span>
+                        }
+                    }
+                </div>
+
+                @if (_series.Count > 0)
+                {
+                    <div class="field">
+                        <label for="series-for-@athlete.UserId">Série</label>
+                        <select id="series-for-@athlete.UserId" @bind="athlete.SelectedSeriesId">
+                            @foreach (var series in _series)
+                            {
+                                <option value="@series.Id">@series.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <div class="actions">
+                    @if (_series.Count > 0)
+                    {
+                        <button class="btn btn-primary" type="button" disabled="@_busy" @onclick="() => AssignAsync(athlete)">
+                            <AppIcon Name="check" Size="18" />
+                            @(athlete.SeriesId is null ? "Vincular série" : "Trocar série")
+                        </button>
+                    }
+
+                    <a class="btn btn-secondary" href="/athletes/@athlete.UserId/workouts">
+                        Ver treinos
+                        <AppIcon Name="chevron-right" Size="16" />
+                    </a>
+                </div>
+            </article>
+        }
+    </div>
 }
 
 @code {
-    private IReadOnlyList<AthleteResponse> _athletes = [];
-    private IReadOnlyList<WorkoutSessionResponse> _workouts = [];
-    private Guid _workoutsAthlete = Guid.Empty;
+    private IReadOnlyList<AthleteRow> _athletes = [];
+    private IReadOnlyList<WorkoutSeriesResponse> _series = [];
     private bool _loading = true;
     private bool _busy;
     private string? _error;
 
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            _athletes = await Api.GetAthletesAsync();
-        }
-        catch (ApiException exception)
-        {
-            _error = exception.Message;
-        }
-        finally
-        {
-            _loading = false;
-        }
-    }
+    protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
 
-    private async Task AssignAsync(AthleteResponse athlete)
+    private async Task AssignAsync(AthleteRow athlete) =>
+        await RunAsync(async () =>
+        {
+            await Api.AssignWorkoutSeriesAsync(
+                athlete.SelectedSeriesId,
+                new AssignWorkoutSeriesRequest(athlete.UserId));
+
+            await ReloadAsync();
+        });
+
+    private async Task RunAsync(Func<Task> action)
     {
         _busy = true;
         _error = null;
 
         try
         {
-            var plan = await Api.AssignPlanAsync(new AssignWorkoutPlanRequest(athlete.UserId));
-
-            Navigation.NavigateTo($"/plans/{plan.Id}");
+            await action();
         }
         catch (ApiException exception)
         {
-            _error = exception.Message;
+            _error = ErrorMessages.Describe(exception);
         }
         finally
         {
@@ -123,58 +153,40 @@ else
         }
     }
 
-    private async Task OpenPlanAsync(AthleteResponse athlete)
+    private async Task ReloadAsync()
     {
-        _busy = true;
-        _error = null;
+        _series = await Api.GetWorkoutSeriesAsync();
 
-        try
-        {
-            var plans = await Api.GetPlansAsync();
-            var plan = plans.FirstOrDefault(candidate => candidate.UserId == athlete.UserId);
+        var athletes = await Api.GetAthletesAsync();
 
-            if (plan is null)
+        _athletes =
+        [
+            .. athletes.Select(athlete => new AthleteRow
             {
-                _error = "The account has a plan, but it is not one of yours.";
-                return;
-            }
+                UserId = athlete.UserId,
+                Email = athlete.Email,
+                SeriesId = athlete.WorkoutSeriesId,
+                SeriesName = athlete.WorkoutSeriesName,
+                DaysRemaining = athlete.DaysRemaining,
+                SelectedSeriesId = athlete.WorkoutSeriesId ?? _series.FirstOrDefault()?.Id ?? Guid.Empty,
+            }),
+        ];
 
-            Navigation.NavigateTo($"/plans/{plan.Id}");
-        }
-        catch (ApiException exception)
-        {
-            _error = exception.Message;
-        }
-        finally
-        {
-            _busy = false;
-        }
+        _loading = false;
     }
 
-    private async Task LoadWorkoutsAsync(AthleteResponse athlete)
+    private sealed class AthleteRow
     {
-        if (_workoutsAthlete == athlete.UserId && _workouts.Count > 0)
-        {
-            return;
-        }
+        public Guid UserId { get; init; }
 
-        try
-        {
-            _workouts = await Api.GetAthleteWorkoutsAsync(athlete.UserId);
-            _workoutsAthlete = athlete.UserId;
-        }
-        catch (ApiException exception)
-        {
-            _error = exception.Message;
-        }
-    }
+        public string Email { get; init; } = string.Empty;
 
-    private static string Duration(int seconds)
-    {
-        var elapsed = TimeSpan.FromSeconds(seconds);
+        public Guid? SeriesId { get; init; }
 
-        return elapsed.TotalHours >= 1
-            ? elapsed.ToString(@"h\:mm\:ss")
-            : elapsed.ToString(@"m\:ss");
+        public string? SeriesName { get; init; }
+
+        public int DaysRemaining { get; init; }
+
+        public Guid SelectedSeriesId { get; set; }
     }
 }

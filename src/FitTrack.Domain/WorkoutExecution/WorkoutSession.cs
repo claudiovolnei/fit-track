@@ -19,13 +19,13 @@ public sealed class WorkoutSession
         UserId userId,
         WorkoutDate workoutDate,
         DateTimeOffset startedAt,
-        WorkoutPlanOptionId? plannedOptionId)
+        WorkoutSeriesWorkoutId? plannedWorkoutId)
     {
         Id = id;
         UserId = userId;
         WorkoutDate = workoutDate;
         StartedAt = startedAt;
-        PlannedOptionId = plannedOptionId;
+        PlannedWorkoutId = plannedWorkoutId;
     }
 
     public WorkoutSessionId Id { get; }
@@ -41,10 +41,10 @@ public sealed class WorkoutSession
     public DateTimeOffset? FinishedAt { get; private set; }
 
     /// <summary>
-    /// Option of the plan this workout came from. Kept as an id on purpose: the plan lives in another
-    /// context, and removing an option must never rewrite what someone already did.
+    /// Workout of the series this session came from. Kept as an id on purpose: the series lives in
+    /// another context, and removing a workout must never rewrite what someone already did.
     /// </summary>
-    public WorkoutPlanOptionId? PlannedOptionId { get; }
+    public WorkoutSeriesWorkoutId? PlannedWorkoutId { get; }
 
     public IReadOnlyList<PerformedSet> PerformedSets => _performedSets;
 
@@ -58,15 +58,15 @@ public sealed class WorkoutSession
         UserId userId,
         WorkoutDate workoutDate,
         DateTimeOffset startedAt) =>
-        Create(id, userId, workoutDate, startedAt, plannedOptionId: null);
+        Create(id, userId, workoutDate, startedAt, plannedWorkoutId: null);
 
     public static WorkoutSession StartFromPlannedWorkout(
         WorkoutSessionId id,
         UserId userId,
         WorkoutDate workoutDate,
         DateTimeOffset startedAt,
-        WorkoutPlanOptionId plannedOptionId) =>
-        Create(id, userId, workoutDate, startedAt, plannedOptionId);
+        WorkoutSeriesWorkoutId plannedWorkoutId) =>
+        Create(id, userId, workoutDate, startedAt, plannedWorkoutId);
 
     /// <summary>
     /// Elapsed time: frozen at <see cref="FinishedAt"/> once finished, still running until then.
@@ -107,13 +107,13 @@ public sealed class WorkoutSession
         UserId userId,
         WorkoutDate workoutDate,
         DateTimeOffset startedAt,
-        WorkoutPlanOptionId? plannedOptionId)
+        WorkoutSeriesWorkoutId? plannedWorkoutId)
     {
         if (userId.Value == Guid.Empty)
         {
             throw new DomainException("session.user.required", "A workout session must belong to a user.");
         }
 
-        return new WorkoutSession(id, userId, workoutDate, startedAt, plannedOptionId);
+        return new WorkoutSession(id, userId, workoutDate, startedAt, plannedWorkoutId);
     }
 }

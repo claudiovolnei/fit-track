@@ -1,8 +1,13 @@
 @inherits LayoutComponentBase
 
-<div class="app">
+<a class="skip-link" href="#main-content">Ir para o conteúdo</a>
+
+<div class="app-shell">
     <NavMenu />
-    <main class="app-content">
-        @Body
-    </main>
+
+    <div class="app-main">
+        <main class="app-content" id="main-content">
+            @Body
+        </main>
+    </div>
 </div>

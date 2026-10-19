@@ -18,12 +18,12 @@ internal sealed class InMemoryWorkoutSessionRepository : IWorkoutSessionReposito
     public Task<WorkoutSession?> GetByPlannedWorkoutAsync(
         UserId userId,
         DateOnly workoutDate,
-        WorkoutPlanOptionId optionId,
+        WorkoutSeriesWorkoutId workoutId,
         CancellationToken cancellationToken) =>
         Task.FromResult(_byId.Values.FirstOrDefault(session =>
             session.UserId == userId
             && session.WorkoutDate.Value == workoutDate
-            && session.PlannedOptionId == optionId));
+            && session.PlannedWorkoutId == workoutId));
 
     public Task SaveAsync(WorkoutSession session, CancellationToken cancellationToken)
     {

@@ -1,0 +1,96 @@
+@* Editor de uma ficha: o trainer escolhe o exercício, as séries, as repetições e a carga. *@
+
+<fieldset class="prescription">
+    <legend>Prescrição</legend>
+
+    @if (Rows.Count == 0)
+    {
+        <p class="muted" style="margin: 0 0 12px; font-size: 0.86rem;">Nenhum exercício prescrito.</p>
+    }
+    else
+    {
+        <div class="prescription-list">
+            @for (var index = 0; index < Rows.Count; index++)
+            {
+                var row = Rows[index];
+                var prefix = $"{_instanceId}-{index}";
+
+                <div class="prescription-row" @key="row">
+                    <div class="field field--wide">
+                        <label for="prescription-exercise-@prefix">Exercício</label>
+                        <select id="prescription-exercise-@prefix" @bind="row.ExerciseId">
+                            @foreach (var exercise in Catalog)
+                            {
+                                <option value="@exercise.Id">@exercise.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="prescription-sets-@prefix">Séries</label>
+                        <input id="prescription-sets-@prefix" type="number" inputmode="numeric"
+                               min="1" max="20" @bind="row.Sets" />
+                    </div>
+
+                    <div class="field">
+                        <label for="prescription-reps-@prefix">Repetições</label>
+                        <input id="prescription-reps-@prefix" type="number" inputmode="numeric"
+                               min="1" max="100" @bind="row.Repetitions" />
+                    </div>
+
+                    @* O separador decimal do type=number é o ponto; sem a cultura invariante o
+                       pt-BR escreveria a vírgula e o campo apareceria vazio. *@
+                    <div class="field">
+                        <label for="prescription-load-@prefix">Carga (kg)</label>
+                        <input id="prescription-load-@prefix" type="number" inputmode="decimal"
+                               min="0" step="0.5" placeholder="corporal"
+                               @bind="row.LoadKilograms" @bind:culture="CultureInfo.InvariantCulture" />
+                    </div>
+
+                    <button class="btn btn-ghost btn-sm prescription-remove" type="button"
+                            aria-label="Remover exercício" @onclick="() => RemoveRow(row)">
+                        <AppIcon Name="trash" Size="16" />
+                        Remover
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    <button class="btn btn-secondary btn-block" type="button" style="margin-top: 12px;"
+            disabled="@(Catalog.Count == 0)" @onclick="Add">
+        <AppIcon Name="plus" Size="16" />
+        Adicionar exercício
+    </button>
+</fieldset>
+
+@code {
+    private readonly string _instanceId = Guid.NewGuid().ToString("N")[..6];
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<ExerciseResponse> Catalog { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public List<PrescriptionRow> Rows { get; set; } = [];
+
+    /// <summary>Raised when a row is added or dropped, so the owner can refresh its own buttons.</summary>
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    private async Task Add()
+    {
+        Rows.Add(new PrescriptionRow
+        {
+            ExerciseId = Catalog.FirstOrDefault()?.Id ?? Guid.Empty,
+        });
+
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task RemoveRow(PrescriptionRow row)
+    {
+        Rows.Remove(row);
+
+        await OnChanged.InvokeAsync();
+    }
+}

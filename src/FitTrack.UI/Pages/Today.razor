@@ -3,181 +3,344 @@
 @implements IDisposable
 @inject FitTrackApiClient Api
 
-<PageTitle>Today</PageTitle>
+<PageTitle>Hoje — FitTrack</PageTitle>
 
-<h1>Today</h1>
+<PageHeader Eyebrow="@DisplayText.Today"
+            Title="Hoje"
+            Subtitle="Escolha o treino do dia e registre cada série." />
 
 @if (_error is not null)
 {
-    <p class="error">@_error</p>
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
 }
 
 @if (_loading)
 {
-    <p class="muted">Loading your plan…</p>
+    <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Carregando seu treino…</span>
+    </div>
 }
-else if (_plan is null)
+else if (_mine is null)
 {
-    <p class="muted">Your trainer has not assigned a plan yet.</p>
+    <div class="empty-state">
+        <AppIcon Name="layers" Size="28" />
+        <h2>Nenhuma série vinculada</h2>
+        <p>Seu personal trainer ainda não vinculou uma série. Fale com ele para receber os treinos.</p>
+    </div>
 }
-else if (_plan.Options.Count == 0)
+else if (_mine.Series.Workouts.Count == 0)
 {
-    <p class="muted">Your plan has no workout options yet.</p>
+    <div class="empty-state">
+        <AppIcon Name="calendar" Size="28" />
+        <h2>Série sem treinos</h2>
+        <p>A série <strong>@_mine.Series.Name</strong> ainda não tem treinos montados.</p>
+    </div>
 }
 else
 {
-    @foreach (var option in _plan.Options)
-    {
-        <article class="card">
-            <h2>Option @option.Position</h2>
-            <p class="muted">@MuscleGroups(option)</p>
+    <section class="series-banner">
+        <div class="series-banner-main">
+            <span class="chip @(_mine.IsExpired ? "chip--danger" : "chip--accent")">
+                @(_mine.IsExpired ? "Série vencida" : "Série ativa")
+            </span>
+            <h2>@_mine.Series.Name</h2>
+            <p>
+                Personal <strong>@_mine.TrainerName</strong> ·
+                @_mine.Series.Workouts.Count @(_mine.Series.Workouts.Count == 1 ? "treino disponível" : "treinos disponíveis")
+            </p>
+        </div>
 
-            @if (option.Today is null)
+        <div class="series-term">
+            <div class="series-term-head">
+                <span>@(_mine.IsExpired ? "Vencida" : "Validade")</span>
+                <strong>@TermPercent%</strong>
+            </div>
+            <div class="progress">
+                <span style="width: @TermPercent%"></span>
+            </div>
+            @if (!_mine.IsExpired)
             {
-                <button type="button" disabled="@_busy" @onclick="() => StartAsync(option.Id)">Start workout</button>
-            }
-            else if (option.Today.IsRunning)
-            {
-                <p class="timer" title="Time since you started">@Clock(option.Today)</p>
-
-                @if (option.Today.Sets.Count > 0)
-                {
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Exercise</th>
-                                <th>Load (kg)</th>
-                                <th>Repetitions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var set in option.Today.Sets)
-                            {
-                                <tr>
-                                    <td>@ExerciseName(set.ExerciseId)</td>
-                                    <td>@set.LoadKilograms</td>
-                                    <td>@set.Repetitions</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-
-                <div class="field">
-                    <label for="set-exercise-@option.Id">Exercise</label>
-                    <select id="set-exercise-@option.Id" @bind="_newSet.ExerciseId">
-                        @foreach (var exercise in _catalog)
-                        {
-                            <option value="@exercise.Id">@exercise.Name</option>
-                        }
-                    </select>
-                </div>
-
-                <div class="field">
-                    <label for="set-load-@option.Id">Load (kg)</label>
-                    <input id="set-load-@option.Id" type="number" min="0" step="0.5" @bind="_newSet.LoadKilograms" />
-                </div>
-
-                <div class="field">
-                    <label for="set-reps-@option.Id">Repetitions</label>
-                    <input id="set-reps-@option.Id" type="number" min="1" @bind="_newSet.Repetitions" />
-                </div>
-
-                <p>
-                    <button type="button" disabled="@(_busy || _catalog.Count == 0)" @onclick="() => LogSetAsync(option.Today.WorkoutSessionId)">
-                        Log set
-                    </button>
-                    <button type="button" class="secondary" disabled="@_busy" @onclick="() => FinishAsync(option.Today.WorkoutSessionId)">
-                        Finish workout
-                    </button>
-                    <button type="button" class="secondary" disabled="@_busy" @onclick="() => CancelAsync(option.Today.WorkoutSessionId)">
-                        Cancel
-                    </button>
+                <p class="muted" style="margin-top: 7px; font-size: 0.74rem;">
+                    @_mine.DaysRemaining @(_mine.DaysRemaining == 1 ? "dia restante" : "dias restantes")
                 </p>
-
-                <p class="muted">Started at @option.Today.StartedAt.ToLocalTime().ToString("HH:mm:ss").</p>
             }
-            else if (option.Today is not null)
-            {
-                <p class="muted">Done — @Duration(option.Today.ElapsedSeconds) recorded.</p>
+        </div>
+    </section>
 
-                @if (option.Today.Sets.Count > 0)
+    <div class="workout-list">
+        @foreach (var workout in _mine.Series.Workouts)
+        {
+            <article class="card workout-card" @key="workout.Id">
+                <div class="workout-head">
+                    <span class="label-badge">@workout.Label</span>
+
+                    <div class="workout-title">
+                        <h2>@workout.Name</h2>
+                        <p class="muted">@workout.Exercises.Count @(workout.Exercises.Count == 1 ? "exercício" : "exercícios")</p>
+                    </div>
+
+                    @if (workout.Today is null)
+                    {
+                        <span class="chip">A fazer</span>
+                    }
+                    else if (workout.Today.IsRunning)
+                    {
+                        <span class="chip chip--accent">
+                            Em andamento
+                            <span class="pulse-dot"></span>
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="chip chip--success">Concluído</span>
+                    }
+                </div>
+
+                @if (workout.Today is null)
                 {
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Exercise</th>
-                                <th>Load (kg)</th>
-                                <th>Repetitions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var set in option.Today.Sets)
-                            {
-                                <tr>
-                                    <td>@ExerciseName(set.ExerciseId)</td>
-                                    <td>@set.LoadKilograms</td>
-                                    <td>@set.Repetitions</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                    <ul class="exercise-list">
+                        @foreach (var prescribed in workout.Exercises)
+                        {
+                            <li class="exercise-row">
+                                <div>
+                                    <span class="exercise-name">@prescribed.ExerciseName</span>
+                                    <span class="exercise-meta">@prescribed.MuscleGroupName</span>
+                                </div>
+                                <div class="exercise-prescription">
+                                    <strong>@prescribed.Sets × @prescribed.Repetitions</strong>
+                                    <span>@Load(prescribed.LoadKilograms)</span>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+
+                    @if (_mine.IsExpired)
+                    {
+                        <div class="alert alert--error" style="margin: 16px 0 0;">
+                            <AppIcon Name="info" Size="18" />
+                            <span>
+                                A série venceu, então não dá para começar um treino novo. Um treino já
+                                iniciado ainda pode ser finalizado.
+                            </span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="actions" style="margin-top: 16px;">
+                            <button class="btn btn-primary btn-block" type="button" disabled="@_busy"
+                                    @onclick="() => StartAsync(workout.Id)">
+                                <AppIcon Name="play" Size="18" />
+                                Iniciar treino
+                            </button>
+                        </div>
+                    }
                 }
-            }
-        </article>
-    }
+                else
+                {
+                    @if (workout.Today.IsRunning)
+                    {
+                        <div class="timer-card">
+                            <span class="timer-icon"><AppIcon Name="timer" Size="22" /></span>
+                            <div>
+                                <span class="timer-label">Tempo de treino</span>
+                                <span class="timer-value">@Clock(workout.Today)</span>
+                            </div>
+                            <span class="pulse-dot"></span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="summary-strip">
+                            <span class="summary-item">
+                                <AppIcon Name="timer" Size="15" />
+                                @DisplayText.Duration(workout.Today.ElapsedSeconds)
+                            </span>
+                            <span class="summary-item">
+                                <AppIcon Name="dumbbell" Size="15" />
+                                @workout.Today.Sets.Count @(workout.Today.Sets.Count == 1 ? "série" : "séries")
+                            </span>
+                            <span class="summary-item">
+                                <AppIcon Name="scale" Size="15" />
+                                @DisplayText.Volume(Volume(workout.Today))
+                            </span>
+                        </div>
+                    }
+
+                    <div class="compare-list">
+                        @foreach (var row in Compare(workout))
+                        {
+                            <div class="compare-row">
+                                <div class="compare-exercise">
+                                    <strong>@row.ExerciseName</strong>
+                                    <small>@row.Prescribed</small>
+                                </div>
+                                <div class="set-pills">
+                                    @if (row.Performed.Count == 0)
+                                    {
+                                        <span class="muted" style="font-size: 0.78rem;">Ainda não registrado</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var performed in row.Performed)
+                                        {
+                                            <span class="set-pill">@performed</span>
+                                        }
+                                    }
+                                </div>
+
+                                @* O atleta só informa a carga: a prescrição (e as repetições) vêm do personal. *@
+                                @if (workout.Today.IsRunning && row.ExerciseId is { } exerciseId)
+                                {
+                                    <div class="set-log">
+                                        <input id="set-load-@exerciseId" type="number" inputmode="decimal"
+                                               min="0" step="0.5" title="Carga (kg)"
+                                               aria-label="Carga em quilos de @row.ExerciseName"
+                                               @bind="_loads[(workout.Id, exerciseId)]"
+                                               @bind:culture="CultureInfo.InvariantCulture" />
+                                        <button class="btn btn-primary btn-sm" type="button" disabled="@_busy"
+                                                @onclick="() => LogSetAsync(workout, exerciseId)">
+                                            <AppIcon Name="plus" Size="16" />
+                                            Registrar
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    @if (workout.Today.IsRunning)
+                    {
+                        <section class="set-logger">
+                            <div class="section-head">
+                                <h3>Registrar série</h3>
+                                <span class="chip">@(workout.Today.Sets.Count + 1)ª do treino</span>
+                            </div>
+
+                            <p class="muted" style="margin: 0 0 14px; font-size: 0.8rem;">
+                                Informe a carga e toque em <strong>Registrar</strong> no exercício que você fez. As
+                                repetições vêm da prescrição do seu personal.
+                            </p>
+
+                            <div class="actions">
+                                <button class="btn btn-secondary" type="button" disabled="@_busy"
+                                        @onclick="() => FinishAsync(workout)">
+                                    Finalizar treino
+                                </button>
+                                <button class="btn btn-danger" type="button" disabled="@_busy"
+                                        @onclick="() => CancelAsync(workout)">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </section>
+
+                        <div class="workout-foot">
+                            <span>Começou às @workout.Today.StartedAt.ToLocalTime().ToString("HH:mm")</span>
+                            <span>@workout.Today.Sets.Count @(workout.Today.Sets.Count == 1 ? "série registrada" : "séries registradas")</span>
+                        </div>
+                    }
+                }
+            </article>
+        }
+    </div>
 }
 
 @code {
-    private WorkoutPlanResponse? _plan;
+    private MyWorkoutSeriesResponse? _mine;
     private IReadOnlyList<ExerciseResponse> _catalog = [];
-    private readonly SetModel _newSet = new();
+
+    /// <summary>Carga que o atleta digitou para cada exercício prescrito, por treino.</summary>
+    private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), decimal> _loads = [];
     private bool _loading = true;
     private bool _busy;
     private string? _error;
     private System.Timers.Timer? _ticker;
+    private volatile bool _disposed;
     private DateTimeOffset _loadedAt = DateTimeOffset.UtcNow;
+
+    private int TermPercent =>
+        _mine is null ? 0 : Math.Clamp((int)Math.Round(_mine.DaysRemaining / 60d * 100), 0, 100);
 
     protected override async Task OnInitializedAsync()
     {
         _ticker = new System.Timers.Timer(1000);
-        _ticker.Elapsed += async (_, _) => await InvokeAsync(StateHasChanged);
+        _ticker.Elapsed += OnTick;
         _ticker.AutoReset = true;
         _ticker.Start();
 
         await RunAsync(ReloadAsync);
     }
 
-    public void Dispose() => _ticker?.Dispose();
+    public void Dispose()
+    {
+        _disposed = true;
+        _ticker?.Dispose();
+    }
 
-    private async Task StartAsync(Guid optionId) =>
+    /// <summary>
+    /// O relógio do treino. O <see cref="System.Timers.Timer"/> dispara fora do dispatcher do Blazor,
+    /// então o tique só agenda um render no contexto da UI. Depois do <see cref="Dispose"/> o tique é
+    /// ignorado: sem essa guarda, um tique a caminho do dispatcher viraria uma exceção não tratada
+    /// (o handler é <c>async void</c>) e apareceria como "erro inesperado" ao sair da tela.
+    /// </summary>
+    private async void OnTick(object? sender, System.Timers.ElapsedEventArgs args)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                if (!_disposed)
+                {
+                    StateHasChanged();
+                }
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // A página saiu de cena enquanto este tique ainda estava a caminho do dispatcher.
+        }
+        catch (InvalidOperationException)
+        {
+            // O render handle já não é válido porque o componente foi descartado.
+        }
+    }
+
+    private async Task StartAsync(Guid workoutId) =>
         await RunAsync(async () =>
         {
-            await Api.StartWorkoutAsync(new StartWorkoutRequest(optionId));
+            await Api.StartWorkoutAsync(new StartWorkoutRequest(workoutId));
             await ReloadAsync();
         });
 
-    private async Task LogSetAsync(Guid sessionId) =>
+    private async Task LogSetAsync(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
         await RunAsync(async () =>
         {
             await Api.LogPerformedSetAsync(
-                sessionId,
-                new LogPerformedSetRequest(_newSet.ExerciseId, _newSet.LoadKilograms, _newSet.Repetitions));
+                workout.Today!.WorkoutSessionId,
+                new LogPerformedSetRequest(exerciseId, _loads[(workout.Id, exerciseId)]));
 
             await ReloadAsync();
         });
 
-    private async Task FinishAsync(Guid sessionId) =>
+    private async Task FinishAsync(WorkoutSeriesWorkoutResponse workout) =>
         await RunAsync(async () =>
         {
-            await Api.FinishWorkoutAsync(sessionId);
+            await Api.FinishWorkoutAsync(workout.Today!.WorkoutSessionId);
             await ReloadAsync();
         });
 
-    private async Task CancelAsync(Guid sessionId) =>
+    private async Task CancelAsync(WorkoutSeriesWorkoutResponse workout) =>
         await RunAsync(async () =>
         {
-            await Api.CancelWorkoutAsync(sessionId);
+            await Api.CancelWorkoutAsync(workout.Today!.WorkoutSessionId);
             await ReloadAsync();
         });
 
@@ -192,7 +355,7 @@ else
         }
         catch (ApiException exception)
         {
-            _error = exception.Message;
+            _error = ErrorMessages.Describe(exception);
         }
         finally
         {
@@ -203,19 +366,65 @@ else
     private async Task ReloadAsync()
     {
         _catalog = await Api.GetExercisesAsync();
+        _mine = await Api.GetMyWorkoutSeriesAsync();
+        _loadedAt = DateTimeOffset.UtcNow;
 
-        if (_catalog.Count > 0 && _newSet.ExerciseId == Guid.Empty)
+        var workouts = _mine?.Series.Workouts ?? Enumerable.Empty<WorkoutSeriesWorkoutResponse>();
+
+        foreach (var workout in workouts)
         {
-            _newSet.ExerciseId = _catalog[0].Id;
+            foreach (var prescribed in workout.Exercises)
+            {
+                // Começa na carga que o personal prescreveu; o que o atleta já digitou fica de pé.
+                _loads.TryAdd((workout.Id, prescribed.ExerciseId), prescribed.LoadKilograms ?? 0m);
+            }
         }
 
-        _plan = await Api.GetMyPlanAsync();
-        _loadedAt = DateTimeOffset.UtcNow;
         _loading = false;
     }
 
-    private string MuscleGroups(WorkoutPlanOptionResponse option) =>
-        string.Join(", ", option.MuscleGroups.Select(group => group.Name));
+    /// <summary>
+    /// The prescription next to what the athlete actually did: one row per prescribed exercise — the only
+    /// ones he can log — plus the exercises that left the prescription after being logged, shown as a
+    /// record (the trainer may edit the series while a workout is open).
+    /// </summary>
+    private IReadOnlyList<ComparisonRow> Compare(WorkoutSeriesWorkoutResponse workout)
+    {
+        var today = workout.Today!;
+
+        var rows = workout.Exercises
+            .Select(prescribed => new ComparisonRow(
+                prescribed.ExerciseId,
+                prescribed.ExerciseName,
+                Prescribed(prescribed),
+                Performed(today.Sets.Where(set => set.ExerciseId == prescribed.ExerciseId))))
+            .ToList();
+
+        var extras = today.Sets
+            .Where(set => workout.Exercises.All(prescribed => prescribed.ExerciseId != set.ExerciseId))
+            .Select(set => set.ExerciseId)
+            .Distinct();
+
+        rows.AddRange(extras.Select(exerciseId => new ComparisonRow(
+            null,
+            ExerciseName(exerciseId),
+            "—",
+            Performed(today.Sets.Where(set => set.ExerciseId == exerciseId)))));
+
+        return rows;
+    }
+
+    private static string Prescribed(PrescribedExerciseResponse prescribed) =>
+        $"{prescribed.Sets} × {prescribed.Repetitions} @ {Load(prescribed.LoadKilograms)}";
+
+    private static string Load(decimal? kilograms) =>
+        kilograms is { } load ? $"{load:0.##} kg" : "peso corporal";
+
+    private static IReadOnlyList<string> Performed(IEnumerable<PerformedSetResponse> sets) =>
+        [.. sets.Select(set => $"{set.LoadKilograms:0.##} kg × {set.Repetitions}")];
+
+    private static decimal Volume(TodayWorkoutResponse today) =>
+        today.Sets.Sum(set => set.LoadKilograms * set.Repetitions);
 
     private string ExerciseName(Guid exerciseId) =>
         _catalog.FirstOrDefault(exercise => exercise.Id == exerciseId)?.Name ?? exerciseId.ToString();
@@ -225,23 +434,11 @@ else
     /// passed on this page, so a skewed browser clock cannot invent a duration.
     /// </summary>
     private string Clock(TodayWorkoutResponse today) =>
-        Duration(today.ElapsedSeconds + (int)(DateTimeOffset.UtcNow - _loadedAt).TotalSeconds);
+        DisplayText.Duration(today.ElapsedSeconds + (int)(DateTimeOffset.UtcNow - _loadedAt).TotalSeconds);
 
-    private static string Duration(int seconds)
-    {
-        var elapsed = TimeSpan.FromSeconds(seconds);
-
-        return elapsed.TotalHours >= 1
-            ? elapsed.ToString(@"h\:mm\:ss")
-            : elapsed.ToString(@"m\:ss");
-    }
-
-    private sealed class SetModel
-    {
-        public Guid ExerciseId { get; set; }
-
-        public decimal LoadKilograms { get; set; } = 20m;
-
-        public int Repetitions { get; set; } = 10;
-    }
+    private sealed record ComparisonRow(
+        Guid? ExerciseId,
+        string ExerciseName,
+        string Prescribed,
+        IReadOnlyList<string> Performed);
 }

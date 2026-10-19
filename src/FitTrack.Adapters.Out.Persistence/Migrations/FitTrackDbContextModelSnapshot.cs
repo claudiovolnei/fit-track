@@ -48,6 +48,10 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -153,45 +157,17 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.ToTable("performed_sets", (string)null);
                 });
 
-            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutPlanOptionMuscleGroupRecord", b =>
-                {
-                    b.Property<Guid>("WorkoutPlanOptionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("MuscleGroupId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("WorkoutPlanOptionId", "MuscleGroupId");
-
-                    b.HasIndex("MuscleGroupId");
-
-                    b.ToTable("workout_plan_option_muscle_groups", (string)null);
-                });
-
-            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutPlanOptionRecord", b =>
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesAssignmentRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
+                    b.Property<DateTimeOffset>("AssignedAt")
+                        .HasColumnType("timestamptz");
 
-                    b.Property<Guid>("WorkoutPlanId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WorkoutPlanId", "Position");
-
-                    b.ToTable("workout_plan_options", (string)null);
-                });
-
-            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutPlanRecord", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamptz");
 
                     b.Property<Guid>("TrainerId")
                         .HasColumnType("uuid");
@@ -199,14 +175,93 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("WorkoutSeriesId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("TrainerId");
+                    b.HasIndex("ExpiresAt");
 
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("workout_plans", (string)null);
+                    b.HasIndex("WorkoutSeriesId");
+
+                    b.ToTable("workout_series_assignments", (string)null);
+                });
+
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("TrainerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TrainerId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("workout_series", (string)null);
+                });
+
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesWorkoutExerciseRecord", b =>
+                {
+                    b.Property<Guid>("WorkoutSeriesWorkoutId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ExerciseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("LoadKilograms")
+                        .HasPrecision(7, 2)
+                        .HasColumnType("numeric(7,2)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Repetitions")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Sets")
+                        .HasColumnType("integer");
+
+                    b.HasKey("WorkoutSeriesWorkoutId", "ExerciseId");
+
+                    b.HasIndex("ExerciseId");
+
+                    b.ToTable("workout_series_workout_exercises", (string)null);
+                });
+
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesWorkoutRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WorkoutSeriesId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkoutSeriesId", "Position");
+
+                    b.ToTable("workout_series_workouts", (string)null);
                 });
 
             modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSessionRecord", b =>
@@ -227,16 +282,16 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.Property<DateOnly>("WorkoutDate")
                         .HasColumnType("date");
 
-                    b.Property<Guid?>("WorkoutPlanOptionId")
+                    b.Property<Guid?>("WorkoutSeriesWorkoutId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "WorkoutDate", "WorkoutPlanOptionId")
+                    b.HasIndex("UserId", "WorkoutDate", "WorkoutSeriesWorkoutId")
                         .IsUnique()
-                        .HasFilter("\"WorkoutPlanOptionId\" IS NOT NULL");
+                        .HasFilter("\"WorkoutSeriesWorkoutId\" IS NOT NULL");
 
                     b.ToTable("workout_sessions", (string)null);
                 });
@@ -389,26 +444,35 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutPlanOptionMuscleGroupRecord", b =>
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesAssignmentRecord", b =>
                 {
-                    b.HasOne("FitTrack.Adapters.Out.Persistence.Records.MuscleGroupRecord", null)
+                    b.HasOne("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesRecord", null)
                         .WithMany()
-                        .HasForeignKey("MuscleGroupId")
+                        .HasForeignKey("WorkoutSeriesId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesWorkoutExerciseRecord", b =>
+                {
+                    b.HasOne("FitTrack.Adapters.Out.Persistence.Records.ExerciseRecord", null)
+                        .WithMany()
+                        .HasForeignKey("ExerciseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("FitTrack.Adapters.Out.Persistence.Records.WorkoutPlanOptionRecord", null)
-                        .WithMany("MuscleGroups")
-                        .HasForeignKey("WorkoutPlanOptionId")
+                    b.HasOne("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesWorkoutRecord", null)
+                        .WithMany("Exercises")
+                        .HasForeignKey("WorkoutSeriesWorkoutId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutPlanOptionRecord", b =>
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesWorkoutRecord", b =>
                 {
-                    b.HasOne("FitTrack.Adapters.Out.Persistence.Records.WorkoutPlanRecord", null)
-                        .WithMany("Options")
-                        .HasForeignKey("WorkoutPlanId")
+                    b.HasOne("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesRecord", null)
+                        .WithMany("Workouts")
+                        .HasForeignKey("WorkoutSeriesId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -464,14 +528,14 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutPlanOptionRecord", b =>
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesRecord", b =>
                 {
-                    b.Navigation("MuscleGroups");
+                    b.Navigation("Workouts");
                 });
 
-            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutPlanRecord", b =>
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesWorkoutRecord", b =>
                 {
-                    b.Navigation("Options");
+                    b.Navigation("Exercises");
                 });
 
             modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSessionRecord", b =>

@@ -1,0 +1,281 @@
+@page "/series/{SeriesId:guid}"
+@attribute [Authorize(Roles = "PersonalTrainer")]
+@inject FitTrackApiClient Api
+
+<PageTitle>@(_series is null ? "Série de treino — FitTrack" : $"{_series.Name} — FitTrack")</PageTitle>
+
+<a class="back-link" href="/series">
+    <AppIcon Name="arrow-left" Size="16" />
+    Séries de treino
+</a>
+
+<PageHeader Eyebrow="Série de treino"
+            Title="@(_series?.Name ?? "Série de treino")"
+            Subtitle="Monte até cinco treinos (A–E) com exercícios, séries, repetições e carga." />
+
+@if (_error is not null)
+{
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Carregando a série…</span>
+    </div>
+}
+else if (_series is null)
+{
+    <div class="empty-state">
+        <AppIcon Name="layers" Size="28" />
+        <h2>Série não encontrada</h2>
+        <p>Ela pode ter sido removida ou pertence a outro personal trainer.</p>
+        <a class="btn btn-secondary" href="/series">Voltar para as séries</a>
+    </div>
+}
+else
+{
+    @if (_workouts.Count == 0)
+    {
+        <div class="alert alert--info">
+            <AppIcon Name="info" Size="18" />
+            <span>Nenhum treino ainda — monte o primeiro no formulário abaixo.</span>
+        </div>
+    }
+
+    <div class="workout-list">
+        @foreach (var workout in _workouts)
+        {
+            <article class="card workout-card" @key="workout.Id">
+                <div class="workout-head">
+                    <span class="label-badge">@workout.Label</span>
+
+                    <div class="workout-title">
+                        <h2>Treino @workout.Label</h2>
+                        <p class="muted">@workout.Prescription.Count @(workout.Prescription.Count == 1 ? "exercício prescrito" : "exercícios prescritos")</p>
+                    </div>
+                </div>
+
+                <div class="field" style="margin-top: 16px;">
+                    <label for="workout-name-@workout.Id">Nome do treino</label>
+                    <input id="workout-name-@workout.Id" maxlength="80" @bind="workout.Name" />
+                </div>
+
+                <PrescriptionEditor Catalog="_catalog" Rows="workout.Prescription" OnChanged="StateHasChanged" />
+
+                <div class="actions">
+                    <button class="btn btn-primary" type="button"
+                            disabled="@(_busy || workout.Prescription.Count == 0)"
+                            @onclick="() => SaveAsync(workout)">
+                        <AppIcon Name="check" Size="18" />
+                        Salvar treino
+                    </button>
+                    <button class="btn btn-danger" type="button" disabled="@_busy"
+                            @onclick="() => RemoveAsync(workout)">
+                        <AppIcon Name="trash" Size="16" />
+                        Remover
+                    </button>
+                </div>
+            </article>
+        }
+    </div>
+
+    @if (_workouts.Count >= MaxWorkouts)
+    {
+        <div class="alert alert--info" style="margin-top: 18px;">
+            <AppIcon Name="info" Size="18" />
+            <span>
+                Uma série tem no máximo @MaxWorkouts treinos (do A ao E). Remova um treino para acrescentar outro.
+            </span>
+        </div>
+    }
+    else
+    {
+        <section class="card card--accent" style="margin-top: 18px;">
+            <div class="workout-head">
+                <span class="label-badge label-badge--muted">@NextLabel</span>
+                <div class="workout-title">
+                    <h2>Treino @NextLabel — novo</h2>
+                    <p class="muted">Preencha o nome e a prescrição para adicionar.</p>
+                </div>
+                <span class="chip chip--accent">Novo</span>
+            </div>
+
+            <div class="field" style="margin-top: 16px;">
+                <label for="new-workout-name">Nome do treino</label>
+                <input id="new-workout-name" maxlength="80" placeholder="Ex.: Peito e tríceps"
+                       @bind="_newName" @bind:event="oninput" />
+            </div>
+
+            <PrescriptionEditor Catalog="_catalog" Rows="_newPrescription" OnChanged="StateHasChanged" />
+
+            <div class="actions">
+                <button class="btn btn-primary btn-block" type="button"
+                        disabled="@(_busy || string.IsNullOrWhiteSpace(_newName) || _newPrescription.Count == 0)"
+                        @onclick="AddAsync">
+                    <AppIcon Name="plus" Size="18" />
+                    Adicionar treino
+                </button>
+            </div>
+        </section>
+    }
+}
+
+@code {
+    private const int MaxWorkouts = 5;
+
+    [Parameter]
+    public Guid SeriesId { get; set; }
+
+    private WorkoutSeriesResponse? _series;
+    private IReadOnlyList<ExerciseResponse> _catalog = [];
+    private List<WorkoutRow> _workouts = [];
+    private List<PrescriptionRow> _newPrescription = [];
+    private string _newName = string.Empty;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+
+    private string NextLabel => ((char)('A' + _workouts.Count)).ToString();
+
+    protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
+
+    private async Task AddAsync() =>
+        await RunAsync(async () =>
+        {
+            await Api.AddSeriesWorkoutAsync(SeriesId, new SetSeriesWorkoutRequest(_newName, Prescription(_newPrescription)));
+            ResetNewWorkout();
+            await ReloadAsync();
+        });
+
+    private async Task SaveAsync(WorkoutRow workout) =>
+        await RunAsync(async () =>
+        {
+            await Api.ChangeSeriesWorkoutAsync(
+                SeriesId,
+                workout.Id,
+                new SetSeriesWorkoutRequest(workout.Name, Prescription(workout.Prescription)));
+
+            await ReloadAsync();
+        });
+
+    private async Task RemoveAsync(WorkoutRow workout) =>
+        await RunAsync(async () =>
+        {
+            await Api.RemoveSeriesWorkoutAsync(SeriesId, workout.Id);
+            await ReloadAsync();
+        });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await action();
+        }
+        catch (ApiException exception)
+        {
+            _error = ErrorMessages.Describe(exception);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _catalog = await Api.GetExercisesAsync();
+
+        if (_newPrescription.Count == 0 || _newPrescription.Any(row => row.ExerciseId == Guid.Empty))
+        {
+            EnsureNewPrescription();
+        }
+
+        try
+        {
+            _series = await Api.GetWorkoutSeriesAsync(SeriesId);
+        }
+        catch (ApiException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
+        {
+            // A série de outro trainer responde igual à que não existe: não há o que mostrar.
+            _series = null;
+            _error = null;
+            _loading = false;
+            return;
+        }
+
+        _workouts =
+        [
+            .. _series.Workouts.Select(workout => new WorkoutRow
+            {
+                Id = workout.Id,
+                Label = workout.Label,
+                Name = workout.Name,
+                Prescription =
+                [
+                    .. workout.Exercises.Select(exercise => new PrescriptionRow
+                    {
+                        ExerciseId = exercise.ExerciseId,
+                        Sets = exercise.Sets,
+                        Repetitions = exercise.Repetitions,
+                        LoadKilograms = exercise.LoadKilograms,
+                    }),
+                ],
+            }),
+        ];
+
+        _loading = false;
+    }
+
+    private static IReadOnlyList<PrescribedExerciseRequest> Prescription(IEnumerable<PrescriptionRow> rows) =>
+        [.. rows.Select(row => new PrescribedExerciseRequest(row.ExerciseId, row.Sets, row.Repetitions, row.LoadKilograms))];
+
+    private void ResetNewWorkout()
+    {
+        _newName = string.Empty;
+        _newPrescription = [NewPrescriptionRow()];
+    }
+
+    /// <summary>
+    /// Keeps the new-workout form usable: it opens with one row, and no row may carry an empty exercise
+    /// id, because the select already shows the first catalog entry and the API refuses the empty id.
+    /// </summary>
+    private void EnsureNewPrescription()
+    {
+        if (_newPrescription.Count == 0)
+        {
+            _newPrescription = [NewPrescriptionRow()];
+            return;
+        }
+
+        if (_newPrescription.Any(row => row.ExerciseId == Guid.Empty))
+        {
+            _newPrescription = [.. _newPrescription.Select(row => row.ExerciseId == Guid.Empty ? NewPrescriptionRow() : row)];
+        }
+    }
+
+    /// <summary>
+    /// A prescription row without an exercise would be refused as <c>workout_series.exercise.required</c>,
+    /// while the select already shows the first catalog entry; the id must match what the select shows.
+    /// </summary>
+    private PrescriptionRow NewPrescriptionRow() =>
+        new() { ExerciseId = _catalog.FirstOrDefault()?.Id ?? Guid.Empty };
+
+    private sealed class WorkoutRow
+    {
+        public Guid Id { get; init; }
+
+        public string Label { get; init; } = string.Empty;
+
+        public string Name { get; set; } = string.Empty;
+
+        public List<PrescriptionRow> Prescription { get; init; } = [];
+    }
+}

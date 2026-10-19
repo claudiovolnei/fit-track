@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 using System.Security.Claims;
 using System.Text;
 
@@ -35,14 +36,16 @@ builder.Services.AddScoped<IListMuscleGroups, ListMuscleGroups>();
 builder.Services.AddScoped<IUpdateMuscleGroup, UpdateMuscleGroup>();
 builder.Services.AddScoped<IListUserSessions, ListUserSessions>();
 builder.Services.AddScoped<IListAthletes, ListAthletes>();
-builder.Services.AddScoped<IAssignWorkoutPlan, AssignWorkoutPlan>();
-builder.Services.AddScoped<IAddWorkoutPlanOption, AddWorkoutPlanOption>();
-builder.Services.AddScoped<IChangeWorkoutPlanOption, ChangeWorkoutPlanOption>();
-builder.Services.AddScoped<IRemoveWorkoutPlanOption, RemoveWorkoutPlanOption>();
-builder.Services.AddScoped<IListTrainerPlans, ListTrainerPlans>();
-builder.Services.AddScoped<IGetWorkoutPlan, GetWorkoutPlan>();
+builder.Services.AddScoped<ICreateWorkoutSeries, CreateWorkoutSeries>();
+builder.Services.AddScoped<IListWorkoutSeries, ListWorkoutSeries>();
+builder.Services.AddScoped<IGetWorkoutSeries, GetWorkoutSeries>();
+builder.Services.AddScoped<IRenameWorkoutSeries, RenameWorkoutSeries>();
+builder.Services.AddScoped<IAddSeriesWorkout, AddSeriesWorkout>();
+builder.Services.AddScoped<IChangeSeriesWorkout, ChangeSeriesWorkout>();
+builder.Services.AddScoped<IRemoveSeriesWorkout, RemoveSeriesWorkout>();
+builder.Services.AddScoped<IAssignWorkoutSeries, AssignWorkoutSeries>();
 builder.Services.AddScoped<IListAthleteWorkouts, ListAthleteWorkouts>();
-builder.Services.AddScoped<IGetMyWorkoutPlan, GetMyWorkoutPlan>();
+builder.Services.AddScoped<IGetMyWorkoutSeries, GetMyWorkoutSeries>();
 builder.Services.AddScoped<IStartWorkout, StartWorkout>();
 builder.Services.AddScoped<ILogPerformedSet, LogPerformedSet>();
 builder.Services.AddScoped<IFinishWorkout, FinishWorkout>();
@@ -114,6 +117,10 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 
+    // Documentation UI on /scalar, reading the document the API already exposes on /openapi/v1.json.
+    // Development-only, like the seeded accounts.
+    app.MapScalarApiReference();
+
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<FitTrackDbContext>().Database.MigrateAsync();
     await DevelopmentSeeder.SeedAsync(scope.ServiceProvider);
@@ -130,7 +137,7 @@ app.MapAdminEndpoints();
 app.MapExerciseEndpoints();
 app.MapMuscleGroupEndpoints();
 app.MapSessionEndpoints();
-app.MapWorkoutPlanEndpoints();
+app.MapWorkoutSeriesEndpoints();
 
 await app.RunAsync();
 

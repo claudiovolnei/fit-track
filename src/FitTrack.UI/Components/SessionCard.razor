@@ -1,0 +1,74 @@
+@* Um treino do histórico: quando foi, quanto durou e o que foi registrado. *@
+
+<article class="card session-card">
+    <div class="session-head">
+        <div class="date-block">
+            <span class="date-day">@Session.WorkoutDate.Day.ToString("00")</span>
+            <span class="date-month">@DisplayText.ShortMonth(Session.WorkoutDate)</span>
+        </div>
+
+        <div class="session-title">
+            <h3>Treino de @DisplayText.LongDate(Session.WorkoutDate)</h3>
+            <p class="muted">
+                @if (Session.IsRunning)
+                {
+                    <span>Em andamento desde @Session.StartedAt.ToLocalTime().ToString("HH:mm")</span>
+                }
+                else
+                {
+                    <span>@DisplayText.Duration(Session.DurationSeconds) · início às @Session.StartedAt.ToLocalTime().ToString("HH:mm")</span>
+                }
+            </p>
+        </div>
+
+        <span class="chip @(Session.IsRunning ? "chip--accent" : "chip--success")">
+            @(Session.IsRunning ? "Em andamento" : "Concluído")
+        </span>
+    </div>
+
+    @if (Session.Sets.Count == 0)
+    {
+        <p class="muted" style="margin-top: 14px; font-size: 0.86rem;">Nenhuma série registrada.</p>
+    }
+    else
+    {
+        <div class="summary-strip">
+            <span class="summary-item">
+                <AppIcon Name="dumbbell" Size="15" />
+                @Session.Sets.Count @(Session.Sets.Count == 1 ? "série" : "séries")
+            </span>
+            <span class="summary-item">
+                <AppIcon Name="scale" Size="15" />
+                @DisplayText.Volume(Volume)
+            </span>
+            <span class="summary-item">
+                <AppIcon Name="timer" Size="15" />
+                @DisplayText.Duration(Session.DurationSeconds)
+            </span>
+        </div>
+
+        <div class="session-sets-list">
+            @foreach (var set in Session.Sets)
+            {
+                <div class="session-set-row">
+                    <span>@ExerciseName(set.ExerciseId)</span>
+                    <span class="set-pill">@set.LoadKilograms.ToString("0.##") kg × @set.Repetitions</span>
+                </div>
+            }
+        </div>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public WorkoutSessionResponse Session { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<Guid, string> ExerciseNames { get; set; } = null!;
+
+    private decimal Volume =>
+        Session.Sets.Sum(set => set.LoadKilograms * set.Repetitions);
+
+    private string ExerciseName(Guid exerciseId) =>
+        ExerciseNames.TryGetValue(exerciseId, out var name) ? name : exerciseId.ToString();
+}

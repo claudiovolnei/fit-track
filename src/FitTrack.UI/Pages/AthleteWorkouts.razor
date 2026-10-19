@@ -1,0 +1,96 @@
+@page "/athletes/{UserId:guid}/workouts"
+@attribute [Authorize(Roles = "PersonalTrainer")]
+@inject FitTrackApiClient Api
+
+<PageTitle>Treinos do atleta — FitTrack</PageTitle>
+
+<a class="back-link" href="/athletes">
+    <AppIcon Name="arrow-left" Size="16" />
+    Atletas
+</a>
+
+<PageHeader Eyebrow="Histórico do atleta"
+            Title="@($"Treinos de {DisplayText.NameFromEmail(_email)}")"
+            Subtitle="@(_email ?? UserId.ToString())" />
+
+@if (_error is not null)
+{
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Carregando treinos…</span>
+    </div>
+}
+else if (_sessions.Count == 0)
+{
+    <div class="empty-state">
+        <AppIcon Name="history" Size="28" />
+        <h2>Nada registrado ainda</h2>
+        <p>Este atleta ainda não iniciou nenhum treino.</p>
+    </div>
+}
+else
+{
+    <div class="stat-grid" style="margin-bottom: 22px;">
+        <article class="stat">
+            <span class="stat-label">Treinos</span>
+            <span class="stat-value">@_sessions.Count</span>
+        </article>
+        <article class="stat">
+            <span class="stat-label">Séries</span>
+            <span class="stat-value">@_sessions.Sum(session => session.Sets.Count)</span>
+        </article>
+        <article class="stat">
+            <span class="stat-label">Volume</span>
+            <span class="stat-value">@DisplayText.Volume(TotalVolume)</span>
+        </article>
+    </div>
+
+    @foreach (var session in _sessions)
+    {
+        <SessionCard @key="session.Id" Session="session" ExerciseNames="_exerciseNames" />
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid UserId { get; set; }
+
+    private IReadOnlyList<WorkoutSessionResponse> _sessions = [];
+    private IReadOnlyDictionary<Guid, string> _exerciseNames = new Dictionary<Guid, string>();
+    private string? _email;
+    private bool _loading = true;
+    private string? _error;
+
+    private decimal TotalVolume =>
+        _sessions.SelectMany(session => session.Sets).Sum(set => set.LoadKilograms * set.Repetitions);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var exercises = await Api.GetExercisesAsync();
+            _exerciseNames = exercises.ToDictionary(exercise => exercise.Id, exercise => exercise.Name);
+
+            var athletes = await Api.GetAthletesAsync();
+            _email = athletes.FirstOrDefault(athlete => athlete.UserId == UserId)?.Email;
+
+            _sessions = await Api.GetAthleteWorkoutsAsync(UserId);
+        }
+        catch (ApiException exception)
+        {
+            _error = ErrorMessages.Describe(exception);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

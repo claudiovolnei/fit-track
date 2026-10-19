@@ -6,8 +6,8 @@ namespace FitTrack.Adapters.In.Api.Endpoints;
 
 /// <summary>
 /// Inbound adapter for the athlete's workout. The POST that used to record a session on any date now
-/// means "start today's workout from the option I picked": the clock is the server's, the session is
-/// unique per option per day, and the timer lives until the athlete finishes.
+/// means "start today's workout from the workout I picked": the clock is the server's, the session is
+/// unique per workout per day, and the timer lives until the athlete finishes.
 /// </summary>
 internal static class SessionEndpoints
 {
@@ -35,7 +35,7 @@ internal static class SessionEndpoints
         CancellationToken cancellationToken)
     {
         var result = await useCase.ExecuteAsync(
-            new StartWorkoutCommand(request.WorkoutPlanOptionId),
+            new StartWorkoutCommand(request.WorkoutSeriesWorkoutId),
             cancellationToken);
 
         return result.Started
@@ -50,7 +50,7 @@ internal static class SessionEndpoints
         CancellationToken cancellationToken)
     {
         var session = await useCase.ExecuteAsync(
-            new LogPerformedSetCommand(sessionId, request.ExerciseId, request.LoadKilograms, request.Repetitions),
+            new LogPerformedSetCommand(sessionId, request.ExerciseId, request.LoadKilograms),
             cancellationToken);
 
         return Results.Created($"/sessions/{sessionId}", session);

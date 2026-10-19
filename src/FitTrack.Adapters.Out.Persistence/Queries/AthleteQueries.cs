@@ -1,24 +1,61 @@
 using FitTrack.Application.Dtos;
 using FitTrack.Application.Ports.Out;
 using FitTrack.Domain.Identity;
+using FitTrack.Domain.WorkoutPlanning;
 using Microsoft.EntityFrameworkCore;
 
 namespace FitTrack.Adapters.Out.Persistence.Queries;
 
 /// <summary>
-/// Read-side adapter for the accounts a plan can be assigned to. An athlete is an account holding the
-/// athlete profile; the query answers on the Identity tables plus whether a plan already exists.
+/// Read-side adapter for the accounts a series can be assigned to. An athlete is an account holding the
+/// athlete profile; the query answers on the Identity tables plus the series each one follows and the
+/// days left of its term.
 /// </summary>
 internal sealed class AthleteQueries(FitTrackDbContext dbContext) : IQueryAthletes
 {
-    public async Task<IReadOnlyList<AthleteDto>> ListAsync(CancellationToken cancellationToken) =>
-        await Athletes()
+    public async Task<IReadOnlyList<AthleteDto>> ListAsync(
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var athletes = await Athletes()
             .OrderBy(user => user.Email)
-            .Select(user => new AthleteDto(
-                user.Id,
-                user.Email!,
-                dbContext.WorkoutPlans.Any(plan => plan.UserId == user.Id)))
+            .Select(user => new { user.Id, user.Email })
             .ToListAsync(cancellationToken);
+
+        var assignments = await dbContext.WorkoutSeriesAssignments
+            .AsNoTracking()
+            .Join(
+                dbContext.WorkoutSeries.AsNoTracking(),
+                assignment => assignment.WorkoutSeriesId,
+                series => series.Id,
+                (assignment, series) => new
+                {
+                    assignment.UserId,
+                    assignment.WorkoutSeriesId,
+                    assignment.ExpiresAt,
+                    SeriesName = series.Name,
+                })
+            .ToListAsync(cancellationToken);
+
+        var byUser = assignments.ToDictionary(assignment => assignment.UserId);
+
+        return
+        [
+            .. athletes.Select(athlete =>
+            {
+                var assigned = byUser.GetValueOrDefault(athlete.Id);
+
+                return assigned is null
+                    ? new AthleteDto(athlete.Id, athlete.Email!, null, null, 0)
+                    : new AthleteDto(
+                        athlete.Id,
+                        athlete.Email!,
+                        assigned.WorkoutSeriesId,
+                        assigned.SeriesName,
+                        WorkoutSeriesAssignment.DaysRemainingUntil(assigned.ExpiresAt, now));
+            }),
+        ];
+    }
 
     public Task<bool> ExistsAsync(UserId userId, CancellationToken cancellationToken) =>
         Athletes().AnyAsync(user => user.Id == userId.Value, cancellationToken);

@@ -22,14 +22,35 @@ internal static class AuthEndpoints
         return app;
     }
 
+    private const int MaxNameLength = 80;
+
     private static async Task<IResult> RegisterAsync(
         RegisterAccountRequest request,
         UserManager<AppUser> users,
         CancellationToken cancellationToken)
     {
+        var name = request.Name?.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["Name"] = ["Name is required."],
+            });
+        }
+
+        if (name.Length > MaxNameLength)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["Name"] = [$"Name must be at most {MaxNameLength} characters."],
+            });
+        }
+
         var account = new AppUser
         {
             Id = Guid.NewGuid(),
+            Name = name,
             UserName = request.Email,
             Email = request.Email,
         };
@@ -42,7 +63,7 @@ internal static class AuthEndpoints
 
         await users.AddToRoleAsync(account, Roles.User);
 
-        return Results.Created($"/accounts/{account.Id}", new { account.Id, account.Email });
+        return Results.Created($"/accounts/{account.Id}", new { account.Id, account.Name, account.Email });
     }
 
     private static async Task<IResult> LoginAsync(

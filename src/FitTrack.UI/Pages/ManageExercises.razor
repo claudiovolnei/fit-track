@@ -2,122 +2,158 @@
 @attribute [Authorize(Roles = "PersonalTrainer")]
 @inject FitTrackApiClient Api
 
-<PageTitle>Manage catalog</PageTitle>
+<PageTitle>Gerenciar catálogo — FitTrack</PageTitle>
 
-<h1>Manage catalog</h1>
+<PageHeader Eyebrow="Gestão"
+            Title="Gerenciar catálogo"
+            Subtitle="Organize os grupos musculares e mantenha os exercícios disponíveis para as séries." />
 
 @if (_error is not null)
 {
-    <p class="error">@_error</p>
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
 }
 
-<section class="card">
-    <h2>Muscle groups</h2>
-
-    <EditForm Model="_newGroup" OnValidSubmit="CreateGroupAsync">
-        <DataAnnotationsValidator />
-
-        <div class="field">
-            <label for="new-group">Name</label>
-            <InputText id="new-group" @bind-Value="_newGroup.Name" />
-            <ValidationMessage For="() => _newGroup.Name" />
+<div class="manage-grid">
+    <section class="card">
+        <div class="section-head">
+            <h2>Grupos musculares</h2>
+            <span class="chip">@_groups.Count</span>
         </div>
 
-        <button type="submit" disabled="@_busy">Add muscle group</button>
-    </EditForm>
+        <EditForm Model="_newGroup" OnValidSubmit="CreateGroupAsync">
+            <DataAnnotationsValidator />
 
-    @if (_groups.Count == 0)
-    {
-        <p class="muted">No muscle group yet — create one before adding exercises.</p>
-    }
-    else
-    {
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
+            <div class="inline-form">
+                <div class="field">
+                    <label for="new-group">Nome do grupo</label>
+                    <InputText id="new-group" placeholder="Ex.: Peito" @bind-Value="_newGroup.Name" />
+                    <ValidationMessage For="() => _newGroup.Name" />
+                </div>
+
+                <button class="btn btn-primary" type="submit" disabled="@_busy">
+                    <AppIcon Name="plus" Size="18" />
+                    Adicionar
+                </button>
+            </div>
+        </EditForm>
+
+        <hr class="divider" />
+
+        @if (_groups.Count == 0)
+        {
+            <p class="muted" style="font-size: 0.86rem;">Nenhum grupo ainda — crie um antes de cadastrar exercícios.</p>
+        }
+        else
+        {
+            <div class="entity-list">
                 @foreach (var group in _groups)
                 {
-                    <tr @key="group.Id">
-                        <td><input @bind="group.Name" /></td>
-                        <td>
-                            <button type="button" class="secondary" @onclick="() => SaveGroupAsync(group)">Save</button>
-                        </td>
-                    </tr>
+                    <div class="entity-row entity-row--group" @key="group.Id">
+                        <div class="field">
+                            <label for="group-name-@group.Id">Grupo</label>
+                            <input id="group-name-@group.Id" @bind="group.Name" />
+                        </div>
+
+                        <div class="entity-row-actions">
+                            <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                                    @onclick="() => SaveGroupAsync(group)">
+                                Salvar
+                            </button>
+                        </div>
+                    </div>
                 }
-            </tbody>
-        </table>
-    }
-</section>
+            </div>
+        }
+    </section>
 
-<section class="card">
-    <h2>New exercise</h2>
-
-    <EditForm Model="_create" OnValidSubmit="CreateAsync">
-        <DataAnnotationsValidator />
-
-        <div class="field">
-            <label for="new-name">Name</label>
-            <InputText id="new-name" @bind-Value="_create.Name" />
-            <ValidationMessage For="() => _create.Name" />
+    <section class="card">
+        <div class="section-head">
+            <h2>Novo exercício</h2>
+            <span class="chip">@_rows.Count no catálogo</span>
         </div>
 
-        <div class="field">
-            <label for="new-exercise-group">Muscle group</label>
-            <InputSelect id="new-exercise-group" @bind-Value="_create.MuscleGroupId">
-                <option value="@Guid.Empty">Select a muscle group…</option>
-                @foreach (var group in _groups)
-                {
-                    <option value="@group.Id">@group.Name</option>
-                }
-            </InputSelect>
-        </div>
+        <EditForm Model="_create" OnValidSubmit="CreateAsync">
+            <DataAnnotationsValidator />
 
-        <button type="submit" disabled="@(_busy || _groups.Count == 0)">Add exercise</button>
-    </EditForm>
-</section>
+            <div class="field">
+                <label for="new-name">Nome do exercício</label>
+                <InputText id="new-name" placeholder="Ex.: Supino reto" @bind-Value="_create.Name" />
+                <ValidationMessage For="() => _create.Name" />
+            </div>
 
-<section>
-    <h2>Exercises</h2>
+            <div class="field">
+                <label for="new-exercise-group">Grupo muscular</label>
+                <InputSelect id="new-exercise-group" @bind-Value="_create.MuscleGroupId">
+                    <option value="@Guid.Empty">Selecione um grupo…</option>
+                    @foreach (var group in _groups)
+                    {
+                        <option value="@group.Id">@group.Name</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <button class="btn btn-primary btn-block" type="submit" disabled="@(_busy || _groups.Count == 0)">
+                <AppIcon Name="plus" Size="18" />
+                Adicionar exercício
+            </button>
+        </EditForm>
+    </section>
+</div>
+
+<section class="section">
+    <div class="section-head">
+        <h2>Exercícios</h2>
+        <span class="muted" style="font-size: 0.84rem;">@_rows.Count @(_rows.Count == 1 ? "exercício" : "exercícios")</span>
+    </div>
 
     @if (_rows.Count == 0)
     {
-        <p class="muted">Nothing to manage yet.</p>
+        <div class="empty-state">
+            <AppIcon Name="library" Size="28" />
+            <h2>Nada para gerenciar ainda</h2>
+            <p>Cadastre o primeiro exercício no formulário acima.</p>
+        </div>
     }
     else
     {
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Muscle group</th>
-                    <th>Active</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="card card--flat">
+            <div class="entity-list">
                 @foreach (var row in _rows)
                 {
-                    <tr @key="row.Id">
-                        <td><input @bind="row.Name" /></td>
-                        <td>
-                            <select @bind="row.MuscleGroupId">
+                    <div class="entity-row" @key="row.Id">
+                        <div class="field">
+                            <label for="exercise-name-@row.Id">Nome</label>
+                            <input id="exercise-name-@row.Id" @bind="row.Name" />
+                        </div>
+
+                        <div class="field">
+                            <label for="exercise-group-@row.Id">Grupo</label>
+                            <select id="exercise-group-@row.Id" @bind="row.MuscleGroupId">
                                 @foreach (var group in _groups)
                                 {
                                     <option value="@group.Id">@group.Name</option>
                                 }
                             </select>
-                        </td>
-                        <td><input type="checkbox" @bind="row.IsActive" /></td>
-                        <td><button type="button" class="secondary" @onclick="() => SaveAsync(row)">Save</button></td>
-                    </tr>
+                        </div>
+
+                        <label class="switch">
+                            <input type="checkbox" @bind="row.IsActive" />
+                            Ativo
+                        </label>
+
+                        <div class="entity-row-actions">
+                            <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                                    @onclick="() => SaveAsync(row)">
+                                Salvar
+                            </button>
+                        </div>
+                    </div>
                 }
-            </tbody>
-        </table>
+            </div>
+        </div>
     }
 </section>
 
@@ -149,7 +185,7 @@
     {
         if (_create.MuscleGroupId == Guid.Empty)
         {
-            _error = "Select a muscle group for the exercise.";
+            _error = "Selecione um grupo muscular para o exercício.";
             return;
         }
 
@@ -181,7 +217,7 @@
         }
         catch (ApiException exception)
         {
-            _error = exception.Message;
+            _error = ErrorMessages.Describe(exception);
         }
         finally
         {
@@ -201,13 +237,13 @@
         }
         catch (ApiException exception)
         {
-            _error = exception.Message;
+            _error = ErrorMessages.Describe(exception);
         }
     }
 
     private sealed class Model
     {
-        [Required(ErrorMessage = "Name is required.")]
+        [Required(ErrorMessage = "Informe um nome.")]
         public string Name { get; set; } = string.Empty;
 
         public Guid MuscleGroupId { get; set; } = Guid.Empty;

@@ -8,6 +8,8 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    private static readonly IReadOnlyDictionary<string, string[]> NoErrors = new Dictionary<string, string[]>();
+
     public Task RegisterAsync(RegisterAccountRequest request, CancellationToken cancellationToken = default) =>
         PostAsync("auth/register", request, cancellationToken);
 
@@ -64,8 +66,50 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
     public Task CancelWorkoutAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
         DeleteAsync($"sessions/{sessionId}", cancellationToken);
 
-    public Task<WorkoutPlanResponse?> GetMyPlanAsync(CancellationToken cancellationToken = default) =>
-        GetOptionalAsync<WorkoutPlanResponse>("workout-plan", cancellationToken);
+    public Task<MyWorkoutSeriesResponse?> GetMyWorkoutSeriesAsync(CancellationToken cancellationToken = default) =>
+        GetOptionalAsync<MyWorkoutSeriesResponse>("workout-series/mine", cancellationToken);
+
+    public Task<IReadOnlyList<WorkoutSeriesResponse>> GetWorkoutSeriesAsync(CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<WorkoutSeriesResponse>>("workout-series", cancellationToken);
+
+    public Task<WorkoutSeriesResponse> GetWorkoutSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default) =>
+        GetAsync<WorkoutSeriesResponse>($"workout-series/{seriesId}", cancellationToken);
+
+    public Task<WorkoutSeriesResponse> CreateWorkoutSeriesAsync(
+        SetWorkoutSeriesNameRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<WorkoutSeriesResponse>("workout-series", request, cancellationToken);
+
+    public Task<WorkoutSeriesResponse> RenameWorkoutSeriesAsync(
+        Guid seriesId,
+        SetWorkoutSeriesNameRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<WorkoutSeriesResponse>($"workout-series/{seriesId}", request, cancellationToken);
+
+    public Task<WorkoutSeriesWorkoutResponse> AddSeriesWorkoutAsync(
+        Guid seriesId,
+        SetSeriesWorkoutRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<WorkoutSeriesWorkoutResponse>($"workout-series/{seriesId}/workouts", request, cancellationToken);
+
+    public Task<WorkoutSeriesWorkoutResponse> ChangeSeriesWorkoutAsync(
+        Guid seriesId,
+        Guid workoutId,
+        SetSeriesWorkoutRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<WorkoutSeriesWorkoutResponse>($"workout-series/{seriesId}/workouts/{workoutId}", request, cancellationToken);
+
+    public Task RemoveSeriesWorkoutAsync(
+        Guid seriesId,
+        Guid workoutId,
+        CancellationToken cancellationToken = default) =>
+        DeleteAsync($"workout-series/{seriesId}/workouts/{workoutId}", cancellationToken);
+
+    public Task<WorkoutSeriesResponse> AssignWorkoutSeriesAsync(
+        Guid seriesId,
+        AssignWorkoutSeriesRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<WorkoutSeriesResponse>($"workout-series/{seriesId}/assignments", request, cancellationToken);
 
     public Task<IReadOnlyList<AthleteResponse>> GetAthletesAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<AthleteResponse>>("athletes", cancellationToken);
@@ -75,36 +119,6 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<WorkoutSessionResponse>>($"athletes/{userId}/workouts", cancellationToken);
 
-    public Task<IReadOnlyList<WorkoutPlanResponse>> GetPlansAsync(CancellationToken cancellationToken = default) =>
-        GetAsync<IReadOnlyList<WorkoutPlanResponse>>("workout-plans", cancellationToken);
-
-    public Task<WorkoutPlanResponse> GetPlanAsync(Guid planId, CancellationToken cancellationToken = default) =>
-        GetAsync<WorkoutPlanResponse>($"workout-plans/{planId}", cancellationToken);
-
-    public Task<WorkoutPlanResponse> AssignPlanAsync(
-        AssignWorkoutPlanRequest request,
-        CancellationToken cancellationToken = default) =>
-        PostAsync<WorkoutPlanResponse>("workout-plans", request, cancellationToken);
-
-    public Task<WorkoutPlanOptionResponse> AddPlanOptionAsync(
-        Guid planId,
-        SetWorkoutPlanOptionRequest request,
-        CancellationToken cancellationToken = default) =>
-        PostAsync<WorkoutPlanOptionResponse>($"workout-plans/{planId}/options", request, cancellationToken);
-
-    public Task<WorkoutPlanOptionResponse> ChangePlanOptionAsync(
-        Guid planId,
-        Guid optionId,
-        SetWorkoutPlanOptionRequest request,
-        CancellationToken cancellationToken = default) =>
-        PutAsync<WorkoutPlanOptionResponse>($"workout-plans/{planId}/options/{optionId}", request, cancellationToken);
-
-    public Task RemovePlanOptionAsync(
-        Guid planId,
-        Guid optionId,
-        CancellationToken cancellationToken = default) =>
-        DeleteAsync($"workout-plans/{planId}/options/{optionId}", cancellationToken);
-
     private async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken)
     {
         using var response = await httpClient.GetAsync(path, cancellationToken);
@@ -113,8 +127,8 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
     }
 
     /// <summary>
-    /// Reads a resource that may legitimately be absent. The API answers <c>200</c> with an empty body
-    /// when the athlete has no plan yet, which is a state and not an error.
+    /// Reads a resource that may legitimately be absent. The API answers <c>204</c> with no body when
+    /// the athlete has no series yet, which is a state and not an error.
     /// </summary>
     private async Task<T?> GetOptionalAsync<T>(string path, CancellationToken cancellationToken)
     {
@@ -164,7 +178,7 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 
         return JsonSerializer.Deserialize<T>(payload, JsonOptions)
-            ?? throw new ApiException(response.StatusCode, "The API returned an empty response.");
+            ?? throw new ApiException(response.StatusCode, "O servidor respondeu sem conteúdo. Tente de novo.");
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -175,42 +189,87 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         }
 
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
-        var message = ReadProblemMessage(payload) ?? response.ReasonPhrase ?? "The request failed.";
+        var problem = ReadProblem(payload);
 
-        throw new ApiException(response.StatusCode, message);
+        throw new ApiException(
+            response.StatusCode,
+            problem.Message ?? "Não foi possível concluir a ação. Tente de novo.",
+            problem.Code,
+            problem.Errors);
     }
 
-    private static string? ReadProblemMessage(string payload)
+    /// <summary>
+    /// As três peças que a tela aproveita de um <c>ProblemDetails</c>: o código da regra (<c>title</c>),
+    /// algo para mostrar (<c>detail</c>) e, nos problemas de validação, a mensagem de cada campo. Uma
+    /// resposta que não é um problema conhecido cai no motivo do HTTP.
+    /// </summary>
+    private static (string? Code, string? Message, IReadOnlyDictionary<string, string[]> Errors) ReadProblem(string payload)
     {
         if (string.IsNullOrWhiteSpace(payload))
         {
-            return null;
+            return (null, null, NoErrors);
         }
 
         try
         {
             using var document = JsonDocument.Parse(payload);
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            var root = document.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Object)
             {
-                return null;
+                return (null, null, NoErrors);
             }
 
-            foreach (var property in new[] { "detail", "title", "message" })
-            {
-                if (document.RootElement.TryGetProperty(property, out var value) &&
-                    value.ValueKind == JsonValueKind.String)
-                {
-                    return value.GetString();
-                }
-            }
+            var errors = ReadErrors(root);
+            var detail = ReadString(root, "detail") ?? ReadString(root, "message");
 
-            return null;
+            var message = detail ?? (errors.Count > 0
+                ? string.Join(' ', errors.SelectMany(pair => pair.Value))
+                : ReadString(root, "title"));
+
+            return (ReadString(root, "title"), message, errors);
         }
         catch (JsonException)
         {
-            return null;
+            return (null, null, NoErrors);
         }
     }
+
+    private static IReadOnlyDictionary<string, string[]> ReadErrors(JsonElement root)
+    {
+        if (!root.TryGetProperty("errors", out var errors) || errors.ValueKind != JsonValueKind.Object)
+        {
+            return NoErrors;
+        }
+
+        var messages = new Dictionary<string, string[]>();
+
+        foreach (var field in errors.EnumerateObject())
+        {
+            if (field.Value.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            var values = field.Value.EnumerateArray()
+                .Where(value => value.ValueKind == JsonValueKind.String)
+                .Select(value => value.GetString() ?? string.Empty)
+                .Where(value => value.Length > 0)
+                .ToArray();
+
+            if (values.Length > 0)
+            {
+                messages[field.Name] = values;
+            }
+        }
+
+        return messages;
+    }
+
+    private static string? ReadString(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     private static HttpContent ToJsonContent(object body) =>
         new StringContent(JsonSerializer.Serialize(body, JsonOptions), Encoding.UTF8, "application/json");

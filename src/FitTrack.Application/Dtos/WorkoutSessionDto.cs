@@ -7,5 +7,5 @@ public sealed record WorkoutSessionDto(
     DateTimeOffset StartedAt,
     DateTimeOffset? FinishedAt,
     int DurationSeconds,
-    Guid? WorkoutPlanOptionId,
+    Guid? WorkoutSeriesWorkoutId,
     IReadOnlyList<PerformedSetDto> Sets);

@@ -1,0 +1,170 @@
+@page "/series"
+@attribute [Authorize(Roles = "PersonalTrainer")]
+@inject FitTrackApiClient Api
+
+<PageTitle>Séries de treino — FitTrack</PageTitle>
+
+<PageHeader Eyebrow="Gestão"
+            Title="Séries de treino"
+            Subtitle="Uma série é um modelo reutilizável: monte os treinos uma vez e vincule a quantos atletas quiser.">
+    <Actions>
+        <a class="btn btn-secondary" href="/athletes">
+            <AppIcon Name="users" Size="18" />
+            Atletas
+        </a>
+    </Actions>
+</PageHeader>
+
+@if (_error is not null)
+{
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
+}
+
+<section class="card card--accent" style="margin-bottom: 26px;">
+    <div class="section-head">
+        <h2>Nova série</h2>
+        <span class="chip">Modelo reutilizável</span>
+    </div>
+
+    <div class="inline-form">
+        <div class="field">
+            <label for="series-name">Nome da série</label>
+            <input id="series-name" maxlength="80" placeholder="Ex.: Hipertrofia — 4 dias"
+                   @bind="_newName" @bind:event="oninput" />
+        </div>
+
+        <button class="btn btn-primary" type="button"
+                disabled="@(_busy || string.IsNullOrWhiteSpace(_newName))"
+                @onclick="CreateAsync">
+            <AppIcon Name="plus" Size="18" />
+            Criar série
+        </button>
+    </div>
+</section>
+
+@if (_loading)
+{
+    <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Carregando séries…</span>
+    </div>
+}
+else if (_rows.Count == 0)
+{
+    <div class="empty-state">
+        <AppIcon Name="layers" Size="28" />
+        <h2>Nenhuma série ainda</h2>
+        <p>Crie a primeira série acima e comece a montar os treinos A–E.</p>
+    </div>
+}
+else
+{
+    <div class="section-head">
+        <h2>Suas séries</h2>
+        <span class="muted" style="font-size: 0.84rem;">@_rows.Count @(_rows.Count == 1 ? "série" : "séries")</span>
+    </div>
+
+    <div class="card-grid">
+        @foreach (var row in _rows)
+        {
+            <article class="card series-card" @key="row.Id">
+                <div class="series-head">
+                    <span class="icon-tile"><AppIcon Name="layers" /></span>
+                    <div style="min-width: 0;">
+                        <h2>@row.Name</h2>
+                        <p>@row.WorkoutCount @(row.WorkoutCount == 1 ? "treino" : "treinos")</p>
+                    </div>
+                </div>
+
+                <div class="inline-form">
+                    <div class="field">
+                        <label for="series-rename-@row.Id">Renomear</label>
+                        <input id="series-rename-@row.Id" maxlength="80" @bind="row.Name" />
+                    </div>
+
+                    <button class="btn btn-secondary" type="button" disabled="@_busy" @onclick="() => RenameAsync(row)">
+                        Salvar nome
+                    </button>
+                </div>
+
+                <div class="actions" style="margin-top: 14px;">
+                    <a class="btn btn-primary btn-block" href="/series/@row.Id">
+                        Abrir série
+                        <AppIcon Name="chevron-right" Size="18" />
+                    </a>
+                </div>
+            </article>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<SeriesRow> _rows = [];
+    private string _newName = string.Empty;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
+
+    private async Task CreateAsync() =>
+        await RunAsync(async () =>
+        {
+            await Api.CreateWorkoutSeriesAsync(new SetWorkoutSeriesNameRequest(_newName));
+            _newName = string.Empty;
+            await ReloadAsync();
+        });
+
+    private async Task RenameAsync(SeriesRow row) =>
+        await RunAsync(async () =>
+        {
+            await Api.RenameWorkoutSeriesAsync(row.Id, new SetWorkoutSeriesNameRequest(row.Name));
+            await ReloadAsync();
+        });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await action();
+        }
+        catch (ApiException exception)
+        {
+            _error = ErrorMessages.Describe(exception);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _rows =
+        [
+            .. (await Api.GetWorkoutSeriesAsync()).Select(series => new SeriesRow
+            {
+                Id = series.Id,
+                Name = series.Name,
+                WorkoutCount = series.Workouts.Count,
+            }),
+        ];
+
+        _loading = false;
+    }
+
+    private sealed class SeriesRow
+    {
+        public Guid Id { get; init; }
+
+        public string Name { get; set; } = string.Empty;
+
+        public int WorkoutCount { get; init; }
+    }
+}

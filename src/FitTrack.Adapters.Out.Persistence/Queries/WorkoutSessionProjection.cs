@@ -14,7 +14,7 @@ internal sealed record WorkoutSessionRow(
     DateOnly WorkoutDate,
     DateTimeOffset StartedAt,
     DateTimeOffset? FinishedAt,
-    Guid? WorkoutPlanOptionId,
+    Guid? WorkoutSeriesWorkoutId,
     IReadOnlyList<PerformedSetDto> Sets)
 {
     /// <summary>Elapsed seconds at <paramref name="now"/>: frozen once finished, running until then.</summary>
@@ -25,7 +25,7 @@ internal sealed record WorkoutSessionRow(
             StartedAt,
             FinishedAt,
             (int)((FinishedAt ?? now) - StartedAt).TotalSeconds,
-            WorkoutPlanOptionId,
+            WorkoutSeriesWorkoutId,
             Sets);
 }
 
@@ -45,7 +45,7 @@ internal static class WorkoutSessionProjection
                 session.WorkoutDate,
                 session.StartedAt,
                 session.FinishedAt,
-                session.WorkoutPlanOptionId,
+                session.WorkoutSeriesWorkoutId,
                 session.Sets
                     .OrderBy(set => set.Position)
                     .Select(set => new PerformedSetDto(

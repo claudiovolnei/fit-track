@@ -52,18 +52,18 @@ public sealed class WorkoutSessionTests
     }
 
     [Fact]
-    public void StartFromPlannedWorkout_KeepsTheOptionItCameFrom()
+    public void StartFromPlannedWorkout_KeepsTheWorkoutItCameFrom()
     {
-        var option = WorkoutPlanOptionId.New();
+        var workout = WorkoutSeriesWorkoutId.New();
 
         var session = WorkoutSession.StartFromPlannedWorkout(
             WorkoutSessionId.New(),
             AnyUser,
             AnyDate,
             AnyStart,
-            option);
+            workout);
 
-        Assert.Equal(option, session.PlannedOptionId);
+        Assert.Equal(workout, session.PlannedWorkoutId);
         Assert.Equal(AnyStart, session.StartedAt);
         Assert.True(session.IsRunning);
         Assert.False(session.HasSets);

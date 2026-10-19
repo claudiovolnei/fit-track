@@ -10,13 +10,13 @@ public interface IWorkoutSessionRepository
     Task<WorkoutSession?> GetByIdAsync(WorkoutSessionId id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Today's workout already started from that option, if any. It is what makes starting
+    /// Today's workout already started from that series workout, if any. It is what makes starting
     /// idempotent; under a race the partial unique index in the database is the backstop.
     /// </summary>
     Task<WorkoutSession?> GetByPlannedWorkoutAsync(
         UserId userId,
         DateOnly workoutDate,
-        WorkoutPlanOptionId optionId,
+        WorkoutSeriesWorkoutId workoutId,
         CancellationToken cancellationToken);
 
     Task SaveAsync(WorkoutSession session, CancellationToken cancellationToken);
