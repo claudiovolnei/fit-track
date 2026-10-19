@@ -3,8 +3,8 @@ using System.Net;
 namespace FitTrack.UI.Api;
 
 /// <summary>
-/// Erro devolvido pela API. Carrega o código da regra (o <c>title</c> do <c>ProblemDetails</c>), a
-/// mensagem do servidor e, nos problemas de validação, a mensagem de cada campo.
+/// Error returned by the API. Carries the rule code (the <c>title</c> of the <c>ProblemDetails</c>), the
+/// server message and, on validation problems, the message for each field.
 /// </summary>
 public sealed class ApiException : Exception
 {
@@ -25,9 +25,9 @@ public sealed class ApiException : Exception
 
     public HttpStatusCode StatusCode { get; }
 
-    /// <summary>Código da regra que recusou a ação, quando a API manda um.</summary>
+    /// <summary>The rule code that refused the action, when the API sends one.</summary>
     public string? Code { get; }
 
-    /// <summary>Mensagens por campo, nos problemas de validação.</summary>
+    /// <summary>Messages per field, on validation problems.</summary>
     public IReadOnlyDictionary<string, string[]> Errors { get; }
 }

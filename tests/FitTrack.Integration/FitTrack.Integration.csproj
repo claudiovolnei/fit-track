@@ -23,4 +23,9 @@
     <ProjectReference Include="..\..\src\FitTrack.Adapters.In.Api\FitTrack.Adapters.In.Api.csproj" />
   </ItemGroup>
 
+  <!-- The refusal table both test suites assert against, so a fake and an adapter cannot drift apart. -->
+  <ItemGroup>
+    <Compile Include="..\FitTrack.TestCases\*.cs" Link="TestCases\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

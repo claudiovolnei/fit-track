@@ -1,4 +1,4 @@
-@* Editor de uma ficha: o trainer escolhe o exercício, as séries, as repetições e a carga. *@
+@* Editor for a prescription: the trainer picks the exercise, the sets, the repetitions and the load. *@
 
 <fieldset class="prescription">
     <legend>Prescrição</legend>
@@ -38,8 +38,8 @@
                                min="1" max="100" @bind="row.Repetitions" />
                     </div>
 
-                    @* O separador decimal do type=number é o ponto; sem a cultura invariante o
-                       pt-BR escreveria a vírgula e o campo apareceria vazio. *@
+                    @* The decimal separator of type=number is the dot; without the invariant culture
+                       pt-BR would write the comma and the field would show up empty. *@
                     <div class="field">
                         <label for="prescription-load-@prefix">Carga (kg)</label>
                         <input id="prescription-load-@prefix" type="number" inputmode="decimal"

@@ -3,14 +3,14 @@ using System.Globalization;
 namespace FitTrack.UI.Components;
 
 /// <summary>
-/// Formatação de apresentação usada por mais de uma tela. O domínio não conhece nenhuma destas
-/// regras: são apenas a forma como o app fala com quem está treinando.
+/// Presentation formatting shared by more than one screen. The domain knows none of these
+/// rules: they are just the way the app talks to whoever is training.
 /// </summary>
 public static class DisplayText
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
-    /// <summary>Primeiro nome legível a partir do e-mail que o token carrega.</summary>
+    /// <summary>Readable first name from the e-mail the token carries.</summary>
     public static string NameFromEmail(string? email)
     {
         if (string.IsNullOrWhiteSpace(email))
@@ -24,7 +24,7 @@ public static class DisplayText
         return string.Join(' ', words.Select(Capitalize));
     }
 
-    /// <summary>Até duas iniciais para o avatar redondo.</summary>
+    /// <summary>Up to two initials for the round avatar.</summary>
     public static string Initials(string? email)
     {
         var name = NameFromEmail(email);
@@ -47,7 +47,7 @@ public static class DisplayText
             : elapsed.ToString(@"m\:ss", PtBr);
     }
 
-    /// <summary>Volume de treino em quilos, virando toneladas quando o número cresce.</summary>
+    /// <summary>Training volume in kilograms, turning into tonnes once the number grows.</summary>
     public static string Volume(decimal kilograms) =>
         kilograms >= 1000m
             ? $"{kilograms / 1000m:0.#} t"
@@ -61,6 +61,24 @@ public static class DisplayText
 
     public static string Today =>
         DateTime.Today.ToString("dddd, d 'de' MMMM", PtBr);
+
+    /// <summary>
+    /// The profiles the app knows, from strongest to weakest. The API uses the Identity names,
+    /// in English; the order is the one the header and the users screen present.
+    /// </summary>
+    public static IReadOnlyList<string> Roles { get; } = ["Admin", "PersonalTrainer", "User"];
+
+    /// <summary>
+    /// The profile name as the app writes it. The physical education professional's profile is "Personal",
+    /// the same name the Today screen uses for whoever prescribed the series.
+    /// </summary>
+    public static string RoleLabel(string role) => role switch
+    {
+        "Admin" => "Administrador",
+        "PersonalTrainer" => "Personal",
+        "User" => "Atleta",
+        _ => role,
+    };
 
     private static string Capitalize(string word) =>
         word.Length == 0

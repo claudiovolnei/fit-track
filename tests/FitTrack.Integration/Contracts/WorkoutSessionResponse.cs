@@ -7,5 +7,5 @@ public sealed record WorkoutSessionResponse(
     DateTimeOffset StartedAt,
     DateTimeOffset? FinishedAt,
     int DurationSeconds,
-    Guid? WorkoutPlanOptionId,
+    Guid? WorkoutSeriesWorkoutId,
     IReadOnlyList<PerformedSetResponse> Sets);

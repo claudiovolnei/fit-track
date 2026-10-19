@@ -119,6 +119,20 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<WorkoutSessionResponse>>($"athletes/{userId}/workouts", cancellationToken);
 
+    public Task<IReadOnlyList<UserAccountResponse>> GetUsersAsync(CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<UserAccountResponse>>("admin/users", cancellationToken);
+
+    public Task<UserAccountResponse> CreateUserAsync(
+        CreateUserRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<UserAccountResponse>("admin/users", request, cancellationToken);
+
+    public Task GrantRoleAsync(Guid userId, string role, CancellationToken cancellationToken = default) =>
+        PostAsync($"admin/users/{userId}/roles", new GrantRoleRequest(role), cancellationToken);
+
+    public Task RevokeRoleAsync(Guid userId, string role, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"admin/users/{userId}/roles/{role}", cancellationToken);
+
     private async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken)
     {
         using var response = await httpClient.GetAsync(path, cancellationToken);
@@ -199,9 +213,9 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
     }
 
     /// <summary>
-    /// As três peças que a tela aproveita de um <c>ProblemDetails</c>: o código da regra (<c>title</c>),
-    /// algo para mostrar (<c>detail</c>) e, nos problemas de validação, a mensagem de cada campo. Uma
-    /// resposta que não é um problema conhecido cai no motivo do HTTP.
+    /// The three pieces the screen takes from a <c>ProblemDetails</c>: the rule code (<c>title</c>),
+    /// something to show (<c>detail</c>) and, on validation problems, the message for each field. A
+    /// response that is not a known problem falls back to the HTTP reason.
     /// </summary>
     private static (string? Code, string? Message, IReadOnlyDictionary<string, string[]> Errors) ReadProblem(string payload)
     {

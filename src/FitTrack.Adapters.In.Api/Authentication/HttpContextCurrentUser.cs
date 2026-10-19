@@ -15,6 +15,8 @@ internal sealed class HttpContextCurrentUser(IHttpContextAccessor accessor) : IC
 
     public bool IsPersonalTrainer => accessor.HttpContext?.User.IsInRole(Roles.PersonalTrainer) ?? false;
 
+    public bool IsAdmin => accessor.HttpContext?.User.IsInRole(Roles.Admin) ?? false;
+
     private Guid ReadUserId()
     {
         var subject = accessor.HttpContext?.User.FindFirstValue(JwtRegisteredClaimNames.Sub)

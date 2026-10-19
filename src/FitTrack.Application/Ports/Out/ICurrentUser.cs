@@ -12,4 +12,7 @@ public interface ICurrentUser
 
     /// <summary>Authoring the catalog and the training plans belongs to the personal trainer.</summary>
     bool IsPersonalTrainer { get; }
+
+    /// <summary>Managing the accounts belongs to the administrator.</summary>
+    bool IsAdmin { get; }
 }

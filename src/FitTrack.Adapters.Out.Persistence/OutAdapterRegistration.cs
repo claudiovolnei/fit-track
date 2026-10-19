@@ -25,6 +25,7 @@ public static class OutAdapterRegistration
         services.AddScoped<IQueryUserSessions, UserSessionQueries>();
         services.AddScoped<IQueryWorkoutSeries, WorkoutSeriesQueries>();
         services.AddScoped<IQueryAthletes, AthleteQueries>();
+        services.AddScoped<IQueryUsers, UserQueries>();
 
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidIdGenerator>();

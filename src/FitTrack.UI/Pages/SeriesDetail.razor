@@ -33,7 +33,7 @@ else if (_series is null)
     <div class="empty-state">
         <AppIcon Name="layers" Size="28" />
         <h2>Série não encontrada</h2>
-        <p>Ela pode ter sido removida ou pertence a outro personal trainer.</p>
+        <p>Ela pode ter sido removida ou pertence a outro personal.</p>
         <a class="btn btn-secondary" href="/series">Voltar para as séries</a>
     </div>
 }
@@ -204,7 +204,7 @@ else
         }
         catch (ApiException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
         {
-            // A série de outro trainer responde igual à que não existe: não há o que mostrar.
+            // Another trainer's series answers the same as one that does not exist: there is nothing to show.
             _series = null;
             _error = null;
             _loading = false;

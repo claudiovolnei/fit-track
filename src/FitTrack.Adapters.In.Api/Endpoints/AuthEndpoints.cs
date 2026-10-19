@@ -1,4 +1,5 @@
 using FitTrack.Adapters.In.Api.Authentication;
+using FitTrack.Adapters.In.Api.Composition;
 using FitTrack.Adapters.In.Api.Contracts;
 using FitTrack.Adapters.In.Api.Seeding;
 using FitTrack.Adapters.Out.Persistence.Accounts;
@@ -22,35 +23,20 @@ internal static class AuthEndpoints
         return app;
     }
 
-    private const int MaxNameLength = 80;
-
     private static async Task<IResult> RegisterAsync(
         RegisterAccountRequest request,
         UserManager<AppUser> users,
         CancellationToken cancellationToken)
     {
-        var name = request.Name?.Trim();
-
-        if (string.IsNullOrWhiteSpace(name))
+        if (AccountProblems.ProblemWithName(request.Name) is { } nameProblem)
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["Name"] = ["Name is required."],
-            });
-        }
-
-        if (name.Length > MaxNameLength)
-        {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["Name"] = [$"Name must be at most {MaxNameLength} characters."],
-            });
+            return nameProblem;
         }
 
         var account = new AppUser
         {
             Id = Guid.NewGuid(),
-            Name = name,
+            Name = request.Name!.Trim(),
             UserName = request.Email,
             Email = request.Email,
         };
@@ -58,7 +44,7 @@ internal static class AuthEndpoints
         var result = await users.CreateAsync(account, request.Password);
         if (!result.Succeeded)
         {
-            return Results.ValidationProblem(ToErrors(result));
+            return AccountProblems.Validation(result);
         }
 
         await users.AddToRoleAsync(account, Roles.User);
@@ -85,9 +71,4 @@ internal static class AuthEndpoints
 
         return Results.Ok(tokenIssuer.Issue(account.Id, account.Email ?? account.UserName ?? string.Empty, roles));
     }
-
-    private static Dictionary<string, string[]> ToErrors(IdentityResult result) =>
-        result.Errors
-            .GroupBy(error => error.Code)
-            .ToDictionary(group => group.Key, group => group.Select(error => error.Description).ToArray());
 }

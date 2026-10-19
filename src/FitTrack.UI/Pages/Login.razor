@@ -93,15 +93,22 @@
     }
 
     /// <summary>
-    /// Where the user lands after signing in: the trainer opens his series, the athlete opens today's
-    /// workout. A deep link in <c>returnUrl</c> always wins.
+    /// Where the user lands after signing in: the trainer opens his series, the administrator opens the
+    /// accounts, the athlete opens today's workout. A deep link in <c>returnUrl</c> always wins.
     /// </summary>
-    private string Landing(string accessToken) =>
-        string.IsNullOrWhiteSpace(ReturnUrl)
-            ? IsPersonalTrainer(accessToken) ? "/series" : "/today"
-            : $"/{ReturnUrl.TrimStart('/')}";
+    private string Landing(string accessToken)
+    {
+        if (!string.IsNullOrWhiteSpace(ReturnUrl))
+        {
+            return $"/{ReturnUrl.TrimStart('/')}";
+        }
 
-    private static bool IsPersonalTrainer(string accessToken) =>
+        return HasRole(accessToken, "PersonalTrainer") ? "/series"
+            : HasRole(accessToken, "Admin") ? "/admin/users"
+            : "/today";
+    }
+
+    private static bool HasRole(string accessToken, string role) =>
         JwtReader.ReadClaims(accessToken)
-            .Any(claim => claim.Type == ClaimTypes.Role && claim.Value == "PersonalTrainer");
+            .Any(claim => claim.Type == ClaimTypes.Role && claim.Value == role);
 }

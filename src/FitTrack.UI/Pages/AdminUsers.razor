@@ -1,0 +1,253 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+@inject FitTrackApiClient Api
+
+<PageTitle>Usuários — FitTrack</PageTitle>
+
+<PageHeader Eyebrow="Administração"
+            Title="Usuários"
+            Subtitle="Crie contas e conceda os perfis. O cadastro público continua aberto para quem chega sozinho.">
+    <Actions>
+        <a class="btn btn-secondary" href="/exercises">
+            <AppIcon Name="library" Size="18" />
+            Ver catálogo
+        </a>
+    </Actions>
+</PageHeader>
+
+@if (_error is not null)
+{
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
+}
+
+<section class="card card--accent" style="margin-bottom: 26px;">
+    <div class="section-head">
+        <h2>Nova conta</h2>
+        <span class="chip">Você escolhe os perfis</span>
+    </div>
+
+    <EditForm Model="_new" OnValidSubmit="CreateAsync">
+        <DataAnnotationsValidator />
+
+        <div class="field-row">
+            <div class="field">
+                <label for="user-name">Nome</label>
+                <InputText id="user-name" placeholder="Como a pessoa aparece no app" @bind-Value="_new.Name" />
+                <ValidationMessage For="() => _new.Name" />
+            </div>
+
+            <div class="field">
+                <label for="user-email">E-mail</label>
+                <InputText id="user-email" type="email" placeholder="pessoa@exemplo.com"
+                           @bind-Value="_new.Email" />
+                <ValidationMessage For="() => _new.Email" />
+            </div>
+        </div>
+
+        <div class="field">
+            <label for="user-password">Senha</label>
+            <InputText id="user-password" type="password" placeholder="Pelo menos 8 caracteres"
+                       @bind-Value="_new.Password" />
+            <ValidationMessage For="() => _new.Password" />
+        </div>
+
+        <div class="field">
+            <label>Perfis</label>
+            <div class="role-picker">
+                <label class="role-option">
+                    <InputCheckbox @bind-Value="_new.IsAthlete" />
+                    <span>@DisplayText.RoleLabel("User")</span>
+                </label>
+                <label class="role-option">
+                    <InputCheckbox @bind-Value="_new.IsTrainer" />
+                    <span>@DisplayText.RoleLabel("PersonalTrainer")</span>
+                </label>
+                <label class="role-option">
+                    <InputCheckbox @bind-Value="_new.IsAdmin" />
+                    <span>@DisplayText.RoleLabel("Admin")</span>
+                </label>
+            </div>
+        </div>
+
+        <button class="btn btn-primary btn-block" type="submit" disabled="@(_busy || _new.Roles.Count == 0)">
+            <AppIcon Name="plus" Size="18" />
+            Criar conta
+        </button>
+    </EditForm>
+</section>
+
+@if (_loading)
+{
+    <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Carregando usuários…</span>
+    </div>
+}
+else if (_users.Count == 0)
+{
+    <div class="empty-state">
+        <AppIcon Name="users" Size="28" />
+        <h2>Nenhuma conta ainda</h2>
+        <p>Crie a primeira conta no formulário acima.</p>
+    </div>
+}
+else
+{
+    <div class="section-head">
+        <h2>Contas</h2>
+        <span class="muted" style="font-size: 0.84rem;">@_users.Count @(_users.Count == 1 ? "conta" : "contas")</span>
+    </div>
+
+    <div class="card-grid">
+        @foreach (var user in _users)
+        {
+            <article class="card user-card" @key="user.UserId">
+                <div class="user-head">
+                    <span class="avatar avatar--lg">@DisplayText.Initials(user.Name)</span>
+                    <div style="min-width: 0;">
+                        <h2>@user.Name</h2>
+                        @* A legacy account without a name arrives here with the e-mail standing in for it
+                           (the read side's fallback), so the line below would repeat the heading; it only
+                           renders when it adds something. *@
+                        @if (!string.Equals(user.Name, user.Email, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <p>@user.Email</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="user-status">
+                    @if (user.Roles.Count == 0)
+                    {
+                        <span class="chip chip--danger">Sem perfil</span>
+                    }
+                    else
+                    {
+                        @foreach (var role in user.Roles)
+                        {
+                            <span class="chip chip--accent">@DisplayText.RoleLabel(role)</span>
+                        }
+                    }
+                </div>
+
+                <div class="actions">
+                    @foreach (var role in DisplayText.Roles)
+                    {
+                        var granted = user.Roles.Contains(role);
+
+                        <button class="btn btn-sm @(granted ? "btn-danger" : "btn-secondary")" type="button"
+                                disabled="@_busy" @onclick="() => ToggleRoleAsync(user, role, granted)">
+                            <AppIcon Name="@(granted ? "trash" : "plus")" Size="16" />
+                            @(granted ? "Revogar" : "Conceder") @DisplayText.RoleLabel(role)
+                        </button>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<UserAccountResponse> _users = [];
+    private readonly NewUser _new = new();
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
+
+    private async Task CreateAsync() =>
+        await RunAsync(async () =>
+        {
+            await Api.CreateUserAsync(new CreateUserRequest(_new.Name, _new.Email, _new.Password, _new.Roles));
+
+            _new.Reset();
+
+            await ReloadAsync();
+        });
+
+    private async Task ToggleRoleAsync(UserAccountResponse user, string role, bool granted) =>
+        await RunAsync(async () =>
+        {
+            if (granted)
+            {
+                await Api.RevokeRoleAsync(user.UserId, role);
+            }
+            else
+            {
+                await Api.GrantRoleAsync(user.UserId, role);
+            }
+
+            await ReloadAsync();
+        });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await action();
+        }
+        catch (ApiException exception)
+        {
+            _error = ErrorMessages.Describe(exception);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _users = await Api.GetUsersAsync();
+
+        _loading = false;
+    }
+
+    /// <summary>The form of a new account, validated before becoming the body of the POST.</summary>
+    private sealed class NewUser
+    {
+        [Required(ErrorMessage = "Informe o nome.")]
+        [MaxLength(80, ErrorMessage = "Use no máximo 80 caracteres.")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Informe o e-mail.")]
+        [EmailAddress(ErrorMessage = "Informe um e-mail válido.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Informe a senha.")]
+        [MinLength(8, ErrorMessage = "A senha precisa de pelo menos 8 caracteres.")]
+        public string Password { get; set; } = string.Empty;
+
+        public bool IsAthlete { get; set; } = true;
+
+        public bool IsTrainer { get; set; }
+
+        public bool IsAdmin { get; set; }
+
+        /// <summary>The checked profiles, in the order the app presents them.</summary>
+        public IReadOnlyList<string> Roles =>
+            [.. DisplayText.Roles.Where(role => role switch
+            {
+                "Admin" => IsAdmin,
+                "PersonalTrainer" => IsTrainer,
+                _ => IsAthlete,
+            })];
+
+        public void Reset()
+        {
+            Name = string.Empty;
+            Email = string.Empty;
+            Password = string.Empty;
+            IsAthlete = true;
+            IsTrainer = false;
+            IsAdmin = false;
+        }
+    }
+}

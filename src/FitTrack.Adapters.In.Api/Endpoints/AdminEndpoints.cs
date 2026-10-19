@@ -1,7 +1,10 @@
 using FitTrack.Adapters.In.Api.Authentication;
+using FitTrack.Adapters.In.Api.Composition;
 using FitTrack.Adapters.In.Api.Contracts;
 using FitTrack.Adapters.Out.Persistence.Accounts;
+using FitTrack.Application.Dtos;
 using FitTrack.Application.Exceptions;
+using FitTrack.Application.Ports.In;
 using FitTrack.Domain.Common;
 using FitTrack.Domain.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -9,9 +12,9 @@ using Microsoft.AspNetCore.Identity;
 namespace FitTrack.Adapters.In.Api.Endpoints;
 
 /// <summary>
-/// Inbound adapter for account administration. Roles live in Identity, which the inbound
-/// adapters already drive for accounts (see <see cref="AuthEndpoints"/>), so a grant is one
-/// store call plus the input check, not a use case of its own.
+/// Inbound adapter for account administration. The list is a read of its own — a use case that states
+/// who may read it plus a query port; writing an account is one store call whose input is validated
+/// here, which is why creation and the role changes drive Identity from this adapter.
 /// </summary>
 internal static class AdminEndpoints
 {
@@ -21,10 +24,61 @@ internal static class AdminEndpoints
             .WithTags("Administration")
             .RequireAuthorization(Policies.AdminOnly);
 
+        group.MapGet("/users", ListAsync);
+        group.MapPost("/users", CreateAsync);
         group.MapPost("/users/{userId:guid}/roles", GrantAsync);
         group.MapDelete("/users/{userId:guid}/roles/{role}", RevokeAsync);
 
         return app;
+    }
+
+    private static async Task<IResult> ListAsync(IListUsers useCase, CancellationToken cancellationToken) =>
+        Results.Ok(await useCase.ExecuteAsync(cancellationToken));
+
+    private static async Task<IResult> CreateAsync(
+        CreateUserRequest request,
+        UserManager<AppUser> users,
+        CancellationToken cancellationToken)
+    {
+        if (AccountProblems.ProblemWithName(request.Name) is { } nameProblem)
+        {
+            return nameProblem;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            return AccountProblems.Invalid("Email", "Email is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            return AccountProblems.Invalid("Password", "Password is required.");
+        }
+
+        var roles = KnownRoles(request.Roles);
+
+        var account = new AppUser
+        {
+            Id = Guid.NewGuid(),
+            Name = request.Name!.Trim(),
+            UserName = request.Email,
+            Email = request.Email,
+        };
+
+        var created = await users.CreateAsync(account, request.Password);
+        if (!created.Succeeded)
+        {
+            return AccountProblems.Validation(created);
+        }
+
+        foreach (var role in roles)
+        {
+            await users.AddToRoleAsync(account, role);
+        }
+
+        return Results.Created(
+            $"/admin/users/{account.Id}",
+            new UserAccountDto(account.Id, account.Name, account.Email!, roles));
     }
 
     private static async Task<IResult> GrantAsync(
@@ -37,7 +91,7 @@ internal static class AdminEndpoints
 
         return await users.IsInRoleAsync(account, role)
             ? Results.NoContent()
-            : Store(await users.AddToRoleAsync(account, role));
+            : AccountProblems.Store(await users.AddToRoleAsync(account, role));
     }
 
     private static async Task<IResult> RevokeAsync(
@@ -49,8 +103,27 @@ internal static class AdminEndpoints
         var known = KnownRole(role);
 
         return await users.IsInRoleAsync(account, known)
-            ? Store(await users.RemoveFromRoleAsync(account, known))
+            ? AccountProblems.Store(await users.RemoveFromRoleAsync(account, known))
             : Results.NoContent();
+    }
+
+    /// <summary>
+    /// The profiles the new account takes, in the order the app presents them. Each one goes through
+    /// <see cref="KnownRole"/>, so an unknown profile is refused the same way a grant refuses it; an
+    /// empty choice is refused too, because an account with no profile signs in and sees nothing.
+    /// </summary>
+    private static IReadOnlyList<string> KnownRoles(IReadOnlyList<string>? requested)
+    {
+        if (requested is null || requested.Count == 0)
+        {
+            throw new DomainException(
+                "role.required",
+                $"Choose at least one role. Known roles: {string.Join(", ", Roles.All)}.");
+        }
+
+        var known = requested.Select(KnownRole).ToHashSet(StringComparer.Ordinal);
+
+        return [.. Roles.All.Where(known.Contains)];
     }
 
     private static async Task<AppUser> FindAsync(UserManager<AppUser> users, Guid userId) =>
@@ -62,11 +135,4 @@ internal static class AdminEndpoints
             ?? throw new DomainException(
                 "role.unknown",
                 $"Unknown role '{role}'. Known roles: {string.Join(", ", Roles.All)}.");
-
-    private static IResult Store(IdentityResult result) =>
-        result.Succeeded
-            ? Results.NoContent()
-            : Results.ValidationProblem(result.Errors
-                .GroupBy(error => error.Code)
-                .ToDictionary(group => group.Key, group => group.Select(error => error.Description).ToArray()));
 }

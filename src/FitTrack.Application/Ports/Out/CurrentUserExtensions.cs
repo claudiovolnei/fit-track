@@ -15,4 +15,12 @@ public static class CurrentUserExtensions
             throw new ForbiddenException($"Only personal trainers can {action}.");
         }
     }
+
+    public static void RequireAdmin(this ICurrentUser currentUser, string action)
+    {
+        if (!currentUser.IsAdmin)
+        {
+            throw new ForbiddenException($"Only administrators can {action}.");
+        }
+    }
 }

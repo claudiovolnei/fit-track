@@ -1,6 +1,6 @@
 /* ==========================================================================
    FitTrack — design system mobile-first
-   Base escura, um único acento de alta energia e superfícies em camadas.
+   Dark base, a single high-energy accent and layered surfaces.
    ========================================================================== */
 
 :root {
@@ -244,7 +244,7 @@ svg {
     filter: drop-shadow(0 0 10px rgba(201, 249, 74, 0.35));
 }
 
-/* Marca */
+/* Brand */
 
 .brand {
     display: inline-flex;
@@ -385,7 +385,7 @@ svg {
 }
 
 /* --------------------------------------------------------------------------
-   Cabeçalho de página
+   Page header
    -------------------------------------------------------------------------- */
 
 .page-header {
@@ -456,7 +456,7 @@ svg {
 }
 
 /* --------------------------------------------------------------------------
-   Botões
+   Buttons
    -------------------------------------------------------------------------- */
 
 .btn,
@@ -606,7 +606,7 @@ button {
 }
 
 /* --------------------------------------------------------------------------
-   Superfícies
+   Surfaces
    -------------------------------------------------------------------------- */
 
 .card {
@@ -665,7 +665,7 @@ button {
 }
 
 /* --------------------------------------------------------------------------
-   Texto auxiliar, alertas e estados
+   Helper text, alerts and states
    -------------------------------------------------------------------------- */
 
 .muted {
@@ -761,7 +761,7 @@ button {
 }
 
 /* --------------------------------------------------------------------------
-   Formulários
+   Forms
    -------------------------------------------------------------------------- */
 
 .field {
@@ -823,6 +823,37 @@ input[type="checkbox"] {
     accent-color: var(--accent);
 }
 
+/* Role picker on the users screen: the box checks and the name follows. The picker beats the
+   "every input takes the line" of the forms, which applies to the text fields. */
+.role-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.role-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--bg-soft);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.role-picker input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: none;
+    accent-color: var(--accent);
+}
+
 .field-row {
     display: grid;
     gap: 0;
@@ -881,7 +912,7 @@ input[type="checkbox"] {
 }
 
 /* --------------------------------------------------------------------------
-   Chips e progresso
+   Chips and progress
    -------------------------------------------------------------------------- */
 
 .chip {
@@ -964,7 +995,7 @@ input[type="checkbox"] {
 }
 
 /* --------------------------------------------------------------------------
-   Busca
+   Search
    -------------------------------------------------------------------------- */
 
 .search-box {
@@ -1180,7 +1211,7 @@ input[type="checkbox"] {
 }
 
 /* --------------------------------------------------------------------------
-   Hoje / treino
+   Today / workout
    -------------------------------------------------------------------------- */
 
 .series-banner {
@@ -1560,7 +1591,7 @@ input[type="checkbox"] {
 }
 
 /* --------------------------------------------------------------------------
-   Histórico / sessão
+   History / session
    -------------------------------------------------------------------------- */
 
 .session-card {
@@ -1644,7 +1675,7 @@ input[type="checkbox"] {
 }
 
 /* --------------------------------------------------------------------------
-   Grids de cartões (séries e atletas)
+   Card grids (series and athletes)
    -------------------------------------------------------------------------- */
 
 .card-grid {
@@ -1670,7 +1701,8 @@ input[type="checkbox"] {
 }
 
 .series-head,
-.athlete-head {
+.athlete-head,
+.user-head {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -1678,12 +1710,14 @@ input[type="checkbox"] {
 }
 
 .series-head h2,
-.athlete-head h2 {
+.athlete-head h2,
+.user-head h2 {
     font-size: 1.05rem;
 }
 
 .series-head p,
-.athlete-head p {
+.athlete-head p,
+.user-head p {
     margin-top: 2px;
     color: var(--muted);
     font-size: 0.78rem;
@@ -1691,7 +1725,8 @@ input[type="checkbox"] {
     text-overflow: ellipsis;
 }
 
-.athlete-status {
+.athlete-status,
+.user-status {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1703,11 +1738,13 @@ input[type="checkbox"] {
     font-size: 0.8rem;
 }
 
-.athlete-status strong {
+.athlete-status strong,
+.user-status strong {
     font-size: 0.84rem;
 }
 
-.athlete-card .actions {
+.athlete-card .actions,
+.user-card .actions {
     margin-top: 14px;
 }
 
@@ -1765,7 +1802,7 @@ input[type="checkbox"] {
 }
 
 /* --------------------------------------------------------------------------
-   Gerenciar catálogo
+   Manage catalog
    -------------------------------------------------------------------------- */
 
 .manage-grid {
@@ -1874,7 +1911,7 @@ input[type="checkbox"] {
 }
 
 /* --------------------------------------------------------------------------
-   Editor de prescrição
+   Prescription editor
    -------------------------------------------------------------------------- */
 
 .prescription {
@@ -1944,7 +1981,7 @@ input[type="checkbox"] {
 }
 
 /* --------------------------------------------------------------------------
-   Autenticação
+   Authentication
    -------------------------------------------------------------------------- */
 
 .auth-page {
@@ -2048,7 +2085,7 @@ input[type="checkbox"] {
 }
 
 /* --------------------------------------------------------------------------
-   Compatibilidade com marcações antigas
+   Compatibility with legacy markup
    -------------------------------------------------------------------------- */
 
 .stack > * + * {
@@ -2102,7 +2139,7 @@ code {
 }
 
 /* --------------------------------------------------------------------------
-   Erros do Blazor
+   Blazor errors
    -------------------------------------------------------------------------- */
 
 #blazor-error-ui {

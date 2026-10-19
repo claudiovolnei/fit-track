@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FitTrack.Integration.Contracts;
@@ -18,11 +19,17 @@ internal static class ApiClientExtensions
         return client;
     }
 
-    /// <summary>Registers an account and returns the id the API created for it.</summary>
+    /// <summary>
+    /// Registers an account and returns the id the API created for it. The name is part of registering —
+    /// it is what the screens show — so the tests send one that reads as a person.
+    /// </summary>
     public static async Task<Guid> RegisterAccountAsync(this HttpClient client, string email, string password)
     {
-        var response = await client.PostAsJsonAsync("/auth/register", new { email, password });
-        response.EnsureSuccessStatusCode();
+        var response = await client.PostAsJsonAsync(
+            "/auth/register",
+            new { name = "Atleta de Integração", email, password });
+
+        await response.EnsureSuccessWithBodyAsync();
 
         var created = await response.Content.ReadFromJsonAsync<RegisteredAccountResponse>();
 
@@ -40,33 +47,59 @@ internal static class ApiClientExtensions
     public static async Task<MuscleGroupResponse> CreateMuscleGroupAsync(this HttpClient client, string prefix)
     {
         var response = await client.PostAsJsonAsync("/muscle-groups", new { name = $"{prefix} {Guid.NewGuid():N}" });
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessWithBodyAsync();
 
         return (await response.Content.ReadFromJsonAsync<MuscleGroupResponse>())!;
     }
 
-    /// <summary>Assigns a plan to the athlete, as the signed-in trainer.</summary>
-    public static async Task<WorkoutPlanResponse> AssignPlanAsync(this HttpClient trainerClient, Guid athleteId)
-    {
-        var response = await trainerClient.PostAsJsonAsync("/workout-plans", new AssignWorkoutPlanRequest(athleteId));
-        response.EnsureSuccessStatusCode();
-
-        return (await response.Content.ReadFromJsonAsync<WorkoutPlanResponse>())!;
-    }
-
-    /// <summary>Adds one option to a plan, as the signed-in trainer.</summary>
-    public static async Task<WorkoutPlanOptionResponse> AddPlanOptionAsync(
-        this HttpClient trainerClient,
-        Guid planId,
-        params Guid[] muscleGroupIds)
+    /// <summary>Creates a series, as the signed-in trainer.</summary>
+    public static async Task<WorkoutSeriesResponse> CreateSeriesAsync(this HttpClient trainerClient, string name)
     {
         var response = await trainerClient.PostAsJsonAsync(
-            $"/workout-plans/{planId}/options",
-            new SetWorkoutPlanOptionRequest(muscleGroupIds));
+            "/workout-series",
+            new SetWorkoutSeriesNameRequest(name));
 
         await response.EnsureSuccessWithBodyAsync();
 
-        return (await response.Content.ReadFromJsonAsync<WorkoutPlanOptionResponse>())!;
+        return (await response.Content.ReadFromJsonAsync<WorkoutSeriesResponse>())!;
+    }
+
+    /// <summary>Adds one workout, with its prescription, to a series, as the signed-in trainer.</summary>
+    public static async Task<WorkoutSeriesWorkoutResponse> AddWorkoutAsync(
+        this HttpClient trainerClient,
+        Guid seriesId,
+        string name,
+        params PrescribedExerciseRequest[] prescription)
+    {
+        var response = await trainerClient.PostAsJsonAsync(
+            $"/workout-series/{seriesId}/workouts",
+            new SetSeriesWorkoutRequest(name, prescription));
+
+        await response.EnsureSuccessWithBodyAsync();
+
+        return (await response.Content.ReadFromJsonAsync<WorkoutSeriesWorkoutResponse>())!;
+    }
+
+    /// <summary>
+    /// Reads the series assigned to the signed-in athlete. Nothing assigned is a 204, which the API uses
+    /// instead of an empty payload, so it comes back as null.
+    /// </summary>
+    public static async Task<MyWorkoutSeriesResponse?> ReadMySeriesAsync(this HttpClient client)
+    {
+        var response = await client.GetAsync("/workout-series/mine");
+        response.EnsureSuccessStatusCode();
+
+        return response.StatusCode == HttpStatusCode.NoContent
+            ? null
+            : await response.Content.ReadFromJsonAsync<MyWorkoutSeriesResponse>();
+    }
+
+    /// <summary>The stable code of a refusal: the API carries it in the problem title.</summary>
+    public static async Task<string> ReadProblemTitleAsync(this HttpResponseMessage response)
+    {
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>();
+
+        return problem?.Title ?? string.Empty;
     }
 
     /// <summary>

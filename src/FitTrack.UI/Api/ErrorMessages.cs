@@ -1,20 +1,20 @@
 namespace FitTrack.UI.Api;
 
 /// <summary>
-/// Traduz para o português o motivo que a API devolve. A API fala inglês por contrato — o <c>title</c> é
-/// o código da regra e o <c>detail</c> o texto —, então quem escolhe como contar isso a quem está
-/// treinando é a tela. Um código sem tradução cai no texto do servidor: melhor em inglês do que esconder
-/// o motivo.
+/// Translates into Portuguese the reason the API returns. The API speaks English by contract — the <c>title</c> is
+/// the rule code and the <c>detail</c> the text —, so the screen chooses how to tell it to whoever is
+/// training. A code without a translation falls back to the server text: better in English than hiding
+/// the reason.
 /// </summary>
 public static class ErrorMessages
 {
     private static readonly Dictionary<string, string> ByCode = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Série de treino
+        // Workout series
         ["workout_series.name.required"] = "Informe o nome da série.",
         ["workout_series.name.too_long"] = "O nome da série é longo demais.",
         ["workout_series.name.duplicate"] = "Você já tem uma série com esse nome.",
-        ["workout_series.trainer.required"] = "A série precisa de um personal trainer.",
+        ["workout_series.trainer.required"] = "A série precisa de um personal.",
         ["workout_series.workout.name.required"] = "Informe o nome do treino.",
         ["workout_series.workout.name.too_long"] = "O nome do treino é longo demais.",
         ["workout_series.workout.limit_reached"] =
@@ -29,7 +29,7 @@ public static class ErrorMessages
         ["workout_series.assignment.expired"] =
             "A série venceu, então não dá para começar um treino novo. Um treino já iniciado ainda pode ser finalizado.",
 
-        // Treino do dia
+        // Today's workout
         ["session.set.workout.required"] = "Esse treino não veio de uma série.",
         ["session.set.workout.not_found"] = "O treino desta sessão não está mais disponível.",
         ["session.set.exercise.not_prescribed"] = "Esse exercício não faz parte da prescrição do treino de hoje.",
@@ -41,7 +41,7 @@ public static class ErrorMessages
         ["set.load.negative"] = "A carga não pode ser negativa.",
         ["set.repetitions.not_positive"] = "As repetições precisam ser maiores que zero.",
 
-        // Catálogo
+        // Catalog
         ["exercise.name.empty"] = "Informe o nome do exercício.",
         ["exercise.name.too_long"] = "O nome do exercício é longo demais.",
         ["exercise.muscle_group.required"] = "Escolha o grupo muscular.",
@@ -49,7 +49,11 @@ public static class ErrorMessages
         ["muscle_group.name.too_long"] = "O nome do grupo muscular é longo demais.",
         ["muscle_group.name.duplicate"] = "Já existe um grupo muscular com esse nome.",
 
-        // Conta e transporte
+        // Administration
+        ["role.required"] = "Escolha pelo menos um perfil.",
+        ["role.unknown"] = "Esse perfil não existe.",
+
+        // Account and transport
         ["Invalid credentials."] = "E-mail ou senha incorretos.",
         ["not_found"] = "Não encontramos o que você procurava. Atualize a página.",
         ["forbidden"] = "Você não tem permissão para essa ação.",
@@ -57,8 +61,8 @@ public static class ErrorMessages
     };
 
     /// <summary>
-    /// O texto que a tela mostra. A validação vem primeiro porque é a mais específica: quando a API
-    /// recusa campos, é o campo que o atleta precisa corrigir — e não o motivo geral.
+    /// The text the screen shows. Validation comes first because it is the most specific: when the API
+    /// refuses fields, it is the field the athlete has to correct — not the general reason.
     /// </summary>
     public static string Describe(ApiException error)
     {
@@ -76,8 +80,8 @@ public static class ErrorMessages
     }
 
     /// <summary>
-    /// Chaves dos problemas de validação: o cadastro usa os códigos do Identity e o nome vem pelo
-    /// próprio campo. Um campo sem tradução segue para a mensagem do servidor.
+    /// Keys of the validation problems: registration uses the Identity codes and the name comes from the
+    /// field itself. A field without a translation falls through to the server message.
     /// </summary>
     private static readonly Dictionary<string, string> ByField = new(StringComparer.OrdinalIgnoreCase)
     {

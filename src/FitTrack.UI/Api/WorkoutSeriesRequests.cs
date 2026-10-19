@@ -15,5 +15,5 @@ public sealed record AssignWorkoutSeriesRequest(Guid UserId);
 /// <summary>Wire contract: starting today's workout from one workout of the athlete's series.</summary>
 public sealed record StartWorkoutRequest(Guid WorkoutSeriesWorkoutId);
 
-/// <summary>Wire contract: one set performed in the workout in progress. As repetições vêm da prescrição.</summary>
+/// <summary>Wire contract: one set performed in the workout in progress. The repetitions come from the prescription.</summary>
 public sealed record LogPerformedSetRequest(Guid ExerciseId, decimal LoadKilograms);

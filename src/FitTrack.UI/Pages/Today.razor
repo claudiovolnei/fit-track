@@ -29,7 +29,7 @@ else if (_mine is null)
     <div class="empty-state">
         <AppIcon Name="layers" Size="28" />
         <h2>Nenhuma série vinculada</h2>
-        <p>Seu personal trainer ainda não vinculou uma série. Fale com ele para receber os treinos.</p>
+        <p>Seu personal ainda não vinculou uma série. Fale com ele para receber os treinos.</p>
     </div>
 }
 else if (_mine.Series.Workouts.Count == 0)
@@ -192,7 +192,7 @@ else
                                     }
                                 </div>
 
-                                @* O atleta só informa a carga: a prescrição (e as repetições) vêm do personal. *@
+                                @* The athlete only enters the load: the prescription (and the repetitions) come from the personal trainer. *@
                                 @if (workout.Today.IsRunning && row.ExerciseId is { } exerciseId)
                                 {
                                     <div class="set-log">
@@ -252,7 +252,7 @@ else
     private MyWorkoutSeriesResponse? _mine;
     private IReadOnlyList<ExerciseResponse> _catalog = [];
 
-    /// <summary>Carga que o atleta digitou para cada exercício prescrito, por treino.</summary>
+    /// <summary>Load the athlete typed for each prescribed exercise, per workout.</summary>
     private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), decimal> _loads = [];
     private bool _loading = true;
     private bool _busy;
@@ -281,10 +281,10 @@ else
     }
 
     /// <summary>
-    /// O relógio do treino. O <see cref="System.Timers.Timer"/> dispara fora do dispatcher do Blazor,
-    /// então o tique só agenda um render no contexto da UI. Depois do <see cref="Dispose"/> o tique é
-    /// ignorado: sem essa guarda, um tique a caminho do dispatcher viraria uma exceção não tratada
-    /// (o handler é <c>async void</c>) e apareceria como "erro inesperado" ao sair da tela.
+    /// The workout clock. <see cref="System.Timers.Timer"/> fires outside the Blazor dispatcher,
+    /// so the tick only schedules a render on the UI context. After <see cref="Dispose"/> the tick is
+    /// ignored: without that guard, a tick on its way to the dispatcher would become an unhandled
+    /// exception (the handler is <c>async void</c>) and would show up as "erro inesperado" when leaving the screen.
     /// </summary>
     private async void OnTick(object? sender, System.Timers.ElapsedEventArgs args)
     {
@@ -305,11 +305,11 @@ else
         }
         catch (ObjectDisposedException)
         {
-            // A página saiu de cena enquanto este tique ainda estava a caminho do dispatcher.
+            // The page left the scene while this tick was still on its way to the dispatcher.
         }
         catch (InvalidOperationException)
         {
-            // O render handle já não é válido porque o componente foi descartado.
+            // The render handle is no longer valid because the component was disposed.
         }
     }
 
@@ -375,7 +375,7 @@ else
         {
             foreach (var prescribed in workout.Exercises)
             {
-                // Começa na carga que o personal prescreveu; o que o atleta já digitou fica de pé.
+                // Starts at the load the personal trainer prescribed; whatever the athlete already typed stands.
                 _loads.TryAdd((workout.Id, prescribed.ExerciseId), prescribed.LoadKilograms ?? 0m);
             }
         }

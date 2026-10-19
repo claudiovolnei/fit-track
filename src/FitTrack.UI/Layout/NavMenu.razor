@@ -1,4 +1,4 @@
-@* Navegação do app: barra lateral no desktop, barra superior e abas inferiores no celular. *@
+@* App navigation: sidebar on desktop, top bar and bottom tabs on mobile. *@
 
 @inject UserSession Session
 @inject NavigationManager Navigation
@@ -50,7 +50,11 @@
 
         <AuthorizeView Roles="Admin">
             <Authorized>
-                <span class="nav-label">Catálogo</span>
+                <span class="nav-label">Administração</span>
+                <NavLink class="nav-link" href="/admin/users">
+                    <AppIcon Name="users" />
+                    <span>Usuários</span>
+                </NavLink>
                 <NavLink class="nav-link" href="/exercises">
                     <AppIcon Name="library" />
                     <span>Exercícios</span>
@@ -137,6 +141,19 @@
         </Authorized>
     </AuthorizeView>
 
+    <AuthorizeView Roles="Admin">
+        <Authorized>
+            <NavLink class="tab-link" href="/admin/users">
+                <AppIcon Name="users" Size="22" />
+                <span>Usuários</span>
+            </NavLink>
+            <NavLink class="tab-link" href="/exercises">
+                <AppIcon Name="library" Size="22" />
+                <span>Exercícios</span>
+            </NavLink>
+        </Authorized>
+    </AuthorizeView>
+
     <AuthorizeView>
         <NotAuthorized>
             <NavLink class="tab-link" href="/login">
@@ -156,13 +173,14 @@
     {
         await Session.SignOutAsync();
 
-        // Navegação SPA (sem recarregar a página): o token já foi limpo, então o estado de
-        // autenticação cai para anônimo e a tela de login assume. Um forceLoad aqui competiria
-        // com o redirecionamento disparado pela própria mudança de autenticação e podia derrubar
-        // a UI com um erro inesperado.
+        // SPA navigation (no page reload): the token is already cleared, so the authentication
+        // state drops to anonymous and the login screen takes over. A forceLoad here would race
+        // with the redirect fired by the authentication change itself and could take down the
+        // UI with an unexpected error.
         Navigation.NavigateTo("/login", replace: true);
     }
 
+    // The highlighted profile is the strongest the account has, in the order of DisplayText.Roles.
     private static string Role(ClaimsPrincipal user) =>
-        user.IsInRole("PersonalTrainer") ? "Personal trainer" : "Atleta";
+        DisplayText.RoleLabel(DisplayText.Roles.FirstOrDefault(user.IsInRole) ?? "User");
 }

@@ -36,6 +36,7 @@ builder.Services.AddScoped<IListMuscleGroups, ListMuscleGroups>();
 builder.Services.AddScoped<IUpdateMuscleGroup, UpdateMuscleGroup>();
 builder.Services.AddScoped<IListUserSessions, ListUserSessions>();
 builder.Services.AddScoped<IListAthletes, ListAthletes>();
+builder.Services.AddScoped<IListUsers, ListUsers>();
 builder.Services.AddScoped<ICreateWorkoutSeries, CreateWorkoutSeries>();
 builder.Services.AddScoped<IListWorkoutSeries, ListWorkoutSeries>();
 builder.Services.AddScoped<IGetWorkoutSeries, GetWorkoutSeries>();
