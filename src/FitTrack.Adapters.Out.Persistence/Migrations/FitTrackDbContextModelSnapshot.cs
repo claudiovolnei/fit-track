@@ -31,6 +31,12 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
 
+                    b.Property<byte[]>("AvatarBytes")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("AvatarContentType")
+                        .HasColumnType("text");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text");

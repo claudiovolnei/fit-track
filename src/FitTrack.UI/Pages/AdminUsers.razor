@@ -106,7 +106,8 @@ else
         {
             <article class="card user-card" @key="user.UserId">
                 <div class="user-head">
-                    <span class="avatar avatar--lg">@DisplayText.Initials(user.Name)</span>
+                    <UserAvatar AvatarUrl="@(_avatars.TryGetValue(user.UserId, out var url) ? url : null)"
+                                NameOrEmail="@user.Name" Size="46" CssClass="avatar--lg" />
                     <div style="min-width: 0;">
                         <h2>@user.Name</h2>
                         @* A legacy account without a name arrives here with the e-mail standing in for it
@@ -144,7 +145,34 @@ else
                             @(granted ? "Revogar" : "Conceder") @DisplayText.RoleLabel(role)
                         </button>
                     }
+
+                    <button class="btn btn-sm btn-secondary" type="button"
+                            disabled="@_busy" @onclick="() => StartResetAsync(user.UserId)">
+                        <AppIcon Name="edit" Size="16" />
+                        Redefinir senha
+                    </button>
                 </div>
+
+                @if (_resettingUserId == user.UserId)
+                {
+                    <div class="reset-password">
+                        <input type="password" placeholder="Nova senha" @bind="_resetPassword" />
+                        @if (_resetError is not null)
+                        {
+                            <span class="field-error">@_resetError</span>
+                        }
+                        <div class="actions">
+                            <button class="btn btn-sm btn-primary" type="button" disabled="@_busy"
+                                    @onclick="() => ConfirmResetAsync(user.UserId)">
+                                Salvar
+                            </button>
+                            <button class="btn btn-sm btn-secondary" type="button" disabled="@_busy"
+                                    @onclick="CancelResetAsync">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                }
             </article>
         }
     </div>
@@ -152,10 +180,14 @@ else
 
 @code {
     private IReadOnlyList<UserAccountResponse> _users = [];
+    private readonly Dictionary<Guid, string?> _avatars = new();
     private readonly NewUser _new = new();
     private bool _loading = true;
     private bool _busy;
     private string? _error;
+    private Guid? _resettingUserId;
+    private string _resetPassword = string.Empty;
+    private string? _resetError;
 
     protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
 
@@ -184,6 +216,45 @@ else
             await ReloadAsync();
         });
 
+    private void StartResetAsync(Guid userId)
+    {
+        _resettingUserId = userId;
+        _resetPassword = string.Empty;
+        _resetError = null;
+    }
+
+    private void CancelResetAsync()
+    {
+        _resettingUserId = null;
+        _resetPassword = string.Empty;
+        _resetError = null;
+    }
+
+    private async Task ConfirmResetAsync(Guid userId)
+    {
+        if (string.IsNullOrWhiteSpace(_resetPassword))
+        {
+            _resetError = "Informe a nova senha.";
+            return;
+        }
+
+        _busy = true;
+        _resetError = null;
+        try
+        {
+            await Api.ResetPasswordAsync(userId, new ResetPasswordRequest(_resetPassword));
+            CancelResetAsync();
+        }
+        catch (ApiException exception)
+        {
+            _resetError = ErrorMessages.Describe(exception);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
     private async Task RunAsync(Func<Task> action)
     {
         _busy = true;
@@ -206,6 +277,19 @@ else
     private async Task ReloadAsync()
     {
         _users = await Api.GetUsersAsync();
+
+        _avatars.Clear();
+        foreach (var user in _users.Where(u => u.HasAvatar))
+        {
+            try
+            {
+                _avatars[user.UserId] = await Api.GetUserAvatarAsync(user.UserId);
+            }
+            catch
+            {
+                _avatars[user.UserId] = null;
+            }
+        }
 
         _loading = false;
     }

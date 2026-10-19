@@ -2,6 +2,7 @@
 
 @inject UserSession Session
 @inject NavigationManager Navigation
+@inject FitTrackApiClient Api
 
 <aside class="sidebar" aria-label="Navegação principal">
     <a class="brand" href="/">
@@ -67,12 +68,15 @@
         <AuthorizeView>
             <Authorized>
                 <div class="user-chip">
-                    <span class="avatar">@DisplayText.Initials(context.User.Identity?.Name)</span>
+                    <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@context.User.Identity?.Name" Size="38" />
                     <span class="user-meta">
                         <strong>@DisplayText.NameFromEmail(context.User.Identity?.Name)</strong>
                         <small>@Role(context.User)</small>
                     </span>
                 </div>
+                <NavLink class="icon-button" href="/account" title="Minha conta" aria-label="Minha conta">
+                    <AppIcon Name="user" />
+                </NavLink>
                 <button type="button" class="icon-button" title="Sair" aria-label="Sair" @onclick="SignOutAsync">
                     <AppIcon Name="logout" />
                 </button>
@@ -93,7 +97,7 @@
     <AuthorizeView>
         <Authorized>
             <div class="topbar-user">
-                <span class="avatar avatar--sm">@DisplayText.Initials(context.User.Identity?.Name)</span>
+                <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@context.User.Identity?.Name" Size="34" CssClass="avatar--sm" />
                 <button type="button" class="icon-button" title="Sair" aria-label="Sair" @onclick="SignOutAsync">
                     <AppIcon Name="logout" />
                 </button>
@@ -169,6 +173,20 @@
 </nav>
 
 @code {
+    private string? _avatarUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _avatarUrl = await Api.GetMyAvatarAsync();
+        }
+        catch
+        {
+            _avatarUrl = null;
+        }
+    }
+
     private async Task SignOutAsync()
     {
         await Session.SignOutAsync();

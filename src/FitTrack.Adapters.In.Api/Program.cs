@@ -134,6 +134,7 @@ app.UseAuthorization();
 
 app.MapDefaultEndpoints();
 app.MapAuthEndpoints();
+app.MapAvatarEndpoints();
 app.MapAdminEndpoints();
 app.MapExerciseEndpoints();
 app.MapMuscleGroupEndpoints();

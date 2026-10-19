@@ -1,0 +1,20 @@
+@* Avatar: photo when available, otherwise the account's initials. *@
+
+@if (!string.IsNullOrWhiteSpace(AvatarUrl))
+{
+    <img class="avatar-img @CssClass" src="@AvatarUrl" alt="@Alt" width="@Size" height="@Size" />
+}
+else
+{
+    <span class="avatar @CssClass" style="width:@(Size)px;height:@(Size)px;font-size:@(Size/2.5)px;">@Initials</span>
+}
+
+@code {
+    [Parameter] public string? AvatarUrl { get; set; }
+    [Parameter] public string? NameOrEmail { get; set; }
+    [Parameter] public int Size { get; set; } = 32;
+    [Parameter] public string CssClass { get; set; } = string.Empty;
+
+    private string Initials => DisplayText.Initials(NameOrEmail);
+    private string Alt => string.IsNullOrWhiteSpace(NameOrEmail) ? "Avatar" : NameOrEmail!;
+}

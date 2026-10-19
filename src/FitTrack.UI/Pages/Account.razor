@@ -1,0 +1,249 @@
+@page "/account"
+@attribute [Authorize]
+@inject FitTrackApiClient Api
+@inject UserSession Session
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+
+<PageTitle>Minha conta — FitTrack</PageTitle>
+
+<div class="auth-page">
+    <section class="auth-card card">
+        <p class="eyebrow">Minha conta</p>
+        <h1>Foto de perfil</h1>
+        <p class="muted">Aparece no menu e no seu cartão de usuário.</p>
+
+        <div class="avatar-editor">
+            <UserAvatar AvatarUrl="@_avatarPreview" NameOrEmail="@_userName" Size="72" />
+            <div class="avatar-editor__actions">
+                <InputFile OnChange="OnAvatarSelectedAsync" accept="image/jpeg,image/png,image/webp" />
+                @if (_avatarError is not null)
+                {
+                    <span class="field-error">@_avatarError</span>
+                }
+                <div class="actions">
+                    <button class="btn btn-sm btn-primary" type="button" disabled="@(_avatarBusy || _avatarPreview is null)"
+                            @onclick="SaveAvatarAsync">
+                        @(_avatarBusy ? "Salvando…" : "Salvar foto")
+                    </button>
+                    <button class="btn btn-sm btn-secondary" type="button" disabled="@_avatarBusy"
+                            @onclick="RemoveAvatarAsync">
+                        Remover
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <h1 style="margin-top: 1.5rem;">Alterar senha</h1>
+        <p class="muted">Troque a senha da sua conta.</p>
+
+        <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+            <DataAnnotationsValidator />
+
+            <div class="field">
+                <label for="current-password">Senha atual</label>
+                <InputText id="current-password" type="password" autocomplete="current-password"
+                           @bind-Value="_model.CurrentPassword" />
+                <ValidationMessage For="() => _model.CurrentPassword" />
+            </div>
+
+            <div class="field">
+                <label for="new-password">Nova senha</label>
+                <InputText id="new-password" type="password" autocomplete="new-password"
+                           @bind-Value="_model.NewPassword" />
+                <ValidationMessage For="() => _model.NewPassword" />
+            </div>
+
+            <div class="field">
+                <label for="confirm-password">Confirmar nova senha</label>
+                <InputText id="confirm-password" type="password" autocomplete="new-password"
+                           @bind-Value="_model.ConfirmPassword" />
+                <ValidationMessage For="() => _model.ConfirmPassword" />
+            </div>
+
+            @if (_error is not null)
+            {
+                <div class="alert alert--error">
+                    <AppIcon Name="info" Size="18" />
+                    <span>@_error</span>
+                </div>
+            }
+
+            @if (_success)
+            {
+                <div class="alert alert--success">
+                    <AppIcon Name="check" Size="18" />
+                    <span>Senha alterada com sucesso.</span>
+                </div>
+            }
+
+            <button class="btn btn-primary btn-block" type="submit" disabled="@_busy">
+                @(_busy ? "Salvando…" : "Alterar senha")
+            </button>
+        </EditForm>
+    </section>
+</div>
+
+@code {
+    private readonly Model _model = new();
+    private string? _error;
+    private bool _success;
+    private bool _busy;
+
+    private string? _userName;
+    private string? _avatarPreview;
+    private byte[]? _avatarBytes;
+    private string _avatarContentType = "image/jpeg";
+    private IBrowserFile? _avatarFile;
+    private bool _avatarBusy;
+    private string? _avatarError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _userName = state.User.Identity?.Name;
+
+        try
+        {
+            _avatarPreview = await Api.GetMyAvatarAsync();
+        }
+        catch
+        {
+            _avatarPreview = null;
+        }
+    }
+
+    private async Task OnAvatarSelectedAsync(InputFileChangeEventArgs args)
+    {
+        _avatarError = null;
+        _avatarFile = args.File;
+
+        if (_avatarFile is null)
+        {
+            return;
+        }
+
+        if (_avatarFile.Size > 2 * 1024 * 1024)
+        {
+            _avatarError = "A imagem deve ter no máximo 2 MB.";
+            _avatarFile = null;
+            return;
+        }
+
+        try
+        {
+            using var stream = _avatarFile.OpenReadStream(2 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            var dataUrl = $"data:{_avatarFile.ContentType};base64,{base64}";
+
+            // Redimensiona no cliente (max. 256 px) para manter o payload pequeno.
+            var resized = await JS.InvokeAsync<string>("fitTrack.resizeImage", dataUrl, 256);
+
+            _avatarPreview = resized;
+            var comma = resized.IndexOf(',');
+            var meta = resized[..comma];
+            _avatarContentType = meta.Split(':')[1].Split(';')[0];
+            _avatarBytes = Convert.FromBase64String(resized[(comma + 1)..]);
+        }
+        catch
+        {
+            _avatarError = "Não foi possível ler a imagem.";
+            _avatarFile = null;
+            _avatarBytes = null;
+        }
+    }
+
+    private async Task SaveAvatarAsync()
+    {
+        if (_avatarBytes is null)
+        {
+            return;
+        }
+
+        _avatarBusy = true;
+        _avatarError = null;
+        try
+        {
+            using var stream = new MemoryStream(_avatarBytes);
+            await Api.UploadAvatarAsync(stream, "avatar.jpg", _avatarContentType);
+            _avatarFile = null;
+            _avatarBytes = null;
+        }
+        catch (ApiException ex)
+        {
+            _avatarError = ErrorMessages.Describe(ex);
+        }
+        finally
+        {
+            _avatarBusy = false;
+        }
+    }
+
+    private async Task RemoveAvatarAsync()
+    {
+        _avatarBusy = true;
+        _avatarError = null;
+        try
+        {
+            await Api.DeleteAvatarAsync();
+            _avatarPreview = null;
+            _avatarFile = null;
+            _avatarBytes = null;
+        }
+        catch (ApiException ex)
+        {
+            _avatarError = ErrorMessages.Describe(ex);
+        }
+        finally
+        {
+            _avatarBusy = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _error = null;
+        _success = false;
+
+        if (_model.NewPassword != _model.ConfirmPassword)
+        {
+            _error = "A confirmação não coincide com a nova senha.";
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            await Api.ChangePasswordAsync(
+                new ChangePasswordRequest(_model.CurrentPassword, _model.NewPassword));
+            _success = true;
+            _model.CurrentPassword = string.Empty;
+            _model.NewPassword = string.Empty;
+            _model.ConfirmPassword = string.Empty;
+        }
+        catch (ApiException ex)
+        {
+            _error = ErrorMessages.Describe(ex);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class Model
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Informe a senha atual.")]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Informe a nova senha.")]
+        [System.ComponentModel.DataAnnotations.MinLength(8, ErrorMessage = "A senha precisa de pelo menos 8 caracteres.")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Confirme a nova senha.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

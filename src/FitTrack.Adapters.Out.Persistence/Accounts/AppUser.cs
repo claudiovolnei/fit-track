@@ -14,4 +14,13 @@ public sealed class AppUser : IdentityUser<Guid>
     /// this column existed get.
     /// </summary>
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Avatar image bytes, stored in the database so a single source of truth survives across
+    /// containers without a shared volume. Null when the account has no photo.
+    /// </summary>
+    public byte[]? AvatarBytes { get; set; }
+
+    /// <summary>MIME type of <see cref="AvatarBytes"/> (e.g. image/jpeg), or null when there is no photo.</summary>
+    public string? AvatarContentType { get; set; }
 }

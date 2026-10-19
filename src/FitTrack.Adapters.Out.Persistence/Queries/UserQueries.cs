@@ -17,7 +17,7 @@ internal sealed class UserQueries(FitTrackDbContext dbContext) : IQueryUsers
         var accounts = await dbContext.Users
             .AsNoTracking()
             .OrderBy(user => user.Email)
-            .Select(user => new { user.Id, user.Name, user.Email })
+            .Select(user => new { user.Id, user.Name, user.Email, user.AvatarBytes })
             .ToListAsync(cancellationToken);
 
         var roles = await dbContext.UserRoles
@@ -41,7 +41,8 @@ internal sealed class UserQueries(FitTrackDbContext dbContext) : IQueryUsers
                 account.Id,
                 DisplayName(account.Name, account.Email),
                 account.Email ?? string.Empty,
-                byUser.TryGetValue(account.Id, out var assigned) ? assigned : [])),
+                byUser.TryGetValue(account.Id, out var assigned) ? assigned : [],
+                account.AvatarBytes is { Length: > 0 })),
         ];
     }
 

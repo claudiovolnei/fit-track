@@ -5,4 +5,5 @@ public sealed record UserAccountResponse(
     Guid UserId,
     string Name,
     string Email,
-    IReadOnlyList<string> Roles);
+    IReadOnlyList<string> Roles,
+    bool HasAvatar = false);

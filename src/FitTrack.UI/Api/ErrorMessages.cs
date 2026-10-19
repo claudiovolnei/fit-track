@@ -53,6 +53,13 @@ public static class ErrorMessages
         ["role.required"] = "Escolha pelo menos um perfil.",
         ["role.unknown"] = "Esse perfil não existe.",
 
+        // Avatar
+        ["avatar.too_large"] = "A imagem deve ter no máximo 2 MB.",
+        ["avatar.type.invalid"] = "Aceitamos apenas imagens JPEG, PNG ou WebP.",
+
+        // Password
+        ["password.same"] = "A nova senha deve ser diferente da atual.",
+
         // Account and transport
         ["Invalid credentials."] = "E-mail ou senha incorretos.",
         ["not_found"] = "Não encontramos o que você procurava. Atualize a página.",
@@ -97,5 +104,6 @@ public static class ErrorMessages
         ["PasswordRequiresUpper"] = "A senha precisa ter uma letra maiúscula.",
         ["PasswordRequiresNonAlphanumeric"] = "A senha precisa ter um caractere especial.",
         ["PasswordRequiresUniqueChars"] = "A senha precisa de mais caracteres diferentes.",
+        ["PasswordMismatch"] = "A senha atual está incorreta.",
     };
 }

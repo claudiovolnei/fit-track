@@ -1775,6 +1775,14 @@ input[type="checkbox"] {
     font-size: 0.9rem;
 }
 
+.avatar-img {
+    display: block;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--bg-soft);
+}
+
 .user-chip {
     display: flex;
     align-items: center;

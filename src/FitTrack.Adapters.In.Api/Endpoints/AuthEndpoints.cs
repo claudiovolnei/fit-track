@@ -3,6 +3,8 @@ using FitTrack.Adapters.In.Api.Composition;
 using FitTrack.Adapters.In.Api.Contracts;
 using FitTrack.Adapters.In.Api.Seeding;
 using FitTrack.Adapters.Out.Persistence.Accounts;
+using FitTrack.Application.Exceptions;
+using FitTrack.Application.Ports.Out;
 using FitTrack.Domain.Identity;
 using Microsoft.AspNetCore.Identity;
 
@@ -19,6 +21,12 @@ internal static class AuthEndpoints
 
         group.MapPost("/register", RegisterAsync);
         group.MapPost("/login", LoginAsync);
+
+        // Authenticated: the account changes its own password.
+        var authed = app.MapGroup("/auth")
+            .WithTags("Authentication")
+            .RequireAuthorization();
+        authed.MapPost("/change-password", ChangePasswordAsync);
 
         return app;
     }
@@ -70,5 +78,39 @@ internal static class AuthEndpoints
         var roles = await users.GetRolesAsync(account);
 
         return Results.Ok(tokenIssuer.Issue(account.Id, account.Email ?? account.UserName ?? string.Empty, roles));
+    }
+
+    private static async Task<IResult> ChangePasswordAsync(
+        ChangePasswordRequest request,
+        ICurrentUser currentUser,
+        UserManager<AppUser> users,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return AccountProblems.Invalid("Password", "Password is required.");
+        }
+
+        if (request.NewPassword == request.CurrentPassword)
+        {
+            return Results.Problem(
+                title: "password.same",
+                detail: "The new password must differ from the current one.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var account = await users.FindByIdAsync(currentUser.Id.Value.ToString());
+        if (account is null)
+        {
+            throw new NotFoundException($"No account with id '{currentUser.Id.Value}'.");
+        }
+
+        var result = await users.ChangePasswordAsync(account, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            return AccountProblems.Validation(result);
+        }
+
+        return Results.NoContent();
     }
 }

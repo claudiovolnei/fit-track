@@ -18,6 +18,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
     <link rel="preload" id="webassembly" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="icon" type="image/svg+xml" href="icons/fittrack.svg" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="_content/FitTrack.UI/css/app.css" />
     <script type="importmap"></script>
@@ -37,7 +40,13 @@
         <a href="." class="reload">Recarregar</a>
         <span class="dismiss">🗙</span>
     </div>
+    <script src="js/avatar.js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js');
+        }
+    </script>
 </body>
 
 </html>

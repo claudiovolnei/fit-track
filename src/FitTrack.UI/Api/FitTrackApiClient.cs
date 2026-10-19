@@ -133,6 +133,48 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
     public Task RevokeRoleAsync(Guid userId, string role, CancellationToken cancellationToken = default) =>
         DeleteAsync($"admin/users/{userId}/roles/{role}", cancellationToken);
 
+    public Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken = default) =>
+        PostAsync("auth/change-password", request, cancellationToken);
+
+    public Task ResetPasswordAsync(Guid userId, ResetPasswordRequest request, CancellationToken cancellationToken = default) =>
+        PostAsync($"admin/users/{userId}/password", request, cancellationToken);
+
+    public async Task UploadAvatarAsync(Stream content, string fileName, string contentType, CancellationToken cancellationToken = default)
+    {
+        using var form = new MultipartFormDataContent();
+        var fileContent = new StreamContent(content);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(fileContent, "avatar", fileName);
+
+        using var response = await httpClient.PostAsync("me/avatar", form, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task DeleteAvatarAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.DeleteAsync("me/avatar", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<string?> GetMyAvatarAsync(CancellationToken cancellationToken = default) =>
+        await GetAvatarDataUrlAsync("me/avatar", cancellationToken);
+
+    public async Task<string?> GetUserAvatarAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        await GetAvatarDataUrlAsync($"users/{userId}/avatar", cancellationToken);
+
+    private async Task<string?> GetAvatarDataUrlAsync(string path, CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.GetAsync(path, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+        await EnsureSuccessAsync(response, cancellationToken);
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+        return $"data:{contentType};base64,{Convert.ToBase64String(bytes)}";
+    }
+
     private async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken)
     {
         using var response = await httpClient.GetAsync(path, cancellationToken);

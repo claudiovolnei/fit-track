@@ -28,6 +28,7 @@ internal static class AdminEndpoints
         group.MapPost("/users", CreateAsync);
         group.MapPost("/users/{userId:guid}/roles", GrantAsync);
         group.MapDelete("/users/{userId:guid}/roles/{role}", RevokeAsync);
+        group.MapPost("/users/{userId:guid}/password", ResetPasswordAsync);
 
         return app;
     }
@@ -124,6 +125,29 @@ internal static class AdminEndpoints
         var known = requested.Select(KnownRole).ToHashSet(StringComparer.Ordinal);
 
         return [.. Roles.All.Where(known.Contains)];
+    }
+
+    private static async Task<IResult> ResetPasswordAsync(
+        Guid userId,
+        ResetPasswordRequest request,
+        UserManager<AppUser> users,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return AccountProblems.Invalid("Password", "Password is required.");
+        }
+
+        var account = await FindAsync(users, userId);
+
+        var token = await users.GeneratePasswordResetTokenAsync(account);
+        var result = await users.ResetPasswordAsync(account, token, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            return AccountProblems.Validation(result);
+        }
+
+        return Results.NoContent();
     }
 
     private static async Task<AppUser> FindAsync(UserManager<AppUser> users, Guid userId) =>
