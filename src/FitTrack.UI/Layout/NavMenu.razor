@@ -1,8 +1,11 @@
 @* App navigation: sidebar on desktop, top bar and bottom tabs on mobile. *@
 
+@implements IDisposable
+
 @inject UserSession Session
 @inject NavigationManager Navigation
 @inject FitTrackApiClient Api
+@inject UserAvatarState AvatarState
 
 <aside class="sidebar" aria-label="Navegação principal">
     <a class="brand" href="/">
@@ -68,7 +71,9 @@
         <AuthorizeView>
             <Authorized>
                 <div class="user-chip">
-                    <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@context.User.Identity?.Name" Size="38" />
+                    <NavLink href="/account" class="avatar-link" title="Minha conta" aria-label="Minha conta">
+                        <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@context.User.Identity?.Name" Size="38" />
+                    </NavLink>
                     <span class="user-meta">
                         <strong>@DisplayText.NameFromEmail(context.User.Identity?.Name)</strong>
                         <small>@Role(context.User)</small>
@@ -97,7 +102,9 @@
     <AuthorizeView>
         <Authorized>
             <div class="topbar-user">
-                <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@context.User.Identity?.Name" Size="34" CssClass="avatar--sm" />
+                <NavLink href="/account" class="avatar-link" title="Minha conta" aria-label="Minha conta">
+                    <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@context.User.Identity?.Name" Size="34" CssClass="avatar--sm" />
+                </NavLink>
                 <button type="button" class="icon-button" title="Sair" aria-label="Sair" @onclick="SignOutAsync">
                     <AppIcon Name="logout" />
                 </button>
@@ -177,14 +184,33 @@
 
     protected override async Task OnInitializedAsync()
     {
-        try
+        _avatarUrl = AvatarState.AvatarUrl;
+
+        AvatarState.Changed += OnAvatarChanged;
+
+        if (_avatarUrl is null)
         {
-            _avatarUrl = await Api.GetMyAvatarAsync();
+            try
+            {
+                _avatarUrl = await Api.GetMyAvatarAsync();
+                AvatarState.Set(_avatarUrl);
+            }
+            catch
+            {
+                _avatarUrl = null;
+            }
         }
-        catch
-        {
-            _avatarUrl = null;
-        }
+    }
+
+    private void OnAvatarChanged()
+    {
+        _avatarUrl = AvatarState.AvatarUrl;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AvatarState.Changed -= OnAvatarChanged;
     }
 
     private async Task SignOutAsync()

@@ -1783,6 +1783,12 @@ input[type="checkbox"] {
     background: var(--bg-soft);
 }
 
+.avatar-link {
+    display: inline-flex;
+    border-radius: 50%;
+    text-decoration: none;
+}
+
 .user-chip {
     display: flex;
     align-items: center;

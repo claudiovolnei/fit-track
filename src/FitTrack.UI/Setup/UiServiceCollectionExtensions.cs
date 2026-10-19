@@ -19,6 +19,7 @@ public static class UiServiceCollectionExtensions
         services.AddScoped<TokenAuthenticationStateProvider>();
         services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<TokenAuthenticationStateProvider>());
         services.AddScoped<UserSession>();
+        services.AddScoped<UserAvatarState>();
 
         services.AddTransient<AuthTokenHandler>();
         services.AddHttpClient<FitTrackApiClient>(client => client.BaseAddress = apiBaseUrl)

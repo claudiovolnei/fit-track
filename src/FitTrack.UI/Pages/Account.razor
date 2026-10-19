@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
+@inject UserAvatarState AvatarState
 
 <PageTitle>Minha conta — FitTrack</PageTitle>
 
@@ -107,6 +108,7 @@
         try
         {
             _avatarPreview = await Api.GetMyAvatarAsync();
+            AvatarState.Set(_avatarPreview);
         }
         catch
         {
@@ -169,6 +171,7 @@
         {
             using var stream = new MemoryStream(_avatarBytes);
             await Api.UploadAvatarAsync(stream, "avatar.jpg", _avatarContentType);
+            AvatarState.Set(_avatarPreview);
             _avatarFile = null;
             _avatarBytes = null;
         }
@@ -189,6 +192,7 @@
         try
         {
             await Api.DeleteAvatarAsync();
+            AvatarState.Set(null);
             _avatarPreview = null;
             _avatarFile = null;
             _avatarBytes = null;
