@@ -4,7 +4,7 @@ namespace FitTrack.Integration.Contracts;
 /// Request body for naming a series. Creating and renaming share it, because a series is born with
 /// nothing but a name.
 /// </summary>
-public sealed record SetWorkoutSeriesNameRequest(string Name);
+public sealed record SetWorkoutSeriesNameRequest(string Name, Guid? AthleteId = null);
 
 /// <summary>
 /// Request body for one prescribed exercise. The load is nullable because a bodyweight exercise has no

@@ -14,11 +14,12 @@ public sealed class WorkoutSeries
 
     private readonly List<WorkoutSeriesWorkout> _workouts = [];
 
-    private WorkoutSeries(WorkoutSeriesId id, WorkoutSeriesName name, UserId trainerId)
+    private WorkoutSeries(WorkoutSeriesId id, WorkoutSeriesName name, UserId trainerId, UserId? athleteId)
     {
         Id = id;
         Name = name;
         TrainerId = trainerId;
+        AthleteId = athleteId;
     }
 
     public WorkoutSeriesId Id { get; }
@@ -28,17 +29,28 @@ public sealed class WorkoutSeries
     /// <summary>Author of the series. Only this trainer may edit it.</summary>
     public UserId TrainerId { get; }
 
+    /// <summary>
+    /// The athlete this series belongs to. Null for legacy series created before the per-athlete
+    /// rule; new series always carry one.
+    /// </summary>
+    public UserId? AthleteId { get; }
+
     /// <summary>Workouts in <see cref="WorkoutSeriesWorkout.Position"/> order, from 1 to n.</summary>
     public IReadOnlyList<WorkoutSeriesWorkout> Workouts => _workouts;
 
-    public static WorkoutSeries Create(WorkoutSeriesId id, WorkoutSeriesName name, UserId trainerId)
+    public static WorkoutSeries Create(WorkoutSeriesId id, WorkoutSeriesName name, UserId trainerId, UserId? athleteId = null)
     {
         if (trainerId.Value == Guid.Empty)
         {
             throw new DomainException("workout_series.trainer.required", "A workout series must have an author.");
         }
 
-        return new WorkoutSeries(id, name, trainerId);
+        if (athleteId is not null && athleteId.Value.Value == Guid.Empty)
+        {
+            throw new DomainException("workout_series.athlete.required", "A workout series must belong to an athlete.");
+        }
+
+        return new WorkoutSeries(id, name, trainerId, athleteId);
     }
 
     public void Rename(WorkoutSeriesName name) => Name = name;

@@ -32,6 +32,7 @@ public sealed record WorkoutSeriesResponse(
     Guid Id,
     string Name,
     Guid TrainerId,
+    Guid? AthleteId,
     IReadOnlyList<WorkoutSeriesWorkoutResponse> Workouts);
 
 /// <summary>Wire contract: the series an athlete follows, with the state of its 60-day term.</summary>

@@ -30,6 +30,7 @@ internal static class WorkoutSeriesMapping
             series.Id.Value,
             series.Name.Value,
             series.TrainerId.Value,
+            series.AthleteId?.Value,
             [.. series.Workouts.Select(workout =>
                 workout.ToDto(exercises, todayByWorkout.GetValueOrDefault(workout.Id.Value)))]);
 

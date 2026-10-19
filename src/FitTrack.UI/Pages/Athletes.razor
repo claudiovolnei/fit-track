@@ -96,7 +96,36 @@ else
                     </div>
                 }
 
+                @if (_creatingFor == athlete.UserId)
+                {
+                    <div class="inline-form" style="margin-top: 12px;">
+                        <div class="field">
+                            <label for="series-for-@athlete.UserId">Nome da série</label>
+                            <input id="series-for-@athlete.UserId" maxlength="80" placeholder="Ex.: Hipertrofia — 4 dias"
+                                   @bind="_newSeriesName" @bind:event="oninput" />
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-primary btn-sm" type="button"
+                                    disabled="@(_busy || string.IsNullOrWhiteSpace(_newSeriesName))"
+                                    @onclick="() => CreateForAthleteAsync(athlete.UserId)">
+                                <AppIcon Name="plus" Size="16" />
+                                Criar série
+                            </button>
+                            <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                                    @onclick="CancelCreateAsync">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                }
+
                 <div class="actions">
+                    <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                            @onclick="() => StartCreateAsync(athlete.UserId)">
+                        <AppIcon Name="plus" Size="16" />
+                        Nova série para este atleta
+                    </button>
+
                     @if (_series.Count > 0)
                     {
                         <button class="btn btn-primary" type="button" disabled="@_busy" @onclick="() => AssignAsync(athlete)">
@@ -121,6 +150,8 @@ else
     private bool _loading = true;
     private bool _busy;
     private string? _error;
+    private Guid? _creatingFor;
+    private string _newSeriesName = string.Empty;
 
     protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
 
@@ -131,6 +162,27 @@ else
                 athlete.SelectedSeriesId,
                 new AssignWorkoutSeriesRequest(athlete.UserId));
 
+            await ReloadAsync();
+        });
+
+    private void StartCreateAsync(Guid userId)
+    {
+        _creatingFor = userId;
+        _newSeriesName = string.Empty;
+    }
+
+    private void CancelCreateAsync()
+    {
+        _creatingFor = null;
+        _newSeriesName = string.Empty;
+    }
+
+    private async Task CreateForAthleteAsync(Guid userId) =>
+        await RunAsync(async () =>
+        {
+            await Api.CreateWorkoutSeriesAsync(new SetWorkoutSeriesNameRequest(_newSeriesName, userId));
+
+            CancelCreateAsync();
             await ReloadAsync();
         });
 

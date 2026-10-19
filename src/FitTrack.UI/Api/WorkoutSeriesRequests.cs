@@ -1,7 +1,7 @@
 namespace FitTrack.UI.Api;
 
 /// <summary>Wire contract: naming a series — the same body creates one and renames one.</summary>
-public sealed record SetWorkoutSeriesNameRequest(string Name);
+public sealed record SetWorkoutSeriesNameRequest(string Name, Guid? AthleteId = null);
 
 /// <summary>Wire contract: one prescribed exercise of a workout.</summary>
 public sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms);

@@ -26,7 +26,8 @@ internal static class WorkoutSeriesMapper
         var series = WorkoutSeries.Create(
             new WorkoutSeriesId(record.Id),
             new WorkoutSeriesName(record.Name),
-            new UserId(record.TrainerId));
+            new UserId(record.TrainerId),
+            record.AthleteId is { } athlete ? new UserId(athlete) : null);
 
         // The stored order is what rebuilds the positions: AddWorkout numbers 1..n as they enter, so
         // the aggregate keeps the sheet contiguous without the column being the source of the rule.
@@ -53,6 +54,7 @@ internal static class WorkoutSeriesMapper
         Id = series.Id.Value,
         Name = series.Name.Value,
         TrainerId = series.TrainerId.Value,
+        AthleteId = series.AthleteId?.Value,
         Workouts = [.. series.Workouts.Select(workout => ToWorkoutRecord(series.Id, workout))],
     };
 

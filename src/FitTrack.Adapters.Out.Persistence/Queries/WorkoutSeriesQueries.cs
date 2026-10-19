@@ -22,7 +22,7 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
             .AsNoTracking()
             .Where(candidate => candidate.TrainerId == trainerId.Value)
             .OrderBy(candidate => candidate.Name)
-            .Select(candidate => new SeriesRow(candidate.Id, candidate.Name, candidate.TrainerId))
+            .Select(candidate => new SeriesRow(candidate.Id, candidate.Name, candidate.TrainerId, candidate.AthleteId))
             .ToListAsync(cancellationToken);
 
         return await ComposeAsync(series, athlete: null, today: null, now: null, cancellationToken);
@@ -33,7 +33,7 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
         var series = await dbContext.WorkoutSeries
             .AsNoTracking()
             .Where(candidate => candidate.Id == seriesId.Value)
-            .Select(candidate => new SeriesRow(candidate.Id, candidate.Name, candidate.TrainerId))
+            .Select(candidate => new SeriesRow(candidate.Id, candidate.Name, candidate.TrainerId, candidate.AthleteId))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (series is null)
@@ -66,7 +66,7 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
         var series = await dbContext.WorkoutSeries
             .AsNoTracking()
             .Where(candidate => candidate.Id == assignment.WorkoutSeriesId)
-            .Select(candidate => new SeriesRow(candidate.Id, candidate.Name, candidate.TrainerId))
+            .Select(candidate => new SeriesRow(candidate.Id, candidate.Name, candidate.TrainerId, candidate.AthleteId))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (series is null)
@@ -180,7 +180,7 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
                     todayByWorkout.GetValueOrDefault(workout.Id)));
             }
 
-            result.Add(new WorkoutSeriesDto(candidate.Id, candidate.Name, candidate.TrainerId, workoutDtos));
+            result.Add(new WorkoutSeriesDto(candidate.Id, candidate.Name, candidate.TrainerId, candidate.AthleteId, workoutDtos));
         }
 
         return result;
@@ -226,5 +226,5 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
                 ]));
     }
 
-    private sealed record SeriesRow(Guid Id, string Name, Guid TrainerId);
+    private sealed record SeriesRow(Guid Id, string Name, Guid TrainerId, Guid? AthleteId);
 }

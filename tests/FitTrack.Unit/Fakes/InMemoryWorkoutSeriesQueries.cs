@@ -60,6 +60,7 @@ internal sealed class InMemoryWorkoutSeriesQueries(
             candidate.Id.Value,
             candidate.Name.Value,
             candidate.TrainerId.Value,
+            candidate.AthleteId?.Value,
             [.. candidate.Workouts.Select(workout => ToDto(workout, today, now))]);
 
     private WorkoutSeriesWorkoutDto ToDto(

@@ -5,4 +5,5 @@ public sealed record WorkoutSeriesDto(
     Guid Id,
     string Name,
     Guid TrainerId,
+    Guid? AthleteId,
     IReadOnlyList<WorkoutSeriesWorkoutDto> Workouts);

@@ -13,5 +13,8 @@ public sealed class WorkoutSeriesRecord
 
     public Guid TrainerId { get; set; }
 
+    /// <summary>The athlete this series belongs to, when created per-athlete. Null for legacy reusable series.</summary>
+    public Guid? AthleteId { get; set; }
+
     public List<WorkoutSeriesWorkoutRecord> Workouts { get; set; } = [];
 }

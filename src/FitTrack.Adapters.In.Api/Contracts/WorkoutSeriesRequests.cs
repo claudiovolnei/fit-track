@@ -4,7 +4,7 @@ namespace FitTrack.Adapters.In.Api.Contracts;
 /// HTTP contract for naming a series. Creating and renaming share the body, because a series is born
 /// with nothing but a name — the workouts come later, one request each.
 /// </summary>
-internal sealed record SetWorkoutSeriesNameRequest(string Name);
+internal sealed record SetWorkoutSeriesNameRequest(string Name, Guid? AthleteId = null);
 
 /// <summary>HTTP contract for the name and the prescription of one workout of a series.</summary>
 internal sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<PrescribedExerciseRequest> Exercises);

@@ -63,7 +63,9 @@ internal static class WorkoutSeriesEndpoints
         ICreateWorkoutSeries useCase,
         CancellationToken cancellationToken)
     {
-        var series = await useCase.ExecuteAsync(new CreateWorkoutSeriesCommand(request.Name), cancellationToken);
+        var series = await useCase.ExecuteAsync(
+            new CreateWorkoutSeriesCommand(request.Name, request.AthleteId),
+            cancellationToken);
 
         return Results.Created($"/workout-series/{series.Id}", series);
     }
