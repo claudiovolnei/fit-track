@@ -9,6 +9,7 @@ using FitTrack.Application.Ports.Out;
 using FitTrack.Application.UseCases;
 using FitTrack.Domain.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -20,6 +21,17 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+// Identity token providers (password reset, e-mail confirmation) protect their payloads with
+// DataProtection keys. Persisting them on the Fly volume keeps tokens valid across deploys and
+// restarts; without this, every restart invalidates outstanding tokens.
+var keysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(keysPath))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(keysPath))
+        .SetApplicationName("FitTrack");
+}
 
 // The DbContext connection is owned by the composition root; Aspire supplies it by name.
 builder.AddNpgsqlDbContext<FitTrackDbContext>("fittrack");
