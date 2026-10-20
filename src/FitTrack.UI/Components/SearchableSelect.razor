@@ -35,7 +35,7 @@
         <ul id="@ListId" class="searchable-select__list" role="listbox" aria-label="@AriaLabel">
             @if (Filtered.Count == 0)
             {
-                <li class="searchable-select__empty" role="option" aria-disabled="true">Nenhum resultado</li>
+                <li class="searchable-select__empty" role="option" aria-disabled="true">@EmptyText</li>
             }
             else
             {
@@ -87,6 +87,9 @@
 
     [Parameter]
     public string FilterPlaceholder { get; set; } = "Buscar por nome";
+
+    [Parameter]
+    public string EmptyText { get; set; } = "Nenhum resultado";
 
     [Parameter]
     public string AriaLabel { get; set; } = "Selecione uma opção";

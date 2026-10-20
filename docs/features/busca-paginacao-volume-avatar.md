@@ -200,6 +200,7 @@ Por tela:
 - **Fonte dos dados:** o editor continua recebendo o catálogo completo já carregado por `SeriesDetail.razor`; o filtro do dropdown é client-side, sem request por tecla. `Today.razor` também depende do catálogo completo e não muda nesta entrega.
 - **Sem resultado:** opção desabilitada "Nenhum exercício encontrado" e manutenção do valor atual.
 - **Acessibilidade:** label associada, foco visível, anúncio do resultado selecionado.
+- **Formulário:** o `Enter` que escolhe a opção é interceptado no navegador (`wwwroot/js/combobox.js`) para que o `EditForm` ao redor não seja enviado antes de o Blazor tratar a tecla.
 
 > O catálogo atual é pequeno e já é carregado integralmente em `SeriesDetail.razor`. Se o catálogo crescer a ponto de justificar type-ahead server-side, o componente deve consumir `GET /exercises?search=&pageSize=20`; ver decisão D2.
 
