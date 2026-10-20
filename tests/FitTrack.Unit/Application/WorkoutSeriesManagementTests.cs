@@ -327,7 +327,7 @@ public sealed class WorkoutSeriesManagementTests
 
     private InMemoryWorkoutSeriesQueries Queries => new(_series, _assignments, _exercises, _muscleGroups, _sessions);
 
-    private ICreateWorkoutSeries Create(StubCurrentUser user) => new CreateWorkoutSeries(user, _series, Queries, _assignments, _clock, _ids);
+    private ICreateWorkoutSeries Create(StubCurrentUser user) => new CreateWorkoutSeries(user, _series, Queries, _athletes, _assignments, _clock, _ids);
 
     private IRenameWorkoutSeries Rename(StubCurrentUser user) => new RenameWorkoutSeries(user, _series, Queries);
 

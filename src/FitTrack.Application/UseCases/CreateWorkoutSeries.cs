@@ -1,5 +1,6 @@
 using FitTrack.Application.Commands;
 using FitTrack.Application.Dtos;
+using FitTrack.Application.Exceptions;
 using FitTrack.Application.Ports.In;
 using FitTrack.Application.Ports.Out;
 using FitTrack.Domain.Common;
@@ -17,6 +18,7 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
     private readonly ICurrentUser _currentUser;
     private readonly IWorkoutSeriesRepository _series;
     private readonly IQueryWorkoutSeries _query;
+    private readonly IQueryAthletes _athletes;
     private readonly IWorkoutSeriesAssignmentRepository _assignments;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
@@ -25,6 +27,7 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
         ICurrentUser currentUser,
         IWorkoutSeriesRepository series,
         IQueryWorkoutSeries query,
+        IQueryAthletes athletes,
         IWorkoutSeriesAssignmentRepository assignments,
         IClock clock,
         IIdGenerator idGenerator)
@@ -32,6 +35,7 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
         _currentUser = currentUser;
         _series = series;
         _query = query;
+        _athletes = athletes;
         _assignments = assignments;
         _clock = clock;
         _idGenerator = idGenerator;
@@ -55,6 +59,11 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
         var athleteId = command.AthleteId is { } athlete && athlete != Guid.Empty
             ? new UserId(athlete)
             : (UserId?)null;
+
+        if (athleteId is not null && !await _athletes.ExistsAsync(athleteId.Value, cancellationToken))
+        {
+            throw new NotFoundException($"No athlete with id '{athleteId.Value.Value}'.");
+        }
 
         var series = WorkoutSeries.Create(
             new WorkoutSeriesId(_idGenerator.NewId()),

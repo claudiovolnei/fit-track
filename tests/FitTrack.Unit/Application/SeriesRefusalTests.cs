@@ -178,7 +178,7 @@ public sealed class SeriesRefusalTests
         _muscleGroups,
         _sessions);
 
-    private ICreateWorkoutSeries Create => new CreateWorkoutSeries(Trainer, _series, Queries, _assignments, _clock, _ids);
+    private ICreateWorkoutSeries Create => new CreateWorkoutSeries(Trainer, _series, Queries, _athletes, _assignments, _clock, _ids);
 
     private IAddSeriesWorkout Add => new AddSeriesWorkout(Trainer, _series, _exercises, Queries, _ids);
 
