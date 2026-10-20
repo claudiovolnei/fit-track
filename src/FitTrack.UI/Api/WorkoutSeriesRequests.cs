@@ -8,10 +8,6 @@ public sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Re
 
 /// <summary>Wire contract: the name and the prescription of one workout of a series.</summary>
 public sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<PrescribedExerciseRequest> Exercises);
-
-/// <summary>Wire contract: putting a series in the hands of one athlete.</summary>
-public sealed record AssignWorkoutSeriesRequest(Guid UserId);
-
 /// <summary>Wire contract: starting today's workout from one workout of the athlete's series.</summary>
 public sealed record StartWorkoutRequest(Guid WorkoutSeriesWorkoutId);
 

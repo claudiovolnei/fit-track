@@ -193,13 +193,9 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         var athlete = await factory.CreateAthleteAsync();
         var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Vencida");
 
-        var series = await trainer.CreateSeriesAsync($"Vencida {Guid.NewGuid():N}");
+        var series = await trainer.CreateSeriesAsync($"Vencida {Guid.NewGuid():N}", athlete.UserId);
         var first = await trainer.AddWorkoutAsync(series.Id, "Peito", Prescriptions.For(exercise.Id));
         var second = await trainer.AddWorkoutAsync(series.Id, "Costas", Prescriptions.For(exercise.Id));
-
-        await trainer.PostAsJsonAsync(
-            $"/workout-series/{series.Id}/assignments",
-            new AssignWorkoutSeriesRequest(athlete.UserId));
 
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(first.Id));
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;

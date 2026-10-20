@@ -40,15 +40,6 @@ else if (_athletes.Count == 0)
 }
 else
 {
-    @if (_series.Count == 0)
-    {
-        <div class="alert alert--info">
-            <AppIcon Name="info" Size="18" />
-            <span>
-                Você ainda não tem séries. <a href="/series">Crie uma</a> para poder vincular aos atletas.
-            </span>
-        </div>
-    }
 
     <div class="card-grid">
         @foreach (var athlete in _athletes)
@@ -83,18 +74,7 @@ else
                     }
                 </div>
 
-                @if (_series.Count > 0)
-                {
-                    <div class="field">
-                        <label for="series-for-@athlete.UserId">Série</label>
-                        <select id="series-for-@athlete.UserId" @bind="athlete.SelectedSeriesId">
-                            @foreach (var series in _series)
-                            {
-                                <option value="@series.Id">@series.Name</option>
-                            }
-                        </select>
-                    </div>
-                }
+
 
                 @if (_creatingFor == athlete.UserId)
                 {
@@ -126,13 +106,7 @@ else
                         Nova série para este atleta
                     </button>
 
-                    @if (_series.Count > 0)
-                    {
-                        <button class="btn btn-primary" type="button" disabled="@_busy" @onclick="() => AssignAsync(athlete)">
-                            <AppIcon Name="check" Size="18" />
-                            @(athlete.SeriesId is null ? "Vincular série" : "Trocar série")
-                        </button>
-                    }
+
 
                     <a class="btn btn-secondary" href="/athletes/@athlete.UserId/workouts">
                         Ver treinos
@@ -146,7 +120,6 @@ else
 
 @code {
     private IReadOnlyList<AthleteRow> _athletes = [];
-    private IReadOnlyList<WorkoutSeriesResponse> _series = [];
     private bool _loading = true;
     private bool _busy;
     private string? _error;
@@ -154,16 +127,6 @@ else
     private string _newSeriesName = string.Empty;
 
     protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
-
-    private async Task AssignAsync(AthleteRow athlete) =>
-        await RunAsync(async () =>
-        {
-            await Api.AssignWorkoutSeriesAsync(
-                athlete.SelectedSeriesId,
-                new AssignWorkoutSeriesRequest(athlete.UserId));
-
-            await ReloadAsync();
-        });
 
     private void StartCreateAsync(Guid userId)
     {
@@ -207,8 +170,6 @@ else
 
     private async Task ReloadAsync()
     {
-        _series = await Api.GetWorkoutSeriesAsync();
-
         var athletes = await Api.GetAthletesAsync();
 
         _athletes =
@@ -220,7 +181,6 @@ else
                 SeriesId = athlete.WorkoutSeriesId,
                 SeriesName = athlete.WorkoutSeriesName,
                 DaysRemaining = athlete.DaysRemaining,
-                SelectedSeriesId = athlete.WorkoutSeriesId ?? _series.FirstOrDefault()?.Id ?? Guid.Empty,
             }),
         ];
 
@@ -238,7 +198,5 @@ else
         public string? SeriesName { get; init; }
 
         public int DaysRemaining { get; init; }
-
-        public Guid SelectedSeriesId { get; set; }
     }
 }

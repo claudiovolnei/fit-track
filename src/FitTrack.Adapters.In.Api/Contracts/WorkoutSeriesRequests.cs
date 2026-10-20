@@ -14,6 +14,3 @@ internal sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<Prescr
 /// weight to prescribe; the accepted ranges stay in the domain, which is where the rule lives.
 /// </summary>
 internal sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms);
-
-/// <summary>HTTP contract for putting a series in the hands of one athlete.</summary>
-internal sealed record AssignWorkoutSeriesRequest(Guid UserId);

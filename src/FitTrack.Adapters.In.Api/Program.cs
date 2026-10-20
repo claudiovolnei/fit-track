@@ -44,7 +44,7 @@ builder.Services.AddScoped<IRenameWorkoutSeries, RenameWorkoutSeries>();
 builder.Services.AddScoped<IAddSeriesWorkout, AddSeriesWorkout>();
 builder.Services.AddScoped<IChangeSeriesWorkout, ChangeSeriesWorkout>();
 builder.Services.AddScoped<IRemoveSeriesWorkout, RemoveSeriesWorkout>();
-builder.Services.AddScoped<IAssignWorkoutSeries, AssignWorkoutSeries>();
+
 builder.Services.AddScoped<IListAthleteWorkouts, ListAthleteWorkouts>();
 builder.Services.AddScoped<IGetMyWorkoutSeries, GetMyWorkoutSeries>();
 builder.Services.AddScoped<IStartWorkout, StartWorkout>();

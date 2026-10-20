@@ -150,10 +150,6 @@ public sealed class SeriesRefusalTests
         var seriesId = await CreateAsync("Hipertrofia A/B/C");
         var workout = await AddWorkoutAsync(seriesId, "Peito e Tríceps", [Prescription(_bench)]);
 
-        await Assign.ExecuteAsync(
-            new AssignWorkoutSeriesCommand(seriesId, _athlete.Value),
-            CancellationToken.None);
-
         if (assignedAt is { } start)
         {
             var assignment = (await _assignments.GetByUserIdAsync(_athlete, CancellationToken.None))!;
@@ -187,9 +183,6 @@ public sealed class SeriesRefusalTests
     private IAddSeriesWorkout Add => new AddSeriesWorkout(Trainer, _series, _exercises, Queries, _ids);
 
     private IRemoveSeriesWorkout Remove => new RemoveSeriesWorkout(Trainer, _series);
-
-    private IAssignWorkoutSeries Assign =>
-        new AssignWorkoutSeries(Trainer, _athletes, _series, _assignments, Queries, _ids, _clock);
 
     private IStartWorkout Start => new StartWorkout(Athlete, _series, _assignments, _sessions, _ids, _clock);
 

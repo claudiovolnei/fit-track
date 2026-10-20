@@ -31,7 +31,7 @@ internal static class WorkoutSeriesEndpoints
         series.MapPost("/{seriesId:guid}/workouts", AddWorkoutAsync);
         series.MapPut("/{seriesId:guid}/workouts/{workoutId:guid}", ChangeWorkoutAsync);
         series.MapDelete("/{seriesId:guid}/workouts/{workoutId:guid}", RemoveWorkoutAsync);
-        series.MapPost("/{seriesId:guid}/assignments", AssignAsync);
+
 
         // The athlete reads their own series through a singular route: no id, no way to ask for a
         // series that is not theirs.
@@ -117,21 +117,6 @@ internal static class WorkoutSeriesEndpoints
         await useCase.ExecuteAsync(new RemoveSeriesWorkoutCommand(seriesId, workoutId), cancellationToken);
 
         return Results.NoContent();
-    }
-
-    private static async Task<IResult> AssignAsync(
-        Guid seriesId,
-        AssignWorkoutSeriesRequest request,
-        IAssignWorkoutSeries useCase,
-        CancellationToken cancellationToken)
-    {
-        var result = await useCase.ExecuteAsync(
-            new AssignWorkoutSeriesCommand(seriesId, request.UserId),
-            cancellationToken);
-
-        return result.Created
-            ? Results.Created($"/workout-series/{result.Series.Id}", result.Series)
-            : Results.Ok(result.Series);
     }
 
     /// <summary>

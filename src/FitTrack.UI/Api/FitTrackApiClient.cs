@@ -105,11 +105,7 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         CancellationToken cancellationToken = default) =>
         DeleteAsync($"workout-series/{seriesId}/workouts/{workoutId}", cancellationToken);
 
-    public Task<WorkoutSeriesResponse> AssignWorkoutSeriesAsync(
-        Guid seriesId,
-        AssignWorkoutSeriesRequest request,
-        CancellationToken cancellationToken = default) =>
-        PostAsync<WorkoutSeriesResponse>($"workout-series/{seriesId}/assignments", request, cancellationToken);
+
 
     public Task<IReadOnlyList<AthleteResponse>> GetAthletesAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<AthleteResponse>>("athletes", cancellationToken);

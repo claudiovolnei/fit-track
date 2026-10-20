@@ -14,6 +14,3 @@ public sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Re
 
 /// <summary>Request body for the name and the prescription of one workout of a series.</summary>
 public sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<PrescribedExerciseRequest> Exercises);
-
-/// <summary>Request body for putting a series in the hands of one athlete.</summary>
-public sealed record AssignWorkoutSeriesRequest(Guid UserId);

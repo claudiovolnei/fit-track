@@ -53,11 +53,11 @@ internal static class ApiClientExtensions
     }
 
     /// <summary>Creates a series, as the signed-in trainer.</summary>
-    public static async Task<WorkoutSeriesResponse> CreateSeriesAsync(this HttpClient trainerClient, string name)
+    public static async Task<WorkoutSeriesResponse> CreateSeriesAsync(this HttpClient trainerClient, string name, Guid? athleteId = null)
     {
         var response = await trainerClient.PostAsJsonAsync(
             "/workout-series",
-            new SetWorkoutSeriesNameRequest(name));
+            new SetWorkoutSeriesNameRequest(name, athleteId));
 
         await response.EnsureSuccessWithBodyAsync();
 

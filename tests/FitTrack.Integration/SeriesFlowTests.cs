@@ -9,7 +9,7 @@ namespace FitTrack.Integration;
 /// The trainer's series end to end: a series is authored once, its workouts keep their order and their
 /// labels, the prescription round-trips through PostgreSQL, and the athlete reads back the same sheet
 /// after the series is assigned. Since the series is a reusable template, the same one serves more than
-/// one athlete — and one trainer never reaches another's series.
+/// one athlete Ã¢â‚¬â€ and one trainer never reaches another's series.
 /// </summary>
 public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<FitTrackApiFactory>
 {
@@ -17,16 +17,16 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
     public async Task Trainer_BuildsASeriesAndReadsItBackInOrder()
     {
         var trainer = await factory.TrainerAsync();
-        var chest = await SeriesArrange.NewExerciseAsync(trainer, "Série Peito");
-        var back = await SeriesArrange.NewExerciseAsync(trainer, "Série Costas");
+        var chest = await SeriesArrange.NewExerciseAsync(trainer, "SÃƒÂ©rie Peito");
+        var back = await SeriesArrange.NewExerciseAsync(trainer, "SÃƒÂ©rie Costas");
 
         var created = await trainer.CreateSeriesAsync($"Hipertrofia {Guid.NewGuid():N}");
 
         Assert.Empty(created.Workouts);
 
         var first = await trainer.AddWorkoutAsync(
-            created.Id, "Peito e Tríceps", Prescriptions.For(chest.Id, 4, 10, 50m));
-        var second = await trainer.AddWorkoutAsync(created.Id, "Costas e Bíceps", Prescriptions.For(back.Id));
+            created.Id, "Peito e TrÃƒÂ­ceps", Prescriptions.For(chest.Id, 4, 10, 50m));
+        var second = await trainer.AddWorkoutAsync(created.Id, "Costas e BÃƒÂ­ceps", Prescriptions.For(back.Id));
         var third = await trainer.AddWorkoutAsync(
             created.Id, "Core", Prescriptions.For(chest.Id, 3, 20, loadKilograms: null));
 
@@ -42,7 +42,7 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
         Assert.Equal(created.TrainerId, read.TrainerId);
         Assert.Equal(new[] { "A", "B", "C" }, read.Workouts.Select(workout => workout.Label));
         Assert.Equal(
-            new[] { "Peito e Tríceps", "Costas e Bíceps", "Core" },
+            new[] { "Peito e TrÃƒÂ­ceps", "Costas e BÃƒÂ­ceps", "Core" },
             read.Workouts.Select(workout => workout.Name));
 
         var prescribed = Assert.Single(read.Workouts[0].Exercises);
@@ -60,7 +60,7 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
     public async Task Trainer_RemovingAWorkout_RenumbersTheLabelsThatFollow()
     {
         var trainer = await factory.TrainerAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Renumera");
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "SÃƒÂ©rie Renumera");
 
         var series = await trainer.CreateSeriesAsync($"Renumera {Guid.NewGuid():N}");
         await trainer.AddWorkoutAsync(series.Id, "Peito", Prescriptions.For(exercise.Id));
@@ -82,8 +82,8 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
     public async Task Trainer_ReplacingAWorkout_SwapsTheNameAndThePrescriptionKeepingItsPlace()
     {
         var trainer = await factory.TrainerAsync();
-        var chest = await SeriesArrange.NewExerciseAsync(trainer, "Série Troca Peito");
-        var back = await SeriesArrange.NewExerciseAsync(trainer, "Série Troca Costas");
+        var chest = await SeriesArrange.NewExerciseAsync(trainer, "SÃƒÂ©rie Troca Peito");
+        var back = await SeriesArrange.NewExerciseAsync(trainer, "SÃƒÂ©rie Troca Costas");
 
         var series = await trainer.CreateSeriesAsync($"Troca {Guid.NewGuid():N}");
         await trainer.AddWorkoutAsync(series.Id, "Peito", Prescriptions.For(chest.Id));
@@ -91,7 +91,7 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
 
         var changed = await trainer.PutAsJsonAsync(
             $"/workout-series/{series.Id}/workouts/{second.Id}",
-            new SetSeriesWorkoutRequest("Costas e Bíceps", [Prescriptions.For(chest.Id, 5, 5, 80m)]));
+            new SetSeriesWorkoutRequest("Costas e BÃƒÂ­ceps", [Prescriptions.For(chest.Id, 5, 5, 80m)]));
 
         Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
 
@@ -99,7 +99,7 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
 
         Assert.Equal(second.Id, updated.Id);
         Assert.Equal("B", updated.Label);
-        Assert.Equal("Costas e Bíceps", updated.Name);
+        Assert.Equal("Costas e BÃƒÂ­ceps", updated.Name);
 
         var prescribed = Assert.Single(updated.Exercises);
 
@@ -115,7 +115,7 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
 
         var swapped = Assert.Single(read.Workouts[1].Exercises);
 
-        Assert.Equal("Costas e Bíceps", read.Workouts[1].Name);
+        Assert.Equal("Costas e BÃƒÂ­ceps", read.Workouts[1].Name);
         Assert.Equal((5, 5, 80m), (swapped.Sets, swapped.Repetitions, swapped.LoadKilograms));
     }
 
@@ -123,7 +123,7 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
     public async Task Trainer_RenamingASeries_KeepsItsWorkouts()
     {
         var trainer = await factory.TrainerAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Renomeia");
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "SÃƒÂ©rie Renomeia");
 
         var series = await trainer.CreateSeriesAsync($"Antes {Guid.NewGuid():N}");
         await trainer.AddWorkoutAsync(series.Id, "Peito", Prescriptions.For(exercise.Id));
@@ -147,16 +147,10 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
     {
         var trainer = await factory.TrainerAsync();
         var athlete = await factory.CreateAthleteAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Atribuída");
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "SÃƒÂ©rie AtribuÃƒÂ­da");
 
-        var series = await trainer.CreateSeriesAsync($"Atribuída {Guid.NewGuid():N}");
-        await trainer.AddWorkoutAsync(series.Id, "Peito e Tríceps", Prescriptions.For(exercise.Id, 4, 10, 60m));
-
-        var assigned = await trainer.PostAsJsonAsync(
-            $"/workout-series/{series.Id}/assignments",
-            new AssignWorkoutSeriesRequest(athlete.UserId));
-
-        Assert.Equal(HttpStatusCode.Created, assigned.StatusCode);
+        var series = await trainer.CreateSeriesAsync($"AtribuÃƒÂ­da {Guid.NewGuid():N}", athlete.UserId);
+        await trainer.AddWorkoutAsync(series.Id, "Peito e TrÃƒÂ­ceps", Prescriptions.For(exercise.Id, 4, 10, 60m));
 
         var mine = (await athlete.Client.ReadMySeriesAsync())!;
 
@@ -170,7 +164,7 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
         var workout = Assert.Single(mine.Series.Workouts);
 
         Assert.Equal("A", workout.Label);
-        Assert.Equal("Peito e Tríceps", workout.Name);
+        Assert.Equal("Peito e TrÃƒÂ­ceps", workout.Name);
         Assert.Null(workout.Today);
 
         var prescribed = Assert.Single(workout.Exercises);
@@ -180,60 +174,18 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
         Assert.Equal((4, 10, 60m), (prescribed.Sets, prescribed.Repetitions, prescribed.LoadKilograms));
     }
 
-    [RequiresPostgresFact]
-    public async Task Trainer_AssigningTheSameSeriesAgain_KeepsTheTermRunning()
-    {
-        var trainer = await factory.TrainerAsync();
-        var athlete = await factory.CreateAthleteAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Reatribuída");
-
-        var series = await trainer.CreateSeriesAsync($"Reatribuída {Guid.NewGuid():N}");
-        await trainer.AddWorkoutAsync(series.Id, "Peito", Prescriptions.For(exercise.Id));
-
-        var first = await trainer.PostAsJsonAsync(
-            $"/workout-series/{series.Id}/assignments",
-            new AssignWorkoutSeriesRequest(athlete.UserId));
-        var mine = (await athlete.Client.ReadMySeriesAsync())!;
-
-        var again = await trainer.PostAsJsonAsync(
-            $"/workout-series/{series.Id}/assignments",
-            new AssignWorkoutSeriesRequest(athlete.UserId));
-
-        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, again.StatusCode);
-
-        var reassigned = (await athlete.Client.ReadMySeriesAsync())!;
-
-        // Nothing was restarted: the same term is still counting from the first assignment.
-        Assert.Equal(mine.ExpiresAt, reassigned.ExpiresAt);
-
-        var athletes = await trainer.GetFromJsonAsync<IReadOnlyList<AthleteResponse>>("/athletes");
-        var row = Assert.Single(athletes!, candidate => candidate.UserId == athlete.UserId);
-
-        Assert.Equal(series.Id, row.WorkoutSeriesId);
-        Assert.Equal(series.Name, row.WorkoutSeriesName);
-        Assert.Equal(WorkoutSeriesAssignment.TermInDays, row.DaysRemaining);
-    }
-
-    [RequiresPostgresFact]
+[RequiresPostgresFact]
     public async Task Trainer_AssigningAnotherSeries_ReplacesTheLink()
     {
         var trainer = await factory.TrainerAsync();
         var athlete = await factory.CreateAthleteAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Substituída");
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "SÃƒÂ©rie SubstituÃƒÂ­da");
 
-        var first = await trainer.CreateSeriesAsync($"Primeira {Guid.NewGuid():N}");
+        var first = await trainer.CreateSeriesAsync($"Primeira {Guid.NewGuid():N}", athlete.UserId);
         await trainer.AddWorkoutAsync(first.Id, "Peito", Prescriptions.For(exercise.Id));
 
-        var second = await trainer.CreateSeriesAsync($"Segunda {Guid.NewGuid():N}");
+        var second = await trainer.CreateSeriesAsync($"Segunda {Guid.NewGuid():N}", athlete.UserId);
         await trainer.AddWorkoutAsync(second.Id, "Costas", Prescriptions.For(exercise.Id));
-
-        await trainer.PostAsJsonAsync(
-            $"/workout-series/{first.Id}/assignments",
-            new AssignWorkoutSeriesRequest(athlete.UserId));
-        await trainer.PostAsJsonAsync(
-            $"/workout-series/{second.Id}/assignments",
-            new AssignWorkoutSeriesRequest(athlete.UserId));
 
         var mine = (await athlete.Client.ReadMySeriesAsync())!;
 
@@ -264,7 +216,7 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
         var owner = await factory.TrainerAsync();
         var intruder = await factory.NewTrainerAsync();
         var athlete = await factory.CreateAthleteAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(owner, "Série Alheia");
+        var exercise = await SeriesArrange.NewExerciseAsync(owner, "SÃƒÂ©rie Alheia");
 
         var series = await owner.CreateSeriesAsync($"Alheia {Guid.NewGuid():N}");
         var workout = await owner.AddWorkoutAsync(series.Id, "Peito", Prescriptions.For(exercise.Id));
@@ -282,16 +234,12 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
             $"/workout-series/{series.Id}/workouts/{workout.Id}",
             new SetSeriesWorkoutRequest("Costas", [Prescriptions.For(exercise.Id)]));
         var remove = await intruder.DeleteAsync($"/workout-series/{series.Id}/workouts/{workout.Id}");
-        var assign = await intruder.PostAsJsonAsync(
-            $"/workout-series/{series.Id}/assignments",
-            new AssignWorkoutSeriesRequest(athlete.UserId));
 
         Assert.Equal(HttpStatusCode.NotFound, read.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, rename.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, add.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, change.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, remove.StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, assign.StatusCode);
 
         // The owner's series is untouched by all of it.
         var mine = await owner.GetFromJsonAsync<WorkoutSeriesResponse>($"/workout-series/{series.Id}");
@@ -325,7 +273,7 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
         var listed = await athlete.Client.GetAsync("/workout-series");
         var created = await athlete.Client.PostAsJsonAsync(
             "/workout-series",
-            new SetWorkoutSeriesNameRequest("Minha série"));
+            new SetWorkoutSeriesNameRequest("Minha sÃƒÂ©rie"));
         var athletes = await athlete.Client.GetAsync("/athletes");
 
         Assert.Equal(HttpStatusCode.Forbidden, listed.StatusCode);
@@ -341,21 +289,5 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/workout-series")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/workout-series/mine")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/athletes")).StatusCode);
-    }
-
-    [RequiresPostgresFact]
-    public async Task Trainer_AssigningToAnUnknownAthlete_IsRefused()
-    {
-        var trainer = await factory.TrainerAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Fantasma");
-
-        var series = await trainer.CreateSeriesAsync($"Fantasma {Guid.NewGuid():N}");
-        await trainer.AddWorkoutAsync(series.Id, "Peito", Prescriptions.For(exercise.Id));
-
-        var response = await trainer.PostAsJsonAsync(
-            $"/workout-series/{series.Id}/assignments",
-            new AssignWorkoutSeriesRequest(Guid.NewGuid()));
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }

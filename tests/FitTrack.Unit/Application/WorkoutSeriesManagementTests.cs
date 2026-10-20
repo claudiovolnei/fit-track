@@ -104,7 +104,7 @@ public sealed class WorkoutSeriesManagementTests
 
         await Assert.ThrowsAsync<ForbiddenException>(() =>
             Rename(OtherTrainer).ExecuteAsync(
-                new RenameWorkoutSeriesCommand(series.Id.Value, "Força"),
+                new RenameWorkoutSeriesCommand(series.Id.Value, "ForÃ§a"),
                 CancellationToken.None));
     }
 
@@ -113,7 +113,7 @@ public sealed class WorkoutSeriesManagementTests
     {
         await Assert.ThrowsAsync<NotFoundException>(() =>
             Rename(Trainer).ExecuteAsync(
-                new RenameWorkoutSeriesCommand(Guid.NewGuid(), "Força"),
+                new RenameWorkoutSeriesCommand(Guid.NewGuid(), "ForÃ§a"),
                 CancellationToken.None));
     }
 
@@ -123,12 +123,12 @@ public sealed class WorkoutSeriesManagementTests
         var series = await SeedSeriesAsync(_trainer);
 
         var created = await Add(Trainer).ExecuteAsync(
-            new AddSeriesWorkoutCommand(series.Id.Value, "Peito e Tríceps", [Input(_bench, 4, 10, 50m)]),
+            new AddSeriesWorkoutCommand(series.Id.Value, "Peito e TrÃ­ceps", [Input(_bench, 4, 10, 50m)]),
             CancellationToken.None);
 
         Assert.Equal(1, created.Position);
         Assert.Equal("A", created.Label);
-        Assert.Equal("Peito e Tríceps", created.Name);
+        Assert.Equal("Peito e TrÃ­ceps", created.Name);
         Assert.Null(created.Today);
 
         var exercise = Assert.Single(created.Exercises);
@@ -270,7 +270,7 @@ public sealed class WorkoutSeriesManagementTests
     public async Task ListWorkoutSeries_ReturnsOnlyTheTrainersSeries()
     {
         await SeedSeriesAsync(_trainer, "Hipertrofia A/B/C");
-        await SeedSeriesAsync(_otherTrainer, "Força A/B");
+        await SeedSeriesAsync(_otherTrainer, "ForÃ§a A/B");
 
         var mine = await List(Trainer).ExecuteAsync(CancellationToken.None);
 
@@ -291,89 +291,6 @@ public sealed class WorkoutSeriesManagementTests
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             Get(OtherTrainer).ExecuteAsync(series.Id.Value, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task AssignWorkoutSeries_CreatesTheLinkAndStartsTheTerm()
-    {
-        var series = await SeedSeriesAsync(_trainer);
-
-        var result = await Assign(Trainer).ExecuteAsync(
-            new AssignWorkoutSeriesCommand(series.Id.Value, _athlete.Value),
-            CancellationToken.None);
-
-        Assert.True(result.Created);
-        Assert.Equal(series.Id.Value, result.Series.Id);
-
-        var assignment = await _assignments.GetByUserIdAsync(_athlete, CancellationToken.None);
-        Assert.NotNull(assignment);
-        Assert.Equal(series.Id.Value, assignment!.SeriesId.Value);
-        Assert.Equal(_trainer, assignment.TrainerId);
-        Assert.Equal(Now, assignment.AssignedAt);
-        Assert.Equal(Now.AddDays(WorkoutSeriesAssignment.TermInDays), assignment.ExpiresAt);
-    }
-
-    [Fact]
-    public async Task AssignWorkoutSeries_Twice_IsIdempotent()
-    {
-        var series = await SeedSeriesAsync(_trainer);
-
-        await Assign(Trainer).ExecuteAsync(
-            new AssignWorkoutSeriesCommand(series.Id.Value, _athlete.Value),
-            CancellationToken.None);
-
-        var second = await Assign(Trainer).ExecuteAsync(
-            new AssignWorkoutSeriesCommand(series.Id.Value, _athlete.Value),
-            CancellationToken.None);
-
-        Assert.False(second.Created);
-        Assert.Single(_assignments.All);
-    }
-
-    [Fact]
-    public async Task AssignWorkoutSeries_AnotherSeries_ReplacesAndRestartsTheTerm()
-    {
-        var first = await SeedSeriesAsync(_trainer, "Hipertrofia");
-        var second = await SeedSeriesAsync(_trainer, "Força");
-
-        await Assign(Trainer).ExecuteAsync(
-            new AssignWorkoutSeriesCommand(first.Id.Value, _athlete.Value),
-            CancellationToken.None);
-
-        var replaced = await Assign(Trainer).ExecuteAsync(
-            new AssignWorkoutSeriesCommand(second.Id.Value, _athlete.Value),
-            CancellationToken.None);
-
-        Assert.False(replaced.Created);
-        var assignment = Assert.Single(_assignments.All);
-        Assert.Equal(second.Id.Value, assignment.SeriesId.Value);
-        Assert.Equal(Now.AddDays(WorkoutSeriesAssignment.TermInDays), assignment.ExpiresAt);
-    }
-
-    [Fact]
-    public async Task AssignWorkoutSeries_UnknownAthlete_Fails()
-    {
-        var series = await SeedSeriesAsync(_trainer);
-
-        await Assert.ThrowsAsync<NotFoundException>(() =>
-            Assign(Trainer).ExecuteAsync(
-                new AssignWorkoutSeriesCommand(series.Id.Value, Guid.NewGuid()),
-                CancellationToken.None));
-
-        Assert.Empty(_assignments.All);
-    }
-
-    [Fact]
-    public async Task AssignWorkoutSeries_OfAnotherTrainer_Fails()
-    {
-        var series = await SeedSeriesAsync(_otherTrainer);
-
-        await Assert.ThrowsAsync<NotFoundException>(() =>
-            Assign(Trainer).ExecuteAsync(
-                new AssignWorkoutSeriesCommand(series.Id.Value, _athlete.Value),
-                CancellationToken.None));
-
-        Assert.Empty(_assignments.All);
     }
 
     [Fact]
@@ -423,9 +340,6 @@ public sealed class WorkoutSeriesManagementTests
     private IChangeSeriesWorkout Change(StubCurrentUser user) => new ChangeSeriesWorkout(user, _series, _exercises, Queries);
 
     private IRemoveSeriesWorkout Remove(StubCurrentUser user) => new RemoveSeriesWorkout(user, _series);
-
-    private IAssignWorkoutSeries Assign(StubCurrentUser user) =>
-        new AssignWorkoutSeries(user, _athletes, _series, _assignments, Queries, _ids, _clock);
 
     private IListAthletes ListAthletes(StubCurrentUser user) => new ListAthletes(user, _athletes, _clock);
 

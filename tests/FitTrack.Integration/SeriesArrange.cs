@@ -72,14 +72,8 @@ internal static class SeriesArrange
         Guid athleteId,
         params PrescribedExerciseRequest[] prescription)
     {
-        var series = await trainer.CreateSeriesAsync($"Série {Guid.NewGuid():N}");
+        var series = await trainer.CreateSeriesAsync($"Série {Guid.NewGuid():N}", athleteId);
         var workout = await trainer.AddWorkoutAsync(series.Id, "Peito e Tríceps", prescription);
-
-        var assigned = await trainer.PostAsJsonAsync(
-            $"/workout-series/{series.Id}/assignments",
-            new AssignWorkoutSeriesRequest(athleteId));
-
-        await assigned.EnsureSuccessWithBodyAsync();
 
         return workout.Id;
     }
