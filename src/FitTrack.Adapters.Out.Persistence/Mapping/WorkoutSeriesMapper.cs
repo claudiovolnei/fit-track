@@ -66,6 +66,7 @@ internal static class WorkoutSeriesMapper
     public static WorkoutSeriesChanges CopyInto(WorkoutSeries series, WorkoutSeriesRecord record)
     {
         record.Name = series.Name.Value;
+        record.AthleteId = series.AthleteId?.Value;
 
         var stored = record.Workouts.ToDictionary(workout => workout.Id);
         var kept = new HashSet<Guid>();

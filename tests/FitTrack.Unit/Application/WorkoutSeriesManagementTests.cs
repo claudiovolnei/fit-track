@@ -104,7 +104,7 @@ public sealed class WorkoutSeriesManagementTests
 
         await Assert.ThrowsAsync<ForbiddenException>(() =>
             Rename(OtherTrainer).ExecuteAsync(
-                new RenameWorkoutSeriesCommand(series.Id.Value, "ForÃ§a"),
+                new RenameWorkoutSeriesCommand(series.Id.Value, "Força"),
                 CancellationToken.None));
     }
 
@@ -113,7 +113,7 @@ public sealed class WorkoutSeriesManagementTests
     {
         await Assert.ThrowsAsync<NotFoundException>(() =>
             Rename(Trainer).ExecuteAsync(
-                new RenameWorkoutSeriesCommand(Guid.NewGuid(), "ForÃ§a"),
+                new RenameWorkoutSeriesCommand(Guid.NewGuid(), "Força"),
                 CancellationToken.None));
     }
 
@@ -123,12 +123,12 @@ public sealed class WorkoutSeriesManagementTests
         var series = await SeedSeriesAsync(_trainer);
 
         var created = await Add(Trainer).ExecuteAsync(
-            new AddSeriesWorkoutCommand(series.Id.Value, "Peito e TrÃ­ceps", [Input(_bench, 4, 10, 50m)]),
+            new AddSeriesWorkoutCommand(series.Id.Value, "Peito e Tríceps", [Input(_bench, 4, 10, 50m)]),
             CancellationToken.None);
 
         Assert.Equal(1, created.Position);
         Assert.Equal("A", created.Label);
-        Assert.Equal("Peito e TrÃ­ceps", created.Name);
+        Assert.Equal("Peito e Tríceps", created.Name);
         Assert.Null(created.Today);
 
         var exercise = Assert.Single(created.Exercises);
@@ -270,7 +270,7 @@ public sealed class WorkoutSeriesManagementTests
     public async Task ListWorkoutSeries_ReturnsOnlyTheTrainersSeries()
     {
         await SeedSeriesAsync(_trainer, "Hipertrofia A/B/C");
-        await SeedSeriesAsync(_otherTrainer, "ForÃ§a A/B");
+        await SeedSeriesAsync(_otherTrainer, "Força A/B");
 
         var mine = await List(Trainer).ExecuteAsync(CancellationToken.None);
 

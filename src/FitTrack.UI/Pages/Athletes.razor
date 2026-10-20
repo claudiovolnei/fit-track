@@ -1,6 +1,7 @@
 @page "/athletes"
 @attribute [Authorize(Roles = "PersonalTrainer")]
 @inject FitTrackApiClient Api
+@inject NavigationManager Nav
 
 <PageTitle>Atletas — FitTrack</PageTitle>
 
@@ -143,10 +144,12 @@ else
     private async Task CreateForAthleteAsync(Guid userId) =>
         await RunAsync(async () =>
         {
-            await Api.CreateWorkoutSeriesAsync(new SetWorkoutSeriesNameRequest(_newSeriesName, userId));
+            var created = await Api.CreateWorkoutSeriesAsync(new SetWorkoutSeriesNameRequest(_newSeriesName, userId));
 
             CancelCreateAsync();
-            await ReloadAsync();
+
+            // Opens the dedicated screen so the trainer composes the workouts (A–E) right away.
+            Nav.NavigateTo($"/series/{created.Id}");
         });
 
     private async Task RunAsync(Func<Task> action)
