@@ -92,11 +92,30 @@ public sealed class UserAvatarStateTests
         var completion = new TaskCompletionSource<string?>();
 
         var loading = state.EnsureLoadedAsync("user-1", _ => completion.Task);
-        state.Set("chosen-avatar");
+        state.Set("user-1", "chosen-avatar");
         completion.SetResult("late-avatar");
         await loading;
 
         Assert.Equal("chosen-avatar", state.AvatarUrl);
+    }
+
+    [Fact]
+    public async Task Set_AfterAnUploadDoesNotFetchTheAvatarAgain()
+    {
+        var state = new UserAvatarState();
+        var calls = 0;
+
+        Task<string?> Load(CancellationToken _)
+        {
+            calls++;
+            return Task.FromResult<string?>("fetched-avatar");
+        }
+
+        state.Set("user-1", "uploaded-avatar");
+        await state.EnsureLoadedAsync("user-1", Load);
+
+        Assert.Equal(0, calls);
+        Assert.Equal("uploaded-avatar", state.AvatarUrl);
     }
 
     [Fact]

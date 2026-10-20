@@ -10,7 +10,17 @@ internal sealed class InMemoryUserSessionQueries : IQueryUserSessions
 {
     private readonly List<(UserId UserId, WorkoutSessionDto Session)> _sessions = [];
 
-    public void Seed(UserId userId, WorkoutSessionDto session) => _sessions.Add((userId, session));
+    private readonly Dictionary<Guid, string> _workoutNames = [];
+
+    /// <summary>
+    /// Adds a session to the history. The workout name is what the search matches, exactly like the
+    /// SQL adapter does: the session keeps pointing at the workout, the name comes from the series.
+    /// </summary>
+    public void Seed(UserId userId, WorkoutSessionDto session, string workoutName = "")
+    {
+        _sessions.Add((userId, session));
+        _workoutNames[session.Id] = workoutName;
+    }
 
     public Task<IReadOnlyList<WorkoutSessionDto>> ListByUserAsync(UserId userId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<WorkoutSessionDto>>(
@@ -28,7 +38,7 @@ internal sealed class InMemoryUserSessionQueries : IQueryUserSessions
             .ThenByDescending(session => session.StartedAt)
             .ToList();
 
-        var page = FakePaging.Apply(sessions, query, session => session.WorkoutSeriesWorkoutId?.ToString() ?? string.Empty);
+        var page = FakePaging.Apply(sessions, query, session => _workoutNames.GetValueOrDefault(session.Id, string.Empty));
 
         return Task.FromResult(new WorkoutHistoryDto(
             page.Items,

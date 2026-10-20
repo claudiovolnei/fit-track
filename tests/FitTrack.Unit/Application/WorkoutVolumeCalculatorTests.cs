@@ -56,6 +56,28 @@ public sealed class WorkoutVolumeCalculatorTests
     }
 
     [Fact]
+    public void Calculate_UsesTheCanonicalNumbersOfTheSpecification()
+    {
+        // The example of the spec: 4 x 10 x 50 kg prescribed and four sets of 60 kg x 10 performed.
+        var performed = Enumerable.Range(0, 4)
+            .Select(_ => new PerformedSetDto(Bench, 60m, 10))
+            .ToArray();
+
+        var prescription = new[]
+        {
+            new PrescribedExerciseDto(Bench, "Supino reto", "Peito", 4, 10, 50m),
+        };
+
+        var volume = WorkoutVolumeCalculator.Calculate(performed, prescription, Names);
+
+        Assert.NotNull(volume);
+        Assert.Equal(2400m, volume!.PerformedKilograms);
+        Assert.Equal(2000m, volume.PrescribedKilograms);
+        Assert.Equal(400m, volume.DeltaKilograms);
+        Assert.Equal(20m, volume.DeltaPercent);
+    }
+
+    [Fact]
     public void Calculate_MarksExercisesThatWereNotPerformedOrNotPrescribed()
     {
         var performed = new[]

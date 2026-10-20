@@ -48,6 +48,24 @@ public sealed class ListUserSessionsTests
         Assert.Equal(5, history.Summary!.SessionCount);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_PagedSearchesByTheWorkoutName()
+    {
+        var user = UserId.New();
+
+        _query.Seed(user, Session(new DateOnly(2026, 1, 5)), "Peito e tríceps");
+        _query.Seed(user, Session(new DateOnly(2026, 1, 6)), "Costas e bíceps");
+
+        var useCase = new ListUserSessions(StubCurrentUser.Athlete(user), _query);
+
+        var history = await useCase.ExecuteAsync(
+            ListQuery.Paged("costas", 1, 10),
+            CancellationToken.None);
+
+        Assert.Equal(1, history.TotalCount);
+        Assert.Equal(new DateOnly(2026, 1, 6), Assert.Single(history.Items).WorkoutDate);
+    }
+
     private static WorkoutSessionDto Session(DateOnly date) =>
         new(
             Guid.NewGuid(),
