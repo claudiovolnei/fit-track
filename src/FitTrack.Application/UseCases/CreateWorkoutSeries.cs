@@ -65,15 +65,27 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
         await _series.SaveAsync(series, cancellationToken);
 
         // When the series is created for a specific athlete, the link and the 60-day term start
-        // right away �?" there is no separate "assign" step anymore.
+        // right away �?" there is no separate "assign" step anymore. If the athlete already had a
+        // series, the existing link is reused (reassign) instead of inserting a second one.
         if (athleteId is not null)
         {
-            var assignment = WorkoutSeriesAssignment.Assign(
-                new WorkoutSeriesAssignmentId(_idGenerator.NewId()),
-                series.Id,
-                athleteId.Value,
-                _currentUser.Id,
-                _clock.UtcNow);
+            var existing = await _assignments.GetByUserIdAsync(athleteId.Value, cancellationToken);
+
+            WorkoutSeriesAssignment assignment;
+            if (existing is null)
+            {
+                assignment = WorkoutSeriesAssignment.Assign(
+                    new WorkoutSeriesAssignmentId(_idGenerator.NewId()),
+                    series.Id,
+                    athleteId.Value,
+                    _currentUser.Id,
+                    _clock.UtcNow);
+            }
+            else
+            {
+                existing.Reassign(series.Id, _currentUser.Id, _clock.UtcNow);
+                assignment = existing;
+            }
 
             await _assignments.SaveAsync(assignment, cancellationToken);
         }

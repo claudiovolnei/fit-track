@@ -23,27 +23,13 @@
     </div>
 }
 
-<section class="card card--accent" style="margin-bottom: 26px;">
-    <div class="section-head">
-        <h2>Nova série</h2>
-        <span class="chip">Por atleta</span>
-    </div>
-
-    <div class="inline-form">
-        <div class="field">
-            <label for="series-name">Nome da série</label>
-            <input id="series-name" maxlength="80" placeholder="Ex.: Hipertrofia — 4 dias"
-                   @bind="_newName" @bind:event="oninput" />
-        </div>
-
-        <button class="btn btn-primary" type="button"
-                disabled="@(_busy || string.IsNullOrWhiteSpace(_newName))"
-                @onclick="CreateAsync">
-            <AppIcon Name="plus" Size="18" />
-            Criar série
-        </button>
-    </div>
-</section>
+<div class="alert alert--info" style="margin-bottom: 26px;">
+    <AppIcon Name="info" Size="18" />
+    <span>
+        Séries agora são criadas para um atleta específico. Vá em
+        <a href="/athletes">Atletas</a> e use "Nova série para este atleta".
+    </span>
+</div>
 
 @if (_loading)
 {
@@ -103,20 +89,11 @@ else
 
 @code {
     private IReadOnlyList<SeriesRow> _rows = [];
-    private string _newName = string.Empty;
     private bool _loading = true;
     private bool _busy;
     private string? _error;
 
     protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
-
-    private async Task CreateAsync() =>
-        await RunAsync(async () =>
-        {
-            await Api.CreateWorkoutSeriesAsync(new SetWorkoutSeriesNameRequest(_newName));
-            _newName = string.Empty;
-            await ReloadAsync();
-        });
 
     private async Task RenameAsync(SeriesRow row) =>
         await RunAsync(async () =>

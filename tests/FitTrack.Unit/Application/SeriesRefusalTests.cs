@@ -119,7 +119,7 @@ public sealed class SeriesRefusalTests
 
     /// <summary>A series created through the use case, the way the trainer's screen creates one.</summary>
     private async Task<Guid> CreateAsync(string name) =>
-        (await Create.ExecuteAsync(new CreateWorkoutSeriesCommand(name), CancellationToken.None)).Id;
+        (await Create.ExecuteAsync(new CreateWorkoutSeriesCommand(name, _athlete.Value), CancellationToken.None)).Id;
 
     private Task<WorkoutSeriesWorkoutDto> AddWorkoutAsync(
         Guid seriesId,

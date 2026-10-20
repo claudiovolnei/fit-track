@@ -42,7 +42,7 @@ public sealed class WorkoutSeriesManagementTests
     public async Task CreateWorkoutSeries_AsPersonalTrainer_SavesAndReturnsIt()
     {
         var created = await Create(Trainer).ExecuteAsync(
-            new CreateWorkoutSeriesCommand("Hipertrofia A/B/C"),
+            new CreateWorkoutSeriesCommand("Hipertrofia A/B/C", _athlete.Value),
             CancellationToken.None);
 
         Assert.Equal("Hipertrofia A/B/C", created.Name);
@@ -55,7 +55,7 @@ public sealed class WorkoutSeriesManagementTests
     public async Task CreateWorkoutSeries_AsAthlete_Fails()
     {
         await Assert.ThrowsAsync<ForbiddenException>(() =>
-            Create(Athlete).ExecuteAsync(new CreateWorkoutSeriesCommand("Hipertrofia"), CancellationToken.None));
+            Create(Athlete).ExecuteAsync(new CreateWorkoutSeriesCommand("Hipertrofia", _athlete.Value), CancellationToken.None));
 
         Assert.Empty(_series.All);
     }
@@ -66,7 +66,7 @@ public sealed class WorkoutSeriesManagementTests
         await SeedSeriesAsync(_trainer, "Hipertrofia A/B/C");
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
-            Create(Trainer).ExecuteAsync(new CreateWorkoutSeriesCommand("  Hipertrofia A/B/C  "), CancellationToken.None));
+            Create(Trainer).ExecuteAsync(new CreateWorkoutSeriesCommand("  Hipertrofia A/B/C  ", _athlete.Value), CancellationToken.None));
 
         Assert.Equal("workout_series.name.duplicate", exception.Code);
         Assert.Single(_series.All);
@@ -78,7 +78,7 @@ public sealed class WorkoutSeriesManagementTests
         await SeedSeriesAsync(_trainer, "Hipertrofia A/B/C");
 
         var created = await Create(OtherTrainer).ExecuteAsync(
-            new CreateWorkoutSeriesCommand("Hipertrofia A/B/C"),
+            new CreateWorkoutSeriesCommand("Hipertrofia A/B/C", _athlete.Value),
             CancellationToken.None);
 
         Assert.Equal(_otherTrainer.Value, created.TrainerId);
