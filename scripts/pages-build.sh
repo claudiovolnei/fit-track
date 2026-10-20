@@ -17,12 +17,29 @@ export DOTNET_ROOT="$HOME/.dotnet"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 
+if [ -z "$API_BASE_URL" ]; then
+  echo "WARNING: API_BASE_URL is not set; the client will keep calling http://localhost:5080." >&2
+fi
+
 if [ -n "$API_BASE_URL" ]; then
   # appsettings.json is listed in the service-worker asset manifest with its hash, so it
   # must be rewritten before publish. Editing the published file would break the
   # offline cache install (integrity mismatch).
   printf '{\n  "ApiBaseUrl": "%s"\n}\n' "$API_BASE_URL" \
     > src/FitTrack.Web/wwwroot/appsettings.json
+  echo "API base URL: $API_BASE_URL"
 fi
 
 dotnet publish src/FitTrack.Web -c Release -o out --nologo
+
+# Cloudflare Pages serves the build output directory as-is, so index.html must be at its root.
+# `dotnet publish -o out` puts the static site in out/wwwroot; the Pages output directory
+# must therefore be exactly `out/wwwroot`.
+SITE_DIR="out/wwwroot"
+if [ ! -f "$SITE_DIR/index.html" ]; then
+  echo "ERROR: $SITE_DIR/index.html was not produced. Check the publish output above." >&2
+  exit 1
+fi
+
+echo "Static site ready at $SITE_DIR:"
+find "$SITE_DIR" -maxdepth 1 -mindepth 1 | sort

@@ -42,6 +42,9 @@ coverage/
 .aspire/
 *.binlog
 
+## Wrangler / Cloudflare Workers local state
+.wrangler/
+
 ## OS
 .DS_Store
 Thumbs.db

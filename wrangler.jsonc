@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fit-track",
+  // Fixed at deploy time: the Blazor WASM bundle is static, so no Worker script is needed.
+  "compatibility_date": "2026-10-20",
+  "assets": {
+    // `dotnet publish -o out` writes the site to out/wwwroot (not out/).
+    "directory": "./out/wwwroot",
+    // Deep links such as /login or /series/123 are resolved by Blazor in the browser.
+    "not_found_handling": "single-page-application"
+  }
+}
