@@ -117,14 +117,21 @@
             return;
         }
 
-        var state = await AuthState.GetAuthenticationStateAsync();
-        var userKey = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-            ?? state.User.Identity?.Name;
+        var userKey = await CurrentUserKeyAsync();
 
         await AvatarState.EnsureLoadedAsync(userKey, cancellationToken => Api.GetMyAvatarAsync(cancellationToken));
 
         _avatarPreview = AvatarState.AvatarUrl;
         await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>The key that tells the avatar state which account the picture belongs to.</summary>
+    private async Task<string?> CurrentUserKeyAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+
+        return state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? state.User.Identity?.Name;
     }
 
     private void OnAvatarChanged()
@@ -195,7 +202,7 @@
         {
             using var stream = new MemoryStream(_avatarBytes);
             await Api.UploadAvatarAsync(stream, "avatar.jpg", _avatarContentType);
-            AvatarState.Set(_avatarPreview);
+            AvatarState.Set(await CurrentUserKeyAsync(), _avatarPreview);
             _avatarFile = null;
             _avatarBytes = null;
         }
@@ -216,7 +223,7 @@
         try
         {
             await Api.DeleteAvatarAsync();
-            AvatarState.Set(null);
+            AvatarState.Set(await CurrentUserKeyAsync(), null);
             _avatarPreview = null;
             _avatarFile = null;
             _avatarBytes = null;

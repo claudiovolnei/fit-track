@@ -41,6 +41,7 @@ internal static class WorkoutSessionProjection
         sessions
             .OrderByDescending(session => session.WorkoutDate)
             .ThenByDescending(session => session.StartedAt)
+            .ThenByDescending(session => session.Id)
             .Select(session => new WorkoutSessionRow(
                 session.Id,
                 session.WorkoutDate,

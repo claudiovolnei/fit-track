@@ -71,12 +71,17 @@ public sealed class UserAvatarState
         }
     }
 
-    /// <summary>Applies an avatar chosen by the current user (upload or removal).</summary>
-    public void Set(string? avatarUrl)
+    /// <summary>
+    /// Applies an avatar chosen by the current user (upload or removal). The user key travels with
+    /// the avatar so the next <see cref="EnsureLoadedAsync"/> recognizes the state as the current
+    /// user's and does not fetch it again.
+    /// </summary>
+    public void Set(string? userKey, string? avatarUrl)
     {
         lock (_gate)
         {
             InvalidateLocked();
+            UserKey = userKey;
             AvatarUrl = avatarUrl;
             Loaded = true;
         }
