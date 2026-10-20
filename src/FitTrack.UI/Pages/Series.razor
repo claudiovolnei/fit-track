@@ -31,6 +31,10 @@
     </span>
 </div>
 
+<SearchField Value="@_search" ValueChanged="SearchAsync"
+             Placeholder="Buscar série por nome"
+             AriaLabel="Buscar série por nome" />
+
 @if (_loading)
 {
     <div class="loading-state">
@@ -38,19 +42,29 @@
         <span>Carregando séries…</span>
     </div>
 }
-else if (_rows.Count == 0)
+else if (_totalCount == 0)
 {
     <div class="empty-state">
-        <AppIcon Name="layers" Size="28" />
-        <h2>Nenhuma série ainda</h2>
-        <p>Crie a primeira série acima e comece a montar os treinos A–E.</p>
+        <AppIcon Name="@(HasSearch ? "search" : "layers")" Size="28" />
+        <h2>@(HasSearch ? "Nada encontrado" : "Nenhuma série ainda")</h2>
+        <p>
+            @(HasSearch
+                ? "Tente outro nome de série."
+                : "Crie a primeira série em Atletas e comece a montar os treinos A–E.")
+        </p>
+        @if (HasSearch)
+        {
+            <button class="btn btn-secondary" type="button" @onclick="ClearSearchAsync">Limpar busca</button>
+        }
     </div>
+
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 else
 {
-    <div class="section-head">
+    <div class="section-head" style="margin-top: 22px;">
         <h2>Suas séries</h2>
-        <span class="muted" style="font-size: 0.84rem;">@_rows.Count @(_rows.Count == 1 ? "série" : "séries")</span>
+        <span class="muted" style="font-size: 0.84rem;">@_totalCount @(_totalCount == 1 ? "série" : "séries")</span>
     </div>
 
     <div class="card-grid">
@@ -85,15 +99,45 @@ else
             </article>
         }
     </div>
+
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 
 @code {
+    private const int PageSize = 12;
+
     private IReadOnlyList<SeriesRow> _rows = [];
     private bool _loading = true;
     private bool _busy;
     private string? _error;
+    private string _search = string.Empty;
+    private int _page = 1;
+    private int _totalCount;
+    private int _loadVersion;
 
-    protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
+    private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task SearchAsync(string value)
+    {
+        _search = value;
+        _page = 1;
+        await ReloadAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        _page = page;
+        await ReloadAsync();
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        _search = string.Empty;
+        _page = 1;
+        await ReloadAsync();
+    }
 
     private async Task RenameAsync(SeriesRow row) =>
         await RunAsync(async () =>
@@ -123,17 +167,48 @@ else
 
     private async Task ReloadAsync()
     {
-        _rows =
-        [
-            .. (await Api.GetWorkoutSeriesAsync()).Select(series => new SeriesRow
-            {
-                Id = series.Id,
-                Name = series.Name,
-                WorkoutCount = series.Workouts.Count,
-            }),
-        ];
+        // The last request made owns the screen; a late answer from a previous search is discarded.
+        var version = ++_loadVersion;
+        _loading = true;
+        _error = null;
 
-        _loading = false;
+        try
+        {
+            var result = await Api.GetWorkoutSeriesPageAsync(_search, _page, PageSize);
+
+            if (version != _loadVersion)
+            {
+                return;
+            }
+
+            _rows =
+            [
+                .. result.Items.Select(series => new SeriesRow
+                {
+                    Id = series.Id,
+                    Name = series.Name,
+                    WorkoutCount = series.Workouts.Count,
+                }),
+            ];
+
+            _totalCount = result.TotalCount;
+        }
+        catch (ApiException exception)
+        {
+            if (version != _loadVersion)
+            {
+                return;
+            }
+
+            _error = ErrorMessages.Describe(exception);
+        }
+        finally
+        {
+            if (version == _loadVersion)
+            {
+                _loading = false;
+            }
+        }
     }
 
     private sealed class SeriesRow

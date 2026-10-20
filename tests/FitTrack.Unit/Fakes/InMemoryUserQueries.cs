@@ -20,4 +20,16 @@ internal sealed class InMemoryUserQueries : IQueryUsers
         return Task.FromResult<IReadOnlyList<UserAccountDto>>(
             [.. _accounts.OrderBy(account => account.Email)]);
     }
+
+    public Task<PagedResult<UserAccountDto>> ListAsync(
+        ListQuery query,
+        CancellationToken cancellationToken)
+    {
+        WasQueried = true;
+
+        return Task.FromResult(FakePaging.Apply(
+            _accounts.OrderBy(account => account.Email),
+            query,
+            account => $"{account.Name} {account.Email}"));
+    }
 }

@@ -8,4 +8,8 @@ public sealed record WorkoutSessionResponse(
     DateTimeOffset? FinishedAt,
     int DurationSeconds,
     Guid? WorkoutSeriesWorkoutId,
-    IReadOnlyList<PerformedSetResponse> Sets);
+    IReadOnlyList<PerformedSetResponse> Sets)
+{
+    /// <summary>Null when the session has no workout reference to compare against.</summary>
+    public WorkoutVolumeResponse? Volume { get; init; }
+}

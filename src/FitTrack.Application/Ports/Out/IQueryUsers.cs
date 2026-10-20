@@ -7,4 +7,6 @@ public interface IQueryUsers
 {
     /// <summary>Every account with the profiles it holds, ordered by e-mail.</summary>
     Task<IReadOnlyList<UserAccountDto>> ListAsync(CancellationToken cancellationToken);
+
+    Task<PagedResult<UserAccountDto>> ListAsync(ListQuery query, CancellationToken cancellationToken);
 }

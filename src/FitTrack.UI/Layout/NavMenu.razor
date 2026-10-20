@@ -6,6 +6,7 @@
 @inject NavigationManager Navigation
 @inject FitTrackApiClient Api
 @inject UserAvatarState AvatarState
+@inject AuthenticationStateProvider AuthState
 
 <aside class="sidebar" aria-label="Navegação principal">
     <a class="brand" href="/">
@@ -168,7 +169,7 @@
     <AuthorizeView>
         <Authorized>
             <NavLink class="tab-link" href="/account">
-                <AppIcon Name="user" Size="22" />
+                <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@context.User.Identity?.Name" Size="22" />
                 <span>Conta</span>
             </NavLink>
         </Authorized>
@@ -195,6 +196,7 @@
     {
         _avatarUrl = AvatarState.AvatarUrl;
         AvatarState.Changed += OnAvatarChanged;
+        AuthState.AuthenticationStateChanged += OnAuthenticationStateChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -204,19 +206,30 @@
             return;
         }
 
-        if (_avatarUrl is null)
+        // The layout outlives the login: the first render may happen while anonymous, so the
+        // authenticated avatar is also fetched when the authentication state changes.
+        await RefreshAvatarAsync(await AuthState.GetAuthenticationStateAsync());
+    }
+
+    private void OnAuthenticationStateChanged(Task<AuthenticationState> state) =>
+        _ = InvokeAsync(async () => await RefreshAvatarAsync(await state));
+
+    private async Task RefreshAvatarAsync(AuthenticationState state)
+    {
+        if (state.User.Identity?.IsAuthenticated != true)
         {
-            try
-            {
-                _avatarUrl = await Api.GetMyAvatarAsync();
-                AvatarState.Set(_avatarUrl);
-                await InvokeAsync(StateHasChanged);
-            }
-            catch
-            {
-                _avatarUrl = null;
-            }
+            _avatarUrl = null;
+            await InvokeAsync(StateHasChanged);
+            return;
         }
+
+        var userKey = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? state.User.Identity.Name;
+
+        await AvatarState.EnsureLoadedAsync(userKey, cancellationToken => Api.GetMyAvatarAsync(cancellationToken));
+
+        _avatarUrl = AvatarState.AvatarUrl;
+        await InvokeAsync(StateHasChanged);
     }
 
     private void OnAvatarChanged()
@@ -228,6 +241,7 @@
     public void Dispose()
     {
         AvatarState.Changed -= OnAvatarChanged;
+        AuthState.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 
     private async Task SignOutAsync()

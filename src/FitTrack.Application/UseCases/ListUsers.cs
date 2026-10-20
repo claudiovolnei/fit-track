@@ -25,4 +25,13 @@ public sealed class ListUsers : IListUsers
 
         return _users.ListAsync(cancellationToken);
     }
+
+    public Task<PagedResult<UserAccountDto>> ExecuteAsync(
+        ListQuery query,
+        CancellationToken cancellationToken)
+    {
+        _currentUser.RequireAdmin("list the accounts");
+
+        return _users.ListAsync(query, cancellationToken);
+    }
 }

@@ -1,0 +1,259 @@
+@* Combobox used by the prescriptions and the catalog: the text filters the options locally, and the
+   keyboard follows the ARIA combobox pattern (arrows move, Enter selects, Esc closes). *@
+@inject IJSRuntime JS
+
+<div class="searchable-select" @onfocusout="OnFocusOut">
+    <div class="searchable-select__control">
+        <input @ref="_input"
+               id="@ControlId"
+               class="searchable-select__input"
+               type="text"
+               role="combobox"
+               autocomplete="off"
+               aria-autocomplete="list"
+               aria-expanded="@(_open ? "true" : "false")"
+               aria-controls="@ListId"
+               aria-activedescendant="@ActiveDescendant"
+               aria-label="@AriaLabel"
+               placeholder="@(_open ? FilterPlaceholder : Placeholder)"
+               value="@_query"
+               @onfocus="Open"
+               @oninput="OnInput"
+               @onkeydown="OnKeyDownAsync" />
+        <button type="button"
+                class="searchable-select__toggle"
+                tabindex="-1"
+                aria-label="Abrir opções"
+                @onmousedown:preventDefault
+                @onclick="Toggle">
+            <AppIcon Name="chevron-down" Size="16" />
+        </button>
+    </div>
+
+    @if (_open)
+    {
+        <ul id="@ListId" class="searchable-select__list" role="listbox" aria-label="@AriaLabel">
+            @if (Filtered.Count == 0)
+            {
+                <li class="searchable-select__empty" role="option" aria-disabled="true">Nenhum resultado</li>
+            }
+            else
+            {
+                for (var index = 0; index < Filtered.Count; index++)
+                {
+                    var option = Filtered[index];
+                    var active = index == _activeIndex;
+                    <li id="@OptionId(index)"
+                        @key="option.Id"
+                        class="searchable-select__option @(active ? "is-active" : "") @(option.Id == Value ? "is-selected" : "")"
+                        role="option"
+                        aria-selected="@(option.Id == Value ? "true" : "false")"
+                        @onmousedown:preventDefault
+                        @onclick="() => SelectAsync(option)">
+                        @option.Label
+                        @if (!string.IsNullOrWhiteSpace(option.Hint))
+                        {
+                            <span class="searchable-select__hint"> — @option.Hint</span>
+                        }
+                    </li>
+                }
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private readonly string _instanceId = Guid.NewGuid().ToString("N")[..8];
+    private ElementReference _input;
+    private string _query = string.Empty;
+    private bool _open;
+    private int _activeIndex = -1;
+    private bool _enterGuardReady;
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<SearchableOption> Options { get; set; } = [];
+
+    [Parameter]
+    public Guid Value { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> ValueChanged { get; set; }
+
+    [Parameter]
+    public string Placeholder { get; set; } = "Selecione uma opção…";
+
+    [Parameter]
+    public string FilterPlaceholder { get; set; } = "Buscar por nome";
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Selecione uma opção";
+
+    private string ControlId => string.IsNullOrWhiteSpace(Id) ? $"searchable-{_instanceId}" : Id;
+
+    private string ListId => $"{ControlId}-listbox";
+
+    private string? ActiveDescendant =>
+        _open && _activeIndex >= 0 && _activeIndex < Filtered.Count ? OptionId(_activeIndex) : null;
+
+    private SearchableOption? Selected =>
+        Options.FirstOrDefault(option => option.Id == Value);
+
+    private IReadOnlyList<SearchableOption> Filtered =>
+        string.IsNullOrWhiteSpace(_query)
+            ? Options
+            : [.. Options.Where(option =>
+                option.Label.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase)
+                || (option.Hint?.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase) ?? false))];
+
+    protected override void OnParametersSet()
+    {
+        if (!_open)
+        {
+            _query = Selected?.Label ?? string.Empty;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _enterGuardReady)
+        {
+            return;
+        }
+
+        _enterGuardReady = true;
+
+        // Enter picks the active option; without preventing the browser default the surrounding
+        // EditForm would submit before Blazor sees the key.
+        try
+        {
+            await JS.InvokeVoidAsync("fitTrack.preventComboboxEnter", _input);
+        }
+        catch (JSException)
+        {
+            // The guard is an enhancement: the combobox still works if the script is unavailable.
+        }
+    }
+
+    private void Open()
+    {
+        if (_open)
+        {
+            return;
+        }
+
+        _open = true;
+        _query = string.Empty;
+        var selectedIndex = Selected is null ? -1 : IndexOf(Selected.Id);
+        _activeIndex = selectedIndex >= 0 ? selectedIndex : Filtered.Count > 0 ? 0 : -1;
+    }
+
+    private void Close()
+    {
+        _open = false;
+        _activeIndex = -1;
+        _query = Selected?.Label ?? string.Empty;
+    }
+
+    private void Toggle()
+    {
+        if (_open)
+        {
+            Close();
+        }
+        else
+        {
+            Open();
+        }
+    }
+
+    private void OnFocusOut() => Close();
+
+    private void OnInput(ChangeEventArgs args)
+    {
+        _query = args.Value?.ToString() ?? string.Empty;
+        _open = true;
+        _activeIndex = Filtered.Count > 0 ? 0 : -1;
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "ArrowDown":
+                if (!_open)
+                {
+                    Open();
+                    return;
+                }
+
+                if (Filtered.Count > 0)
+                {
+                    _activeIndex = _activeIndex < 0 ? 0 : (_activeIndex + 1) % Filtered.Count;
+                }
+
+                break;
+
+            case "ArrowUp":
+                if (!_open)
+                {
+                    Open();
+                    return;
+                }
+
+                if (Filtered.Count > 0)
+                {
+                    _activeIndex = _activeIndex <= 0 ? Filtered.Count - 1 : _activeIndex - 1;
+                }
+
+                break;
+
+            case "Enter":
+                if (!_open)
+                {
+                    Open();
+                    return;
+                }
+
+                if (_activeIndex >= 0 && _activeIndex < Filtered.Count)
+                {
+                    await SelectAsync(Filtered[_activeIndex]);
+                }
+
+                break;
+
+            case "Escape":
+                Close();
+                break;
+
+            case "Tab":
+                Close();
+                break;
+        }
+    }
+
+    private async Task SelectAsync(SearchableOption option)
+    {
+        _open = false;
+        _activeIndex = -1;
+        _query = option.Label;
+        await ValueChanged.InvokeAsync(option.Id);
+    }
+
+    private int IndexOf(Guid id)
+    {
+        for (var index = 0; index < Options.Count; index++)
+        {
+            if (Options[index].Id == id)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private string OptionId(int index) => $"{ControlId}-option-{index}";
+}

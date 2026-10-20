@@ -13,4 +13,9 @@ public sealed class ListMuscleGroups : IListMuscleGroups
 
     public Task<IReadOnlyList<MuscleGroupDto>> ExecuteAsync(CancellationToken cancellationToken) =>
         _query.ListAsync(cancellationToken);
+
+    public Task<PagedResult<MuscleGroupDto>> ExecuteAsync(
+        ListQuery query,
+        CancellationToken cancellationToken) =>
+        _query.ListAsync(query, cancellationToken);
 }

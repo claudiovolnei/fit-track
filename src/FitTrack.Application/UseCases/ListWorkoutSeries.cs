@@ -22,4 +22,13 @@ public sealed class ListWorkoutSeries : IListWorkoutSeries
 
         return _query.ListByTrainerAsync(_currentUser.Id, cancellationToken);
     }
+
+    public Task<PagedResult<WorkoutSeriesDto>> ExecuteAsync(
+        ListQuery query,
+        CancellationToken cancellationToken)
+    {
+        _currentUser.RequirePersonalTrainer("see the workout series they authored");
+
+        return _query.ListByTrainerAsync(_currentUser.Id, query, cancellationToken);
+    }
 }

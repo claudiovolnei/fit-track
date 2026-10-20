@@ -6,4 +6,6 @@ namespace FitTrack.Application.Ports.In;
 public interface IListUserSessions
 {
     Task<IReadOnlyList<WorkoutSessionDto>> ExecuteAsync(CancellationToken cancellationToken);
+
+    Task<WorkoutHistoryDto> ExecuteAsync(ListQuery query, CancellationToken cancellationToken);
 }

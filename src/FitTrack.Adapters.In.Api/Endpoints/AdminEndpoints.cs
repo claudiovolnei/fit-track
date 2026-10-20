@@ -33,8 +33,23 @@ internal static class AdminEndpoints
         return app;
     }
 
-    private static async Task<IResult> ListAsync(IListUsers useCase, CancellationToken cancellationToken) =>
-        Results.Ok(await useCase.ExecuteAsync(cancellationToken));
+    private static async Task<IResult> ListAsync(
+        string? search,
+        int? page,
+        int? pageSize,
+        IListUsers useCase,
+        CancellationToken cancellationToken)
+    {
+        var invalid = ListRequest.TryRead(search, page, pageSize, out var query);
+        if (invalid is not null)
+        {
+            return invalid;
+        }
+
+        var result = await useCase.ExecuteAsync(query, cancellationToken);
+
+        return ListRequest.Ok(result, ListRequest.IsPaged(page, pageSize));
+    }
 
     private static async Task<IResult> CreateAsync(
         CreateUserRequest request,

@@ -16,16 +16,41 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
 {
     public async Task<IReadOnlyList<WorkoutSeriesDto>> ListByTrainerAsync(
         UserId trainerId,
+        CancellationToken cancellationToken) =>
+        (await ListByTrainerAsync(trainerId, ListQuery.All, cancellationToken)).Items;
+
+    public async Task<PagedResult<WorkoutSeriesDto>> ListByTrainerAsync(
+        UserId trainerId,
+        ListQuery query,
         CancellationToken cancellationToken)
     {
-        var series = await dbContext.WorkoutSeries
+        var source = dbContext.WorkoutSeries
             .AsNoTracking()
-            .Where(candidate => candidate.TrainerId == trainerId.Value)
+            .Where(candidate => candidate.TrainerId == trainerId.Value);
+
+        if (query.Search is { } search)
+        {
+            var pattern = SearchPattern.Contains(search);
+            source = source.Where(candidate => EF.Functions.ILike(candidate.Name, pattern, "\\"));
+        }
+
+        var total = await source.CountAsync(cancellationToken);
+
+        var ordered = source
             .OrderBy(candidate => candidate.Name)
+            .ThenBy(candidate => candidate.Id);
+
+        var page = query.IsPaged
+            ? ordered.Skip(query.Skip).Take(query.Take)
+            : ordered;
+
+        var series = await page
             .Select(candidate => new SeriesRow(candidate.Id, candidate.Name, candidate.TrainerId, candidate.AthleteId))
             .ToListAsync(cancellationToken);
 
-        return await ComposeAsync(series, athlete: null, today: null, now: null, cancellationToken);
+        var items = await ComposeAsync(series, athlete: null, today: null, now: null, cancellationToken);
+
+        return new PagedResult<WorkoutSeriesDto>(items, query.Page, query.PageSize, total);
     }
 
     public async Task<WorkoutSeriesDto?> GetByIdAsync(WorkoutSeriesId seriesId, CancellationToken cancellationToken)

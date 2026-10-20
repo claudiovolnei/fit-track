@@ -12,4 +12,12 @@ internal sealed class InMemoryMuscleGroupQueries : IQueryMuscleGroups
 
     public Task<IReadOnlyList<MuscleGroupDto>> ListAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<MuscleGroupDto>>(_muscleGroups);
+
+    public Task<PagedResult<MuscleGroupDto>> ListAsync(
+        ListQuery query,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(FakePaging.Apply(
+            _muscleGroups.OrderBy(group => group.Name),
+            query,
+            group => group.Name));
 }

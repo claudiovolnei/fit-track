@@ -1,5 +1,0 @@
-# SPA fallback: Blazor WebAssembly routes (/login, /series/123, ...) are resolved in the
-# browser, so any path without a matching static asset must return index.html.
-# Cloudflare Pages serves existing assets before applying these rules, so _framework/*,
-# css/* and icons/* keep being served normally.
-/*    /index.html   200

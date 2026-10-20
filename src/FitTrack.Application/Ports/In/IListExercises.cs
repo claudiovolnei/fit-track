@@ -6,4 +6,9 @@ namespace FitTrack.Application.Ports.In;
 public interface IListExercises
 {
     Task<IReadOnlyList<ExerciseDto>> ExecuteAsync(CancellationToken cancellationToken);
+
+    Task<PagedResult<ExerciseDto>> ExecuteAsync(
+        ListQuery query,
+        Guid? muscleGroupId,
+        CancellationToken cancellationToken);
 }

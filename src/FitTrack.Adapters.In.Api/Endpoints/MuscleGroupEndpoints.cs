@@ -1,4 +1,5 @@
 using FitTrack.Adapters.In.Api.Authentication;
+using FitTrack.Adapters.In.Api.Composition;
 using FitTrack.Adapters.In.Api.Contracts;
 using FitTrack.Application.Commands;
 using FitTrack.Application.Ports.In;
@@ -25,8 +26,23 @@ internal static class MuscleGroupEndpoints
         return app;
     }
 
-    private static async Task<IResult> ListAsync(IListMuscleGroups useCase, CancellationToken cancellationToken) =>
-        Results.Ok(await useCase.ExecuteAsync(cancellationToken));
+    private static async Task<IResult> ListAsync(
+        string? search,
+        int? page,
+        int? pageSize,
+        IListMuscleGroups useCase,
+        CancellationToken cancellationToken)
+    {
+        var invalid = ListRequest.TryRead(search, page, pageSize, out var query);
+        if (invalid is not null)
+        {
+            return invalid;
+        }
+
+        var result = await useCase.ExecuteAsync(query, cancellationToken);
+
+        return ListRequest.Ok(result, ListRequest.IsPaged(page, pageSize));
+    }
 
     private static async Task<IResult> CreateAsync(
         CreateMuscleGroupRequest request,

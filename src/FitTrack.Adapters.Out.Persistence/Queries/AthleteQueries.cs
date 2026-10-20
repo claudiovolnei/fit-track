@@ -15,15 +15,42 @@ internal sealed class AthleteQueries(FitTrackDbContext dbContext) : IQueryAthlet
 {
     public async Task<IReadOnlyList<AthleteDto>> ListAsync(
         DateTimeOffset now,
+        CancellationToken cancellationToken) =>
+        (await ListAsync(now, ListQuery.All, cancellationToken)).Items;
+
+    public async Task<PagedResult<AthleteDto>> ListAsync(
+        DateTimeOffset now,
+        ListQuery query,
         CancellationToken cancellationToken)
     {
-        var athletes = await Athletes()
+        var source = Athletes();
+
+        if (query.Search is { } search)
+        {
+            // The read model has no display name yet, so the e-mail is what the trainer searches by.
+            var pattern = SearchPattern.Contains(search);
+            source = source.Where(user => EF.Functions.ILike(user.Email!, pattern, "\\"));
+        }
+
+        var total = await source.CountAsync(cancellationToken);
+
+        var ordered = source
             .OrderBy(user => user.Email)
+            .ThenBy(user => user.Id);
+
+        var page = query.IsPaged
+            ? ordered.Skip(query.Skip).Take(query.Take)
+            : ordered;
+
+        var athletes = await page
             .Select(user => new { user.Id, user.Email })
             .ToListAsync(cancellationToken);
 
+        var ids = athletes.Select(athlete => athlete.Id).ToList();
+
         var assignments = await dbContext.WorkoutSeriesAssignments
             .AsNoTracking()
+            .Where(assignment => ids.Contains(assignment.UserId))
             .Join(
                 dbContext.WorkoutSeries.AsNoTracking(),
                 assignment => assignment.WorkoutSeriesId,
@@ -39,9 +66,8 @@ internal sealed class AthleteQueries(FitTrackDbContext dbContext) : IQueryAthlet
 
         var byUser = assignments.ToDictionary(assignment => assignment.UserId);
 
-        return
-        [
-            .. athletes.Select(athlete =>
+        var items = athletes
+            .Select(athlete =>
             {
                 var assigned = byUser.GetValueOrDefault(athlete.Id);
 
@@ -53,8 +79,10 @@ internal sealed class AthleteQueries(FitTrackDbContext dbContext) : IQueryAthlet
                         assigned.WorkoutSeriesId,
                         assigned.SeriesName,
                         WorkoutSeriesAssignment.DaysRemainingUntil(assigned.ExpiresAt, now));
-            }),
-        ];
+            })
+            .ToList();
+
+        return new PagedResult<AthleteDto>(items, query.Page, query.PageSize, total);
     }
 
     public Task<bool> ExistsAsync(UserId userId, CancellationToken cancellationToken) =>

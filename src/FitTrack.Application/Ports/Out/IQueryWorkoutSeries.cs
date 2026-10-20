@@ -5,12 +5,17 @@ using FitTrack.Domain.WorkoutPlanning;
 namespace FitTrack.Application.Ports.Out;
 
 /// <summary>
-/// Read-side port for the series screens. Every projection orders the workouts by position — the cut-1
+/// Read-side port for the series screens. Every projection orders the workouts by position - the cut-1
 /// lesson was ordering by a random key and returning a scrambled workout.
 /// </summary>
 public interface IQueryWorkoutSeries
 {
     Task<IReadOnlyList<WorkoutSeriesDto>> ListByTrainerAsync(UserId trainerId, CancellationToken cancellationToken);
+
+    Task<PagedResult<WorkoutSeriesDto>> ListByTrainerAsync(
+        UserId trainerId,
+        ListQuery query,
+        CancellationToken cancellationToken);
 
     Task<WorkoutSeriesDto?> GetByIdAsync(WorkoutSeriesId seriesId, CancellationToken cancellationToken);
 

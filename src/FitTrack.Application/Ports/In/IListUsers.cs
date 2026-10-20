@@ -6,4 +6,6 @@ namespace FitTrack.Application.Ports.In;
 public interface IListUsers
 {
     Task<IReadOnlyList<UserAccountDto>> ExecuteAsync(CancellationToken cancellationToken);
+
+    Task<PagedResult<UserAccountDto>> ExecuteAsync(ListQuery query, CancellationToken cancellationToken);
 }

@@ -18,7 +18,7 @@ internal sealed record WorkoutSessionRow(
     IReadOnlyList<PerformedSetDto> Sets)
 {
     /// <summary>Elapsed seconds at <paramref name="now"/>: frozen once finished, running until then.</summary>
-    public WorkoutSessionDto ToDto(DateTimeOffset now) =>
+    public WorkoutSessionDto ToDto(DateTimeOffset now, WorkoutVolumeDto? volume = null) =>
         new(
             Id,
             WorkoutDate,
@@ -26,7 +26,8 @@ internal sealed record WorkoutSessionRow(
             FinishedAt,
             (int)((FinishedAt ?? now) - StartedAt).TotalSeconds,
             WorkoutSeriesWorkoutId,
-            Sets);
+            Sets,
+            volume);
 }
 
 /// <summary>

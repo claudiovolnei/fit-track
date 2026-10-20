@@ -15,6 +15,18 @@
     </Actions>
 </PageHeader>
 
+@if (_error is not null)
+{
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
+}
+
+<SearchField Value="@_search" ValueChanged="SearchAsync"
+             Placeholder="Buscar treino por nome"
+             AriaLabel="Buscar treino por nome" />
+
 @if (_loading)
 {
     <div class="loading-state">
@@ -22,57 +34,83 @@
         <span>Carregando seu histórico…</span>
     </div>
 }
-else if (_error is not null)
-{
-    <div class="alert alert--error">
-        <AppIcon Name="info" Size="18" />
-        <span>@_error</span>
-    </div>
-}
-else if (_sessions.Count == 0)
+else if (_totalCount == 0)
 {
     <div class="empty-state">
-        <AppIcon Name="history" Size="28" />
-        <h2>Nenhum treino registrado ainda</h2>
-        <p>Seu primeiro treino aparece aqui assim que você iniciar uma sessão.</p>
-        <a class="btn btn-primary" href="/today">Começar agora</a>
+        <AppIcon Name="@(HasSearch ? "search" : "history")" Size="28" />
+        <h2>@(HasSearch ? "Nada encontrado" : "Nenhum treino registrado ainda")</h2>
+        <p>
+            @(HasSearch
+                ? "Tente outro nome de treino."
+                : "Seu primeiro treino aparece aqui assim que você iniciar uma sessão.")
+        </p>
+        @if (HasSearch)
+        {
+            <button class="btn btn-secondary" type="button" @onclick="ClearSearchAsync">Limpar busca</button>
+        }
+        else
+        {
+            <a class="btn btn-primary" href="/today">Começar agora</a>
+        }
     </div>
+
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 else
 {
-    <div class="stat-grid" style="margin-bottom: 22px;">
-        <article class="stat">
-            <span class="stat-label">Treinos</span>
-            <span class="stat-value">@_sessions.Count</span>
-        </article>
-        <article class="stat">
-            <span class="stat-label">Séries</span>
-            <span class="stat-value">@_sessions.Sum(session => session.Sets.Count)</span>
-        </article>
-        <article class="stat">
-            <span class="stat-label">Volume</span>
-            <span class="stat-value">@DisplayText.Volume(TotalVolume)</span>
-        </article>
-        <article class="stat">
-            <span class="stat-label">Em andamento</span>
-            <span class="stat-value">@_sessions.Count(session => session.IsRunning)</span>
-        </article>
-    </div>
+    @if (_summary is not null)
+    {
+        <div class="stat-grid" style="margin-top: 22px; margin-bottom: 22px;">
+            <article class="stat">
+                <span class="stat-label">Treinos</span>
+                <span class="stat-value">@_summary.SessionCount</span>
+            </article>
+            <article class="stat">
+                <span class="stat-label">Séries</span>
+                <span class="stat-value">@_summary.SetCount</span>
+            </article>
+            <article class="stat">
+                <span class="stat-label">Volume feito</span>
+                <span class="stat-value">
+                    @DisplayText.Volume(_summary.PerformedKilograms)
+                    <small>Prescrito @DisplayText.Volume(_summary.PrescribedKilograms)</small>
+                </span>
+            </article>
+            <article class="stat">
+                <span class="stat-label">Aumento</span>
+                <span class="stat-value @(_summary.DeltaKilograms > 0 ? "is-up" : _summary.DeltaKilograms < 0 ? "is-down" : "")">
+                    @DisplayText.SignedVolume(_summary.DeltaKilograms)
+                    @if (_summary.DeltaPercent is { } percent)
+                    {
+                        <small> (@DisplayText.SignedPercent(percent))</small>
+                    }
+                </span>
+            </article>
+        </div>
+    }
 
     @foreach (var session in _sessions)
     {
         <SessionCard @key="session.Id" Session="session" ExerciseNames="_exerciseNames" />
     }
+
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 
 @code {
+    private const int PageSize = 10;
+
     private IReadOnlyList<WorkoutSessionResponse> _sessions = [];
     private IReadOnlyDictionary<Guid, string> _exerciseNames = new Dictionary<Guid, string>();
+    private WorkoutVolumeSummaryResponse? _summary;
     private bool _loading = true;
     private string? _error;
+    private string _search = string.Empty;
+    private int _page = 1;
+    private int _totalCount;
+    private int _loadVersion;
 
-    private decimal TotalVolume =>
-        _sessions.SelectMany(session => session.Sets).Sum(set => set.LoadKilograms * set.Repetitions);
+    private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
 
     protected override async Task OnInitializedAsync()
     {
@@ -80,16 +118,70 @@ else
         {
             var exercises = await Api.GetExercisesAsync();
             _exerciseNames = exercises.ToDictionary(exercise => exercise.Id, exercise => exercise.Name);
-
-            _sessions = await Api.GetSessionsAsync();
         }
         catch (ApiException exception)
         {
             _error = ErrorMessages.Describe(exception);
         }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        // The latest request wins; an older answer arriving late must not replace the page on screen.
+        var version = ++_loadVersion;
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var history = await Api.GetSessionsPageAsync(_search, _page, PageSize);
+
+            if (version != _loadVersion)
+            {
+                return;
+            }
+
+            _sessions = history.Items;
+            _summary = history.Summary;
+            _totalCount = history.TotalCount;
+        }
+        catch (ApiException exception)
+        {
+            if (version != _loadVersion)
+            {
+                return;
+            }
+
+            _error = ErrorMessages.Describe(exception);
+        }
         finally
         {
-            _loading = false;
+            if (version == _loadVersion)
+            {
+                _loading = false;
+            }
         }
+    }
+
+    private async Task SearchAsync(string value)
+    {
+        _search = value;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        _page = page;
+        await LoadAsync();
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        _search = string.Empty;
+        _page = 1;
+        await LoadAsync();
     }
 }

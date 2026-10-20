@@ -18,12 +18,13 @@
                 <div class="prescription-row" @key="row">
                     <div class="field field--wide">
                         <label for="prescription-exercise-@prefix">Exercício</label>
-                        <select id="prescription-exercise-@prefix" @bind="row.ExerciseId">
-                            @foreach (var exercise in Catalog)
-                            {
-                                <option value="@exercise.Id">@exercise.Name</option>
-                            }
-                        </select>
+                        <SearchableSelect Id="@($"prescription-exercise-{prefix}")"
+                                          Options="ExerciseOptions"
+                                          Value="row.ExerciseId"
+                                          ValueChanged="id => SelectExercise(row, id)"
+                                          Placeholder="Selecione um exercício…"
+                                          FilterPlaceholder="Buscar exercício"
+                                          AriaLabel="Exercício" />
                     </div>
 
                     <div class="field">
@@ -76,6 +77,17 @@
     /// <summary>Raised when a row is added or dropped, so the owner can refresh its own buttons.</summary>
     [Parameter]
     public EventCallback OnChanged { get; set; }
+
+    private IReadOnlyList<SearchableOption> ExerciseOptions =>
+    [
+        .. Catalog.Select(exercise => new SearchableOption(
+            exercise.Id,
+            exercise.Name,
+            exercise.MuscleGroupName)),
+    ];
+
+    private static void SelectExercise(PrescriptionRow row, Guid exerciseId) =>
+        row.ExerciseId = exerciseId;
 
     private async Task Add()
     {

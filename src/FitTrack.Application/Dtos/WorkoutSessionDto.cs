@@ -8,4 +8,5 @@ public sealed record WorkoutSessionDto(
     DateTimeOffset? FinishedAt,
     int DurationSeconds,
     Guid? WorkoutSeriesWorkoutId,
-    IReadOnlyList<PerformedSetDto> Sets);
+    IReadOnlyList<PerformedSetDto> Sets,
+    WorkoutVolumeDto? Volume = null);

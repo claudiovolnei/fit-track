@@ -7,21 +7,49 @@ namespace FitTrack.Adapters.Out.Persistence.Queries;
 
 /// <summary>
 /// Read-side adapter for the accounts the administrator manages. The profiles live in the Identity
-/// tables, so the query reads the accounts and the user-role links and groups the roles in memory —
+/// tables, so the query reads the accounts and the user-role links and groups the roles in memory -
 /// the same shape <see cref="AthleteQueries"/> uses to answer over Identity.
 /// </summary>
 internal sealed class UserQueries(FitTrackDbContext dbContext) : IQueryUsers
 {
-    public async Task<IReadOnlyList<UserAccountDto>> ListAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<UserAccountDto>> ListAsync(CancellationToken cancellationToken) =>
+        (await ListAsync(ListQuery.All, cancellationToken)).Items;
+
+    public async Task<PagedResult<UserAccountDto>> ListAsync(
+        ListQuery query,
+        CancellationToken cancellationToken)
     {
-        var accounts = await dbContext.Users
-            .AsNoTracking()
-            .OrderBy(user => user.Email)
-            .Select(user => new { user.Id, user.Name, user.Email, user.AvatarBytes })
+        var source = dbContext.Users.AsNoTracking();
+
+        if (query.Search is { } search)
+        {
+            var pattern = SearchPattern.Contains(search);
+            var escape = "\\";
+
+            source = source.Where(account =>
+                EF.Functions.ILike(account.Name!, pattern, escape)
+                || EF.Functions.ILike(account.Email!, pattern, escape));
+        }
+
+        var total = await source.CountAsync(cancellationToken);
+
+        var ordered = source
+            .OrderBy(account => account.Email)
+            .ThenBy(account => account.Id);
+
+        var page = query.IsPaged
+            ? ordered.Skip(query.Skip).Take(query.Take)
+            : ordered;
+
+        var accounts = await page
+            .Select(account => new { account.Id, account.Name, account.Email, account.AvatarBytes })
             .ToListAsync(cancellationToken);
+
+        var ids = accounts.Select(account => account.Id).ToList();
 
         var roles = await dbContext.UserRoles
             .AsNoTracking()
+            .Where(userRole => ids.Contains(userRole.UserId))
             .Join(
                 dbContext.Roles.AsNoTracking(),
                 userRole => userRole.RoleId,
@@ -35,15 +63,16 @@ internal sealed class UserQueries(FitTrackDbContext dbContext) : IQueryUsers
                 group => group.Key,
                 group => group.Select(entry => entry.RoleName).OrderBy(Rank).ToArray());
 
-        return
-        [
-            .. accounts.Select(account => new UserAccountDto(
+        var items = accounts
+            .Select(account => new UserAccountDto(
                 account.Id,
                 DisplayName(account.Name, account.Email),
                 account.Email ?? string.Empty,
                 byUser.TryGetValue(account.Id, out var assigned) ? assigned : [],
-                account.AvatarBytes is { Length: > 0 })),
-        ];
+                account.AvatarBytes is { Length: > 0 }))
+            .ToList();
+
+        return new PagedResult<UserAccountDto>(items, query.Page, query.PageSize, total);
     }
 
     /// <summary>

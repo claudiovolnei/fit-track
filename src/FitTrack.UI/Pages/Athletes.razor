@@ -24,6 +24,10 @@
     </div>
 }
 
+<SearchField Value="@_search" ValueChanged="SearchAsync"
+             Placeholder="Buscar atleta por e-mail"
+             AriaLabel="Buscar atleta por e-mail" />
+
 @if (_loading)
 {
     <div class="loading-state">
@@ -31,18 +35,27 @@
         <span>Carregando atletas…</span>
     </div>
 }
-else if (_athletes.Count == 0)
+else if (_totalCount == 0)
 {
     <div class="empty-state">
-        <AppIcon Name="users" Size="28" />
-        <h2>Nenhum atleta ainda</h2>
-        <p>Quando uma conta com perfil de atleta for criada, ela aparece aqui para receber uma série.</p>
+        <AppIcon Name="@(HasSearch ? "search" : "users")" Size="28" />
+        <h2>@(HasSearch ? "Nada encontrado" : "Nenhum atleta ainda")</h2>
+        <p>
+            @(HasSearch
+                ? "Tente outro e-mail."
+                : "Quando uma conta com perfil de atleta for criada, ela aparece aqui para receber uma série.")
+        </p>
+        @if (HasSearch)
+        {
+            <button class="btn btn-secondary" type="button" @onclick="ClearSearchAsync">Limpar busca</button>
+        }
     </div>
+
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 else
 {
-
-    <div class="card-grid">
+    <div class="card-grid" style="margin-top: 22px;">
         @foreach (var athlete in _athletes)
         {
             <article class="card athlete-card" @key="athlete.UserId">
@@ -75,8 +88,6 @@ else
                     }
                 </div>
 
-
-
                 @if (_creatingFor == athlete.UserId)
                 {
                     <div class="inline-form" style="margin-top: 12px;">
@@ -107,8 +118,6 @@ else
                         Nova série para este atleta
                     </button>
 
-
-
                     <a class="btn btn-secondary" href="/athletes/@athlete.UserId/workouts">
                         Ver treinos
                         <AppIcon Name="chevron-right" Size="16" />
@@ -117,17 +126,47 @@ else
             </article>
         }
     </div>
+
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 
 @code {
+    private const int PageSize = 12;
+
     private IReadOnlyList<AthleteRow> _athletes = [];
     private bool _loading = true;
     private bool _busy;
     private string? _error;
     private Guid? _creatingFor;
     private string _newSeriesName = string.Empty;
+    private string _search = string.Empty;
+    private int _page = 1;
+    private int _totalCount;
+    private int _loadVersion;
 
-    protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
+    private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task SearchAsync(string value)
+    {
+        _search = value;
+        _page = 1;
+        await ReloadAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        _page = page;
+        await ReloadAsync();
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        _search = string.Empty;
+        _page = 1;
+        await ReloadAsync();
+    }
 
     private void StartCreateAsync(Guid userId)
     {
@@ -173,21 +212,50 @@ else
 
     private async Task ReloadAsync()
     {
-        var athletes = await Api.GetAthletesAsync();
+        // The last request made owns the screen; a late answer from a previous search is discarded.
+        var version = ++_loadVersion;
+        _loading = true;
+        _error = null;
 
-        _athletes =
-        [
-            .. athletes.Select(athlete => new AthleteRow
+        try
+        {
+            var result = await Api.GetAthletesPageAsync(_search, _page, PageSize);
+
+            if (version != _loadVersion)
             {
-                UserId = athlete.UserId,
-                Email = athlete.Email,
-                SeriesId = athlete.WorkoutSeriesId,
-                SeriesName = athlete.WorkoutSeriesName,
-                DaysRemaining = athlete.DaysRemaining,
-            }),
-        ];
+                return;
+            }
 
-        _loading = false;
+            _athletes =
+            [
+                .. result.Items.Select(athlete => new AthleteRow
+                {
+                    UserId = athlete.UserId,
+                    Email = athlete.Email,
+                    SeriesId = athlete.WorkoutSeriesId,
+                    SeriesName = athlete.WorkoutSeriesName,
+                    DaysRemaining = athlete.DaysRemaining,
+                }),
+            ];
+
+            _totalCount = result.TotalCount;
+        }
+        catch (ApiException exception)
+        {
+            if (version != _loadVersion)
+            {
+                return;
+            }
+
+            _error = ErrorMessages.Describe(exception);
+        }
+        finally
+        {
+            if (version == _loadVersion)
+            {
+                _loading = false;
+            }
+        }
     }
 
     private sealed class AthleteRow

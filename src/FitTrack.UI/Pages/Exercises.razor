@@ -8,6 +8,31 @@
             Title="Exercícios"
             Subtitle="Consulte os exercícios disponíveis e o grupo muscular de cada um." />
 
+@if (_error is not null)
+{
+    <div class="alert alert--error">
+        <AppIcon Name="info" Size="18" />
+        <span>@_error</span>
+    </div>
+}
+
+<SearchField Value="@_search" ValueChanged="SearchAsync"
+             Placeholder="Buscar por exercício ou grupo muscular"
+             AriaLabel="Buscar exercício por nome ou grupo muscular" />
+
+<div class="chip-row" style="margin: 14px 0 20px;">
+    <button type="button" class="chip @(_group is null ? "active" : "")" @onclick="() => SelectGroupAsync(null)">
+        Todos
+    </button>
+    @foreach (var group in _groups)
+    {
+        <button type="button" class="chip @(_group == group.Id ? "active" : "")"
+                @onclick="() => SelectGroupAsync(group.Id)">
+            @group.Name
+        </button>
+    }
+</div>
+
 @if (_loading)
 {
     <div class="loading-state">
@@ -15,111 +40,142 @@
         <span>Carregando o catálogo…</span>
     </div>
 }
-else if (_error is not null)
-{
-    <div class="alert alert--error">
-        <AppIcon Name="info" Size="18" />
-        <span>@_error</span>
-    </div>
-}
-else if (_exercises.Count == 0)
+else if (_totalCount == 0)
 {
     <div class="empty-state">
-        <AppIcon Name="library" Size="28" />
-        <h2>Catálogo vazio</h2>
-        <p>Nenhum exercício cadastrado ainda.</p>
-    </div>
-}
-else
-{
-    <div class="search-box" style="margin-bottom: 14px;">
-        <AppIcon Name="search" Size="18" />
-        <input type="search" placeholder="Buscar por exercício ou grupo muscular"
-               aria-label="Buscar exercício"
-               @bind="_query" @bind:event="oninput" />
-    </div>
-
-    <div class="chip-row" style="margin-bottom: 20px;">
-        <button type="button" class="chip @(_group is null ? "active" : "")" @onclick="() => _group = null">
-            Todos
-        </button>
-        @foreach (var group in Groups)
+        <AppIcon Name="@(HasFilter ? "search" : "library")" Size="28" />
+        <h2>@(HasFilter ? "Nada encontrado" : "Catálogo vazio")</h2>
+        <p>
+            @(HasFilter
+                ? "Tente outro nome ou remova o filtro de grupo muscular."
+                : "Nenhum exercício cadastrado ainda.")
+        </p>
+        @if (HasFilter)
         {
-            <button type="button" class="chip @(_group == group.Id ? "active" : "")"
-                    @onclick="() => _group = group.Id">
-                @group.Name
-            </button>
+            <button class="btn btn-secondary" type="button" @onclick="ClearFiltersAsync">Limpar busca</button>
         }
     </div>
 
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
+}
+else
+{
     <div class="section-head">
-        <h2>@Filtered.Count @(Filtered.Count == 1 ? "exercício" : "exercícios")</h2>
+        <h2>@_totalCount @(_totalCount == 1 ? "exercício" : "exercícios")</h2>
     </div>
 
-    @if (Filtered.Count == 0)
-    {
-        <div class="empty-state">
-            <AppIcon Name="search" Size="26" />
-            <h3>Nada encontrado</h3>
-            <p>Tente outro nome ou remova o filtro de grupo muscular.</p>
-        </div>
-    }
-    else
-    {
-        <div class="card card--flat">
-            <div class="entity-list">
-                @foreach (var exercise in Filtered)
-                {
-                    <div class="entity-row entity-row--group" @key="exercise.Id">
-                        <div>
-                            <span class="exercise-name">@exercise.Name</span>
-                            <span class="exercise-meta">@exercise.MuscleGroupName</span>
-                        </div>
-                        <span class="chip @(exercise.IsActive ? "chip--success" : "")">
-                            @(exercise.IsActive ? "Ativo" : "Inativo")
-                        </span>
+    <div class="card card--flat">
+        <div class="entity-list">
+            @foreach (var exercise in _exercises)
+            {
+                <div class="entity-row entity-row--group" @key="exercise.Id">
+                    <div>
+                        <span class="exercise-name">@exercise.Name</span>
+                        <span class="exercise-meta">@exercise.MuscleGroupName</span>
                     </div>
-                }
-            </div>
+                    <span class="chip @(exercise.IsActive ? "chip--success" : "")">
+                        @(exercise.IsActive ? "Ativo" : "Inativo")
+                    </span>
+                </div>
+            }
         </div>
-    }
+    </div>
+
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 
 @code {
+    private const int PageSize = 20;
+
     private IReadOnlyList<ExerciseResponse> _exercises = [];
+    private IReadOnlyList<MuscleGroupResponse> _groups = [];
     private bool _loading = true;
     private string? _error;
-    private string _query = string.Empty;
+    private string _search = string.Empty;
     private Guid? _group;
+    private int _page = 1;
+    private int _totalCount;
+    private int _loadVersion;
 
-    private IReadOnlyList<(Guid Id, string Name)> Groups =>
-        [.. _exercises
-            .Select(exercise => (exercise.MuscleGroupId, exercise.MuscleGroupName))
-            .Distinct()
-            .OrderBy(group => group.MuscleGroupName)];
-
-    private IReadOnlyList<ExerciseResponse> Filtered =>
-        [.. _exercises
-            .Where(exercise =>
-                (_group is null || exercise.MuscleGroupId == _group) &&
-                (string.IsNullOrWhiteSpace(_query) ||
-                 exercise.Name.Contains(_query, StringComparison.OrdinalIgnoreCase) ||
-                 exercise.MuscleGroupName.Contains(_query, StringComparison.OrdinalIgnoreCase)))
-            .OrderBy(exercise => exercise.Name)];
+    private bool HasFilter => !string.IsNullOrWhiteSpace(_search) || _group is not null;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _exercises = await Api.GetExercisesAsync();
+            _groups = await Api.GetMuscleGroupsAsync();
         }
         catch (ApiException exception)
         {
             _error = ErrorMessages.Describe(exception);
         }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        // A click on the next page while a search is still answering must not let the older
+        // response win: the last request made is the one the screen shows.
+        var version = ++_loadVersion;
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var result = await Api.GetExercisesPageAsync(_search, _group, _page, PageSize);
+
+            if (version != _loadVersion)
+            {
+                return;
+            }
+
+            _exercises = result.Items;
+            _totalCount = result.TotalCount;
+        }
+        catch (ApiException exception)
+        {
+            if (version != _loadVersion)
+            {
+                return;
+            }
+
+            _error = ErrorMessages.Describe(exception);
+        }
         finally
         {
-            _loading = false;
+            if (version == _loadVersion)
+            {
+                _loading = false;
+            }
         }
+    }
+
+    private async Task SearchAsync(string value)
+    {
+        _search = value;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task SelectGroupAsync(Guid? groupId)
+    {
+        _group = groupId;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        _page = page;
+        await LoadAsync();
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _search = string.Empty;
+        _group = null;
+        _page = 1;
+        await LoadAsync();
     }
 }

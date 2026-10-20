@@ -12,5 +12,10 @@ public interface IQueryAthletes
     /// </summary>
     Task<IReadOnlyList<AthleteDto>> ListAsync(DateTimeOffset now, CancellationToken cancellationToken);
 
+    Task<PagedResult<AthleteDto>> ListAsync(
+        DateTimeOffset now,
+        ListQuery query,
+        CancellationToken cancellationToken);
+
     Task<bool> ExistsAsync(UserId userId, CancellationToken cancellationToken);
 }

@@ -51,6 +51,37 @@ public sealed class QueryTranslationTests
         Assert.Contains("muscle_groups", sql);
     }
 
+    [Fact]
+    public void ExerciseSearch_TranslatesToCaseInsensitiveIlike()
+    {
+        using var dbContext = CreateDbContext();
+
+        var pattern = SearchPattern.Contains("Supino 50%");
+        var sql = dbContext.Exercises
+            .Where(exercise => EF.Functions.ILike(exercise.Name, pattern, "\\"))
+            .ToQueryString();
+
+        Assert.Contains("ILIKE", sql);
+        Assert.Contains("ESCAPE", sql);
+    }
+
+    [Fact]
+    public void SessionSearch_TranslatesTheWorkoutNameJoin()
+    {
+        using var dbContext = CreateDbContext();
+
+        var sql = dbContext.WorkoutSessions
+            .Where(session =>
+                session.WorkoutSeriesWorkoutId != null
+                && dbContext.WorkoutSeriesWorkouts.Any(workout =>
+                    workout.Id == session.WorkoutSeriesWorkoutId.Value
+                    && EF.Functions.ILike(workout.Name, "%peito%", "\\")))
+            .ToQueryString();
+
+        Assert.Contains("workout_series_workouts", sql);
+        Assert.Contains("ILIKE", sql);
+    }
+
     private static FitTrackDbContext CreateDbContext() =>
         new(new DbContextOptionsBuilder<FitTrackDbContext>()
             .UseNpgsql("Host=localhost;Database=translation-only;Username=unused;Password=unused")

@@ -11,4 +11,7 @@ public sealed record WorkoutSessionResponse(
     IReadOnlyList<PerformedSetResponse> Sets)
 {
     public bool IsRunning => FinishedAt is null;
+
+    /// <summary>Null when the session has no workout reference to compare against.</summary>
+    public WorkoutVolumeResponse? Volume { get; init; }
 }

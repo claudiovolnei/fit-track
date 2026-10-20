@@ -24,4 +24,13 @@ public sealed class ListAthletes : IListAthletes
 
         return _athletes.ListAsync(_clock.UtcNow, cancellationToken);
     }
+
+    public Task<PagedResult<AthleteDto>> ExecuteAsync(
+        ListQuery query,
+        CancellationToken cancellationToken)
+    {
+        _currentUser.RequirePersonalTrainer("list the athletes");
+
+        return _athletes.ListAsync(_clock.UtcNow, query, cancellationToken);
+    }
 }

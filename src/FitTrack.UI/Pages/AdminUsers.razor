@@ -79,26 +79,36 @@
     </EditForm>
 </section>
 
+<SearchField Value="@_search" ValueChanged="SearchAsync"
+             Placeholder="Buscar conta por nome ou e-mail"
+             AriaLabel="Buscar conta por nome ou e-mail" />
+
 @if (_loading)
 {
-    <div class="loading-state">
+    <div class="loading-state" style="margin-top: 20px;">
         <span class="spinner"></span>
         <span>Carregando usuários…</span>
     </div>
 }
-else if (_users.Count == 0)
+else if (_totalCount == 0)
 {
     <div class="empty-state">
-        <AppIcon Name="users" Size="28" />
-        <h2>Nenhuma conta ainda</h2>
-        <p>Crie a primeira conta no formulário acima.</p>
+        <AppIcon Name="@(HasSearch ? "search" : "users")" Size="28" />
+        <h2>@(HasSearch ? "Nada encontrado" : "Nenhuma conta ainda")</h2>
+        <p>@(HasSearch ? "Tente outro nome ou e-mail." : "Crie a primeira conta no formulário acima.")</p>
+        @if (HasSearch)
+        {
+            <button class="btn btn-secondary" type="button" @onclick="ClearSearchAsync">Limpar busca</button>
+        }
     </div>
+
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 else
 {
-    <div class="section-head">
+    <div class="section-head" style="margin-top: 22px;">
         <h2>Contas</h2>
-        <span class="muted" style="font-size: 0.84rem;">@_users.Count @(_users.Count == 1 ? "conta" : "contas")</span>
+        <span class="muted" style="font-size: 0.84rem;">@_totalCount @(_totalCount == 1 ? "conta" : "contas")</span>
     </div>
 
     <div class="card-grid">
@@ -176,9 +186,13 @@ else
             </article>
         }
     </div>
+
+    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 
 @code {
+    private const int PageSize = 12;
+
     private IReadOnlyList<UserAccountResponse> _users = [];
     private readonly Dictionary<Guid, string?> _avatars = new();
     private readonly NewUser _new = new();
@@ -188,8 +202,34 @@ else
     private Guid? _resettingUserId;
     private string _resetPassword = string.Empty;
     private string? _resetError;
+    private string _search = string.Empty;
+    private int _page = 1;
+    private int _totalCount;
+    private int _loadVersion;
+
+    private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
 
     protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
+
+    private async Task SearchAsync(string value)
+    {
+        _search = value;
+        _page = 1;
+        await RunAsync(ReloadAsync);
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        _page = page;
+        await RunAsync(ReloadAsync);
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        _search = string.Empty;
+        _page = 1;
+        await RunAsync(ReloadAsync);
+    }
 
     private async Task CreateAsync() =>
         await RunAsync(async () =>
@@ -276,22 +316,50 @@ else
 
     private async Task ReloadAsync()
     {
-        _users = await Api.GetUsersAsync();
+        // The last request made owns the screen, including the avatars it resolves one by one.
+        var version = ++_loadVersion;
+        _loading = true;
 
-        _avatars.Clear();
-        foreach (var user in _users.Where(u => u.HasAvatar))
+        try
         {
-            try
+            var result = await Api.GetUsersPageAsync(_search, _page, PageSize);
+
+            if (version != _loadVersion)
             {
-                _avatars[user.UserId] = await Api.GetUserAvatarAsync(user.UserId);
+                return;
             }
-            catch
+
+            _users = result.Items;
+            _totalCount = result.TotalCount;
+
+            _avatars.Clear();
+            foreach (var user in _users.Where(u => u.HasAvatar))
             {
-                _avatars[user.UserId] = null;
+                string? avatar;
+                try
+                {
+                    avatar = await Api.GetUserAvatarAsync(user.UserId);
+                }
+                catch
+                {
+                    avatar = null;
+                }
+
+                if (version != _loadVersion)
+                {
+                    return;
+                }
+
+                _avatars[user.UserId] = avatar;
             }
         }
-
-        _loading = false;
+        finally
+        {
+            if (version == _loadVersion)
+            {
+                _loading = false;
+            }
+        }
     }
 
     /// <summary>The form of a new account, validated before becoming the body of the POST.</summary>

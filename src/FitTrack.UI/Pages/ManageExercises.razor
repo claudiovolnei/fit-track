@@ -16,11 +16,19 @@
     </div>
 }
 
+@if (_notice is not null)
+{
+    <div class="alert alert--info">
+        <AppIcon Name="info" Size="18" />
+        <span>@_notice</span>
+    </div>
+}
+
 <div class="manage-grid">
     <section class="card">
         <div class="section-head">
             <h2>Grupos musculares</h2>
-            <span class="chip">@_groups.Count</span>
+            <span class="chip">@_groupTotal</span>
         </div>
 
         <EditForm Model="_newGroup" OnValidSubmit="CreateGroupAsync">
@@ -42,9 +50,20 @@
 
         <hr class="divider" />
 
-        @if (_groups.Count == 0)
+        <SearchField Value="@_groupSearch" ValueChanged="SearchGroupsAsync"
+                     Placeholder="Buscar grupo por nome"
+                     AriaLabel="Buscar grupo muscular por nome" />
+
+        @if (_groupTotal == 0)
         {
-            <p class="muted" style="font-size: 0.86rem;">Nenhum grupo ainda — crie um antes de cadastrar exercícios.</p>
+            <p class="muted" style="font-size: 0.86rem;">
+                @(HasGroupSearch
+                    ? "Nenhum grupo encontrado."
+                    : "Nenhum grupo ainda — crie um antes de cadastrar exercícios.")
+            </p>
+
+            <Pagination Page="_groupPage" PageSize="PageSize" TotalCount="_groupTotal"
+                        PageChanged="GoToGroupPageAsync" />
         }
         else
         {
@@ -66,13 +85,16 @@
                     </div>
                 }
             </div>
+
+            <Pagination Page="_groupPage" PageSize="PageSize" TotalCount="_groupTotal"
+                        PageChanged="GoToGroupPageAsync" />
         }
     </section>
 
     <section class="card">
         <div class="section-head">
             <h2>Novo exercício</h2>
-            <span class="chip">@_rows.Count no catálogo</span>
+            <span class="chip">@_exerciseTotal no catálogo</span>
         </div>
 
         <EditForm Model="_create" OnValidSubmit="CreateAsync">
@@ -86,16 +108,16 @@
 
             <div class="field">
                 <label for="new-exercise-group">Grupo muscular</label>
-                <InputSelect id="new-exercise-group" @bind-Value="_create.MuscleGroupId">
-                    <option value="@Guid.Empty">Selecione um grupo…</option>
-                    @foreach (var group in _groups)
-                    {
-                        <option value="@group.Id">@group.Name</option>
-                    }
-                </InputSelect>
+                <SearchableSelect Id="new-exercise-group"
+                                  Options="GroupOptions"
+                                  Value="_create.MuscleGroupId"
+                                  ValueChanged="SetCreateGroup"
+                                  Placeholder="Selecione um grupo…"
+                                  FilterPlaceholder="Buscar grupo"
+                                  AriaLabel="Grupo muscular" />
             </div>
 
-            <button class="btn btn-primary btn-block" type="submit" disabled="@(_busy || _groups.Count == 0)">
+            <button class="btn btn-primary btn-block" type="submit" disabled="@(_busy || _allGroups.Count == 0)">
                 <AppIcon Name="plus" Size="18" />
                 Adicionar exercício
             </button>
@@ -106,16 +128,27 @@
 <section class="section">
     <div class="section-head">
         <h2>Exercícios</h2>
-        <span class="muted" style="font-size: 0.84rem;">@_rows.Count @(_rows.Count == 1 ? "exercício" : "exercícios")</span>
+        <span class="muted" style="font-size: 0.84rem;">@_exerciseTotal @(_exerciseTotal == 1 ? "exercício" : "exercícios")</span>
     </div>
 
-    @if (_rows.Count == 0)
+    <SearchField Value="@_exerciseSearch" ValueChanged="SearchExercisesAsync"
+                 Placeholder="Buscar exercício por nome"
+                 AriaLabel="Buscar exercício por nome" />
+
+    @if (_exerciseTotal == 0)
     {
         <div class="empty-state">
-            <AppIcon Name="library" Size="28" />
-            <h2>Nada para gerenciar ainda</h2>
-            <p>Cadastre o primeiro exercício no formulário acima.</p>
+            <AppIcon Name="@(HasExerciseSearch ? "search" : "library")" Size="28" />
+            <h2>@(HasExerciseSearch ? "Nada encontrado" : "Nada para gerenciar ainda")</h2>
+            <p>@(HasExerciseSearch ? "Tente outro nome." : "Cadastre o primeiro exercício no formulário acima.")</p>
+            @if (HasExerciseSearch)
+            {
+                <button class="btn btn-secondary" type="button" @onclick="ClearExerciseSearchAsync">Limpar busca</button>
+            }
         </div>
+
+        <Pagination Page="_exercisePage" PageSize="PageSize" TotalCount="_exerciseTotal"
+                    PageChanged="GoToExercisePageAsync" />
     }
     else
     {
@@ -131,12 +164,13 @@
 
                         <div class="field">
                             <label for="exercise-group-@row.Id">Grupo</label>
-                            <select id="exercise-group-@row.Id" @bind="row.MuscleGroupId">
-                                @foreach (var group in _groups)
-                                {
-                                    <option value="@group.Id">@group.Name</option>
-                                }
-                            </select>
+                            <SearchableSelect Id="@($"exercise-group-{row.Id}")"
+                                              Options="GroupOptions"
+                                              Value="row.MuscleGroupId"
+                                              ValueChanged="id => SetRowGroup(row, id)"
+                                              Placeholder="Selecione um grupo…"
+                                              FilterPlaceholder="Buscar grupo"
+                                              AriaLabel="Grupo muscular" />
                         </div>
 
                         <label class="switch">
@@ -154,31 +188,63 @@
                 }
             </div>
         </div>
+
+        <Pagination Page="_exercisePage" PageSize="PageSize" TotalCount="_exerciseTotal"
+                    PageChanged="GoToExercisePageAsync" />
     }
 </section>
 
 @code {
+    private const int PageSize = 20;
+
     private readonly Model _newGroup = new();
     private readonly Model _create = new();
     private List<GroupRowModel> _groups = [];
     private List<RowModel> _rows = [];
+    private IReadOnlyList<MuscleGroupResponse> _allGroups = [];
     private bool _busy;
     private string? _error;
+    private string? _notice;
+    private string _groupSearch = string.Empty;
+    private int _groupPage = 1;
+    private int _groupTotal;
+    private string _exerciseSearch = string.Empty;
+    private int _exercisePage = 1;
+    private int _exerciseTotal;
+    private int _loadVersion;
+
+    private bool HasGroupSearch => !string.IsNullOrWhiteSpace(_groupSearch);
+
+    private bool HasExerciseSearch => !string.IsNullOrWhiteSpace(_exerciseSearch);
+
+    private IReadOnlyList<SearchableOption> GroupOptions =>
+    [
+        .. _allGroups.Select(group => new SearchableOption(group.Id, group.Name)),
+    ];
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
     private async Task CreateGroupAsync()
     {
+        var name = _newGroup.Name.Trim();
+
         await RunAsync(async () =>
         {
-            await Api.CreateMuscleGroupAsync(new CreateMuscleGroupRequest(_newGroup.Name));
+            await Api.CreateMuscleGroupAsync(new CreateMuscleGroupRequest(name));
             _newGroup.Name = string.Empty;
+            _groupSearch = name;
+            _groupPage = 1;
+            _notice = "Grupo criado.";
         });
     }
 
     private async Task SaveGroupAsync(GroupRowModel group)
     {
-        await RunAsync(() => Api.UpdateMuscleGroupAsync(group.Id, new UpdateMuscleGroupRequest(group.Name)));
+        await RunAsync(async () =>
+        {
+            await Api.UpdateMuscleGroupAsync(group.Id, new UpdateMuscleGroupRequest(group.Name));
+            _notice = "Grupo atualizado.";
+        });
     }
 
     private async Task CreateAsync()
@@ -189,26 +255,68 @@
             return;
         }
 
+        var name = _create.Name.Trim();
+
         await RunAsync(async () =>
         {
-            await Api.CreateExerciseAsync(new CreateExerciseRequest(_create.Name, _create.MuscleGroupId));
+            await Api.CreateExerciseAsync(new CreateExerciseRequest(name, _create.MuscleGroupId));
             _create.Name = string.Empty;
             _create.MuscleGroupId = Guid.Empty;
+            _exerciseSearch = name;
+            _exercisePage = 1;
+            _notice = "Exercício criado.";
         });
     }
 
     private async Task SaveAsync(RowModel row)
     {
-        await RunAsync(() =>
-            Api.UpdateExerciseAsync(
+        await RunAsync(async () =>
+        {
+            await Api.UpdateExerciseAsync(
                 row.Id,
-                new UpdateExerciseRequest(row.Name, row.MuscleGroupId, row.IsActive)));
+                new UpdateExerciseRequest(row.Name, row.MuscleGroupId, row.IsActive));
+            _notice = "Exercício atualizado.";
+        });
+    }
+
+    private async Task SearchGroupsAsync(string value)
+    {
+        _groupSearch = value;
+        _groupPage = 1;
+        await ReloadAsync();
+    }
+
+    private async Task GoToGroupPageAsync(int page)
+    {
+        _groupPage = page;
+        await ReloadAsync();
+    }
+
+    private async Task SearchExercisesAsync(string value)
+    {
+        _exerciseSearch = value;
+        _exercisePage = 1;
+        await ReloadAsync();
+    }
+
+    private async Task GoToExercisePageAsync(int page)
+    {
+        _exercisePage = page;
+        await ReloadAsync();
+    }
+
+    private async Task ClearExerciseSearchAsync()
+    {
+        _exerciseSearch = string.Empty;
+        _exercisePage = 1;
+        await ReloadAsync();
     }
 
     private async Task RunAsync(Func<Task> action)
     {
         _busy = true;
         _error = null;
+        _notice = null;
 
         try
         {
@@ -227,19 +335,40 @@
 
     private async Task ReloadAsync()
     {
+        // Group search, exercise search and their paginations can overlap; the newest snapshot wins.
+        var version = ++_loadVersion;
+
         try
         {
-            var groups = await Api.GetMuscleGroupsAsync();
-            var exercises = await Api.GetExercisesAsync();
+            var groups = await Api.GetMuscleGroupsPageAsync(_groupSearch, _groupPage, PageSize);
+            var exercises = await Api.GetExercisesPageAsync(_exerciseSearch, null, _exercisePage, PageSize);
+            var allGroups = await Api.GetMuscleGroupsAsync();
 
-            _groups = [.. groups.Select(GroupRowModel.From)];
-            _rows = [.. exercises.Select(RowModel.From)];
+            if (version != _loadVersion)
+            {
+                return;
+            }
+
+            _groups = [.. groups.Items.Select(GroupRowModel.From)];
+            _rows = [.. exercises.Items.Select(RowModel.From)];
+            _allGroups = allGroups;
+            _groupTotal = groups.TotalCount;
+            _exerciseTotal = exercises.TotalCount;
         }
         catch (ApiException exception)
         {
+            if (version != _loadVersion)
+            {
+                return;
+            }
+
             _error = ErrorMessages.Describe(exception);
         }
     }
+
+    private void SetCreateGroup(Guid groupId) => _create.MuscleGroupId = groupId;
+
+    private static void SetRowGroup(RowModel row, Guid groupId) => row.MuscleGroupId = groupId;
 
     private sealed class Model
     {

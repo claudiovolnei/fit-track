@@ -13,4 +13,10 @@ public sealed class ListExercises : IListExercises
 
     public Task<IReadOnlyList<ExerciseDto>> ExecuteAsync(CancellationToken cancellationToken) =>
         _query.ListAsync(cancellationToken);
+
+    public Task<PagedResult<ExerciseDto>> ExecuteAsync(
+        ListQuery query,
+        Guid? muscleGroupId,
+        CancellationToken cancellationToken) =>
+        _query.ListAsync(query, muscleGroupId, cancellationToken);
 }

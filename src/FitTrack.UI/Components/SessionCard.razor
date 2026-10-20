@@ -57,6 +57,49 @@
             }
         </div>
     }
+
+    @if (Session.Volume is { } volume)
+    {
+        <div class="volume-comparison">
+            <span>Volume feito <strong>@DisplayText.Volume(volume.PerformedKilograms)</strong></span>
+            <span>Prescrito <strong>@DisplayText.Volume(volume.PrescribedKilograms)</strong></span>
+            <span class="@DeltaClass(volume.DeltaKilograms)">
+                Aumento <strong>@DisplayText.SignedVolume(volume.DeltaKilograms)</strong>
+                @if (volume.DeltaPercent is { } percent)
+                {
+                    <text> (@DisplayText.SignedPercent(percent))</text>
+                }
+            </span>
+            @if (Session.IsRunning)
+            {
+                <span>parcial</span>
+            }
+        </div>
+
+        @if (volume.Exercises.Count > 0)
+        {
+            <div class="volume-exercises">
+                @foreach (var exercise in volume.Exercises)
+                {
+                    <span>
+                        <strong>@exercise.ExerciseName</strong>
+                        @ExerciseVolumeText(exercise)
+                    </span>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <div class="volume-comparison">
+            <span>Volume feito <strong>@DisplayText.Volume(Volume)</strong></span>
+            <span>sem prescrição para comparar</span>
+            @if (Session.IsRunning)
+            {
+                <span>parcial</span>
+            }
+        </div>
+    }
 </article>
 
 @code {
@@ -71,4 +114,20 @@
 
     private string ExerciseName(Guid exerciseId) =>
         ExerciseNames.TryGetValue(exerciseId, out var name) ? name : exerciseId.ToString();
+
+    private static string DeltaClass(decimal delta) =>
+        delta > 0m ? "is-up" : delta < 0m ? "is-down" : string.Empty;
+
+    private static string ExerciseVolumeText(ExerciseVolumeResponse exercise) => exercise.Status switch
+    {
+        "notPerformed" => $"não executado · prescrito {DisplayText.Volume(exercise.PrescribedKilograms)}",
+        "notPrescribed" => $"não prescrito · feito {DisplayText.Volume(exercise.PerformedKilograms)}",
+        "bodyweight" => $"prescrição sem carga · feito {DisplayText.Volume(exercise.PerformedKilograms)}",
+        _ => $"feito {DisplayText.Volume(exercise.PerformedKilograms)} · prescrito {DisplayText.Volume(exercise.PrescribedKilograms)} · {DeltaText(exercise)}",
+    };
+
+    private static string DeltaText(ExerciseVolumeResponse exercise) =>
+        exercise.DeltaPercent is { } percent
+            ? $"{DisplayText.SignedVolume(exercise.DeltaKilograms)} ({DisplayText.SignedPercent(percent)})"
+            : DisplayText.SignedVolume(exercise.DeltaKilograms);
 }

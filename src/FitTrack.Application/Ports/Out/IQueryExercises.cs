@@ -9,4 +9,14 @@ namespace FitTrack.Application.Ports.Out;
 public interface IQueryExercises
 {
     Task<IReadOnlyList<ExerciseDto>> ListAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One page of the catalog, filtered by name or muscle group name and, when given, by the
+    /// <paramref name="muscleGroupId"/> chip. The whole filtered collection comes back when the query
+    /// is not paginated.
+    /// </summary>
+    Task<PagedResult<ExerciseDto>> ListAsync(
+        ListQuery query,
+        Guid? muscleGroupId,
+        CancellationToken cancellationToken);
 }

@@ -22,6 +22,18 @@ internal sealed class InMemoryWorkoutSeriesQueries(
         Task.FromResult<IReadOnlyList<WorkoutSeriesDto>>(
             [.. series.All.Where(candidate => candidate.TrainerId == trainerId).Select(candidate => ToDto(candidate))]);
 
+    public Task<PagedResult<WorkoutSeriesDto>> ListByTrainerAsync(
+        UserId trainerId,
+        ListQuery query,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(FakePaging.Apply(
+            series.All
+                .Where(candidate => candidate.TrainerId == trainerId)
+                .Select(candidate => ToDto(candidate))
+                .OrderBy(candidate => candidate.Name),
+            query,
+            candidate => candidate.Name));
+
     public Task<WorkoutSeriesDto?> GetByIdAsync(WorkoutSeriesId seriesId, CancellationToken cancellationToken) =>
         Task.FromResult(series.All
             .Where(candidate => candidate.Id == seriesId)

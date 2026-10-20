@@ -26,4 +26,14 @@ public sealed class ListAthleteWorkouts : IListAthleteWorkouts
 
         return _sessions.ListByUserAsync(new UserId(command.UserId), cancellationToken);
     }
+
+    public Task<WorkoutHistoryDto> ExecuteAsync(
+        ListAthleteWorkoutsCommand command,
+        ListQuery query,
+        CancellationToken cancellationToken)
+    {
+        _currentUser.RequirePersonalTrainer("follow the workouts of their athletes");
+
+        return _sessions.ListByUserAsync(new UserId(command.UserId), query, cancellationToken);
+    }
 }

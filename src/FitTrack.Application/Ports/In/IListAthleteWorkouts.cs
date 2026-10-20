@@ -9,4 +9,9 @@ public interface IListAthleteWorkouts
     Task<IReadOnlyList<WorkoutSessionDto>> ExecuteAsync(
         ListAthleteWorkoutsCommand command,
         CancellationToken cancellationToken);
+
+    Task<WorkoutHistoryDto> ExecuteAsync(
+        ListAthleteWorkoutsCommand command,
+        ListQuery query,
+        CancellationToken cancellationToken);
 }

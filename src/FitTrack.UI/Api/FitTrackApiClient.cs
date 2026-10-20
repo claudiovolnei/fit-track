@@ -19,6 +19,15 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
     public Task<IReadOnlyList<MuscleGroupResponse>> GetMuscleGroupsAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<MuscleGroupResponse>>("muscle-groups", cancellationToken);
 
+    public Task<PagedResultResponse<MuscleGroupResponse>> GetMuscleGroupsPageAsync(
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<PagedResultResponse<MuscleGroupResponse>>(
+            ListPath("muscle-groups", search, page, pageSize),
+            cancellationToken);
+
     public Task<MuscleGroupResponse> CreateMuscleGroupAsync(
         CreateMuscleGroupRequest request,
         CancellationToken cancellationToken = default) =>
@@ -33,6 +42,16 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
     public Task<IReadOnlyList<ExerciseResponse>> GetExercisesAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<ExerciseResponse>>("exercises", cancellationToken);
 
+    public Task<PagedResultResponse<ExerciseResponse>> GetExercisesPageAsync(
+        string? search,
+        Guid? muscleGroupId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<PagedResultResponse<ExerciseResponse>>(
+            ListPath("exercises", search, page, pageSize, muscleGroupId),
+            cancellationToken);
+
     public Task<ExerciseResponse> CreateExerciseAsync(
         CreateExerciseRequest request,
         CancellationToken cancellationToken = default) =>
@@ -46,6 +65,15 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
 
     public Task<IReadOnlyList<WorkoutSessionResponse>> GetSessionsAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<WorkoutSessionResponse>>("sessions", cancellationToken);
+
+    public Task<WorkoutHistoryResponse> GetSessionsPageAsync(
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<WorkoutHistoryResponse>(
+            ListPath("sessions", search, page, pageSize),
+            cancellationToken);
 
     public Task<WorkoutSessionResponse> StartWorkoutAsync(
         StartWorkoutRequest request,
@@ -71,6 +99,15 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
 
     public Task<IReadOnlyList<WorkoutSeriesResponse>> GetWorkoutSeriesAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<WorkoutSeriesResponse>>("workout-series", cancellationToken);
+
+    public Task<PagedResultResponse<WorkoutSeriesResponse>> GetWorkoutSeriesPageAsync(
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<PagedResultResponse<WorkoutSeriesResponse>>(
+            ListPath("workout-series", search, page, pageSize),
+            cancellationToken);
 
     public Task<WorkoutSeriesResponse> GetWorkoutSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default) =>
         GetAsync<WorkoutSeriesResponse>($"workout-series/{seriesId}", cancellationToken);
@@ -110,13 +147,41 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
     public Task<IReadOnlyList<AthleteResponse>> GetAthletesAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<AthleteResponse>>("athletes", cancellationToken);
 
+    public Task<PagedResultResponse<AthleteResponse>> GetAthletesPageAsync(
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<PagedResultResponse<AthleteResponse>>(
+            ListPath("athletes", search, page, pageSize),
+            cancellationToken);
+
     public Task<IReadOnlyList<WorkoutSessionResponse>> GetAthleteWorkoutsAsync(
         Guid userId,
         CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<WorkoutSessionResponse>>($"athletes/{userId}/workouts", cancellationToken);
 
+    public Task<WorkoutHistoryResponse> GetAthleteWorkoutsPageAsync(
+        Guid userId,
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<WorkoutHistoryResponse>(
+            ListPath($"athletes/{userId}/workouts", search, page, pageSize),
+            cancellationToken);
+
     public Task<IReadOnlyList<UserAccountResponse>> GetUsersAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<UserAccountResponse>>("admin/users", cancellationToken);
+
+    public Task<PagedResultResponse<UserAccountResponse>> GetUsersPageAsync(
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<PagedResultResponse<UserAccountResponse>>(
+            ListPath("admin/users", search, page, pageSize),
+            cancellationToken);
 
     public Task<UserAccountResponse> CreateUserAsync(
         CreateUserRequest request,
@@ -169,6 +234,31 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
         var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
         return $"data:{contentType};base64,{Convert.ToBase64String(bytes)}";
+    }
+
+    private static string ListPath(
+        string path,
+        string? search,
+        int page,
+        int pageSize,
+        Guid? muscleGroupId = null)
+    {
+        var parameters = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            parameters.Add("search=" + Uri.EscapeDataString(search.Trim()));
+        }
+
+        if (muscleGroupId is { } groupId && groupId != Guid.Empty)
+        {
+            parameters.Add("muscleGroupId=" + groupId);
+        }
+
+        parameters.Add("page=" + page);
+        parameters.Add("pageSize=" + pageSize);
+
+        return $"{path}?{string.Join('&', parameters)}";
     }
 
     private async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken)

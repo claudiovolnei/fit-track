@@ -1,5 +1,6 @@
 @page "/account"
 @attribute [Authorize]
+@implements IDisposable
 @inject FitTrackApiClient Api
 @inject UserSession Session
 @inject NavigationManager Navigation
@@ -102,8 +103,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        AvatarState.Changed += OnAvatarChanged;
+
         var state = await AuthState.GetAuthenticationStateAsync();
         _userName = state.User.Identity?.Name;
+        _avatarPreview = AvatarState.AvatarUrl;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -113,17 +117,28 @@
             return;
         }
 
-        try
-        {
-            _avatarPreview = await Api.GetMyAvatarAsync();
-            AvatarState.Set(_avatarPreview);
-            await InvokeAsync(StateHasChanged);
-        }
-        catch
-        {
-            _avatarPreview = null;
-        }
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var userKey = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? state.User.Identity?.Name;
+
+        await AvatarState.EnsureLoadedAsync(userKey, cancellationToken => Api.GetMyAvatarAsync(cancellationToken));
+
+        _avatarPreview = AvatarState.AvatarUrl;
+        await InvokeAsync(StateHasChanged);
     }
+
+    private void OnAvatarChanged()
+    {
+        if (_avatarBusy)
+        {
+            return;
+        }
+
+        _avatarPreview = AvatarState.AvatarUrl;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => AvatarState.Changed -= OnAvatarChanged;
 
     private async Task OnAvatarSelectedAsync(InputFileChangeEventArgs args)
     {

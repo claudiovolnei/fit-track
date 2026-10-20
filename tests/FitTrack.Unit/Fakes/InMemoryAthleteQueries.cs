@@ -34,15 +34,27 @@ internal sealed class InMemoryAthleteQueries : IQueryAthletes
     }
 
     public Task<IReadOnlyList<AthleteDto>> ListAsync(DateTimeOffset now, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<AthleteDto>>([.. _athletes.Select(athlete => new AthleteDto(
+        Task.FromResult<IReadOnlyList<AthleteDto>>([.. _athletes.Select(athlete => ToDto(athlete, now))]);
+
+    public Task<PagedResult<AthleteDto>> ListAsync(
+        DateTimeOffset now,
+        ListQuery query,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(FakePaging.Apply(
+            _athletes.Select(athlete => ToDto(athlete, now)).OrderBy(athlete => athlete.Email),
+            query,
+            athlete => athlete.Email));
+
+    public Task<bool> ExistsAsync(UserId userId, CancellationToken cancellationToken) =>
+        Task.FromResult(_athletes.Any(athlete => athlete.UserId == userId.Value));
+
+    private static AthleteDto ToDto(Entry athlete, DateTimeOffset now) =>
+        new(
             athlete.UserId,
             athlete.Email,
             athlete.SeriesId,
             athlete.SeriesName,
-            DaysRemaining(athlete.ExpiresAt, now)))]);
-
-    public Task<bool> ExistsAsync(UserId userId, CancellationToken cancellationToken) =>
-        Task.FromResult(_athletes.Any(athlete => athlete.UserId == userId.Value));
+            DaysRemaining(athlete.ExpiresAt, now));
 
     private static int DaysRemaining(DateTimeOffset? expiresAt, DateTimeOffset now) =>
         expiresAt is null || now >= expiresAt

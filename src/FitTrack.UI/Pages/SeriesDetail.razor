@@ -46,9 +46,25 @@ else
             <span>Nenhum treino ainda — monte o primeiro no formulário abaixo.</span>
         </div>
     }
+    else
+    {
+        <SearchField Value="@_workoutSearch" ValueChanged="OnWorkoutSearchAsync"
+                     Placeholder="Buscar treino por nome"
+                     AriaLabel="Buscar treino por nome" />
+    }
+
+    @if (_workouts.Count > 0 && FilteredWorkouts.Count == 0)
+    {
+        <div class="empty-state">
+            <AppIcon Name="search" Size="28" />
+            <h2>Nenhum treino encontrado</h2>
+            <p>Tente outro nome ou limpe a busca.</p>
+            <button class="btn btn-secondary" type="button" @onclick="ClearWorkoutSearchAsync">Limpar busca</button>
+        </div>
+    }
 
     <div class="workout-list">
-        @foreach (var workout in _workouts)
+        @foreach (var workout in FilteredWorkouts)
         {
             <article class="card workout-card" @key="workout.Id">
                 <div class="workout-head">
@@ -136,11 +152,30 @@ else
     private List<WorkoutRow> _workouts = [];
     private List<PrescriptionRow> _newPrescription = [];
     private string _newName = string.Empty;
+    private string _workoutSearch = string.Empty;
     private bool _loading = true;
     private bool _busy;
     private string? _error;
 
     private string NextLabel => ((char)('A' + _workouts.Count)).ToString();
+
+    private IReadOnlyList<WorkoutRow> FilteredWorkouts =>
+        string.IsNullOrWhiteSpace(_workoutSearch)
+            ? _workouts
+            : [.. _workouts.Where(workout =>
+                workout.Name.Contains(_workoutSearch.Trim(), StringComparison.OrdinalIgnoreCase))];
+
+    private Task OnWorkoutSearchAsync(string value)
+    {
+        _workoutSearch = value;
+        return Task.CompletedTask;
+    }
+
+    private Task ClearWorkoutSearchAsync()
+    {
+        _workoutSearch = string.Empty;
+        return Task.CompletedTask;
+    }
 
     protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
 

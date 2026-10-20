@@ -1,0 +1,94 @@
+@* Search field shared by the listings: debounced, clearable and with the 80-character limit of the API. *@
+@implements IDisposable
+
+<div class="search-box">
+    <AppIcon Name="search" Size="18" />
+    <input type="search"
+           value="@_text"
+           maxlength="80"
+           placeholder="@Placeholder"
+           aria-label="@AriaLabel"
+           @oninput="OnInputAsync"
+           @onkeydown="OnKeyDownAsync" />
+
+    @if (_text.Length > 0)
+    {
+        <button type="button" class="search-clear" title="Limpar busca" aria-label="Limpar busca"
+                @onclick="ClearAsync">
+            <AppIcon Name="x" Size="15" />
+        </button>
+    }
+</div>
+
+@code {
+    private string _text = string.Empty;
+    private CancellationTokenSource? _debounce;
+
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter]
+    public string Placeholder { get; set; } = "Buscar por nome";
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Buscar por nome";
+
+    protected override void OnParametersSet()
+    {
+        if (Value is not null && !string.Equals(Value, _text, StringComparison.Ordinal))
+        {
+            _text = Value;
+        }
+    }
+
+    private async Task OnInputAsync(ChangeEventArgs args)
+    {
+        _text = args.Value?.ToString() ?? string.Empty;
+
+        _debounce?.Cancel();
+        _debounce?.Dispose();
+        _debounce = new CancellationTokenSource();
+        var token = _debounce.Token;
+
+        try
+        {
+            await Task.Delay(300, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (!token.IsCancellationRequested)
+        {
+            await ValueChanged.InvokeAsync(_text.Trim());
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key != "Enter")
+        {
+            return;
+        }
+
+        _debounce?.Cancel();
+        await ValueChanged.InvokeAsync(_text.Trim());
+    }
+
+    private async Task ClearAsync()
+    {
+        _debounce?.Cancel();
+        _text = string.Empty;
+        await ValueChanged.InvokeAsync(string.Empty);
+    }
+
+    public void Dispose()
+    {
+        _debounce?.Cancel();
+        _debounce?.Dispose();
+    }
+}

@@ -53,6 +53,22 @@ public static class DisplayText
             ? $"{kilograms / 1000m:0.#} t"
             : $"{kilograms:0} kg";
 
+    /// <summary>The same volume with an explicit sign, for the increase against the prescription.</summary>
+    public static string SignedVolume(decimal kilograms) =>
+        kilograms > 0m
+            ? $"+{Volume(kilograms)}"
+            : kilograms < 0m
+                ? $"−{Volume(-kilograms)}"
+                : "0 kg";
+
+    /// <summary>The percentage with an explicit sign, rounded like the API does.</summary>
+    public static string SignedPercent(decimal percent) =>
+        percent > 0m
+            ? $"+{percent:0.#}%"
+            : percent < 0m
+                ? $"−{(-percent):0.#}%"
+                : "0%";
+
     public static string LongDate(DateOnly date) =>
         date.ToDateTime(TimeOnly.MinValue).ToString("dddd, d 'de' MMMM", PtBr);
 

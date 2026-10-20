@@ -1,0 +1,51 @@
+@* Previous/next control shared by the listings, with the "X–Y de Z" indicator. *@
+
+<div class="pagination" aria-label="Paginação">
+    <button class="btn btn-secondary btn-sm" type="button"
+            disabled="@(Page <= 1)" @onclick="() => ChangeAsync(Page - 1)">
+        <AppIcon Name="chevron-left" Size="16" />
+        Anterior
+    </button>
+
+    <span class="pagination-info" aria-live="polite">
+        @if (TotalCount == 0)
+        {
+            <span>0 de 0</span>
+        }
+        else
+        {
+            <span>@From–@To de @TotalCount</span>
+        }
+    </span>
+
+    <button class="btn btn-secondary btn-sm" type="button"
+            disabled="@(Page >= TotalPages)" @onclick="() => ChangeAsync(Page + 1)">
+        Próxima
+        <AppIcon Name="chevron-right" Size="16" />
+    </button>
+</div>
+
+@code {
+    [Parameter]
+    public int Page { get; set; } = 1;
+
+    [Parameter]
+    public int PageSize { get; set; } = 20;
+
+    [Parameter]
+    public int TotalCount { get; set; }
+
+    [Parameter]
+    public EventCallback<int> PageChanged { get; set; }
+
+    private int TotalPages => PageSize <= 0
+        ? TotalCount == 0 ? 0 : 1
+        : (int)Math.Ceiling(TotalCount / (double)PageSize);
+
+    private int From => TotalCount == 0 ? 0 : ((Page - 1) * PageSize) + 1;
+
+    private int To => Math.Min(Page * PageSize, TotalCount);
+
+    private Task ChangeAsync(int page) =>
+        page >= 1 && page <= TotalPages ? PageChanged.InvokeAsync(page) : Task.CompletedTask;
+}

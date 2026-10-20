@@ -1,4 +1,5 @@
 using FitTrack.Adapters.In.Api.Authentication;
+using FitTrack.Adapters.In.Api.Composition;
 using FitTrack.Adapters.In.Api.Contracts;
 using FitTrack.Application.Commands;
 using FitTrack.Application.Ports.In;
@@ -43,20 +44,59 @@ internal static class WorkoutSeriesEndpoints
     }
 
     private static async Task<IResult> ListAthletesAsync(
+        string? search,
+        int? page,
+        int? pageSize,
         IListAthletes useCase,
-        CancellationToken cancellationToken) =>
-        Results.Ok(await useCase.ExecuteAsync(cancellationToken));
+        CancellationToken cancellationToken)
+    {
+        var invalid = ListRequest.TryRead(search, page, pageSize, out var query);
+        if (invalid is not null)
+        {
+            return invalid;
+        }
+
+        var result = await useCase.ExecuteAsync(query, cancellationToken);
+
+        return ListRequest.Ok(result, ListRequest.IsPaged(page, pageSize));
+    }
 
     private static async Task<IResult> ListAthleteWorkoutsAsync(
         Guid userId,
+        string? search,
+        int? page,
+        int? pageSize,
         IListAthleteWorkouts useCase,
-        CancellationToken cancellationToken) =>
-        Results.Ok(await useCase.ExecuteAsync(new ListAthleteWorkoutsCommand(userId), cancellationToken));
+        CancellationToken cancellationToken)
+    {
+        var invalid = ListRequest.TryRead(search, page, pageSize, out var query);
+        if (invalid is not null)
+        {
+            return invalid;
+        }
+
+        var result = await useCase.ExecuteAsync(new ListAthleteWorkoutsCommand(userId), query, cancellationToken);
+
+        return ListRequest.Ok(result, ListRequest.IsPaged(page, pageSize));
+    }
 
     private static async Task<IResult> ListSeriesAsync(
+        string? search,
+        int? page,
+        int? pageSize,
         IListWorkoutSeries useCase,
-        CancellationToken cancellationToken) =>
-        Results.Ok(await useCase.ExecuteAsync(cancellationToken));
+        CancellationToken cancellationToken)
+    {
+        var invalid = ListRequest.TryRead(search, page, pageSize, out var query);
+        if (invalid is not null)
+        {
+            return invalid;
+        }
+
+        var result = await useCase.ExecuteAsync(query, cancellationToken);
+
+        return ListRequest.Ok(result, ListRequest.IsPaged(page, pageSize));
+    }
 
     private static async Task<IResult> CreateSeriesAsync(
         SetWorkoutSeriesNameRequest request,

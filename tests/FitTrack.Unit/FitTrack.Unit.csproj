@@ -21,6 +21,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\FitTrack.Domain\FitTrack.Domain.csproj" />
     <ProjectReference Include="..\..\src\FitTrack.Application\FitTrack.Application.csproj" />
+    <!-- The avatar state is a UI rule; it is pure .NET, so the unit suite can cover it too. -->
+    <ProjectReference Include="..\..\src\FitTrack.UI\FitTrack.UI.csproj" />
   </ItemGroup>
 
   <!-- The refusal table both test suites assert against, so a fake and an adapter cannot drift apart. -->

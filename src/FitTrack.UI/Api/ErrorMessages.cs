@@ -10,6 +10,10 @@ public static class ErrorMessages
 {
     private static readonly Dictionary<string, string> ByCode = new(StringComparer.OrdinalIgnoreCase)
     {
+        // Shared list contract
+        ["search.too_long"] = "A busca deve ter no máximo 80 caracteres.",
+        ["pagination.invalid"] = "A paginação informada é inválida.",
+
         // Workout series
         ["workout_series.name.required"] = "Informe o nome da série.",
         ["workout_series.name.too_long"] = "O nome da série é longo demais.",
