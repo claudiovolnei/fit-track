@@ -1,0 +1,7 @@
+# The service worker must be revalidated on every visit so a new deploy replaces the old cache.
+/service-worker.js
+  Cache-Control: no-cache
+
+# Fingerprinted assets (blazor.webassembly.<hash>.js, dotnet.native.<hash>.wasm, ...) never change.
+/_framework/*
+  Cache-Control: public, max-age=31536000, immutable
