@@ -45,6 +45,9 @@ coverage/
 ## Wrangler / Cloudflare Workers local state
 .wrangler/
 
+## Fly.io secrets (never commit)
+.secrets.fly
+
 ## OS
 .DS_Store
 Thumbs.db
