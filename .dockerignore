@@ -1,0 +1,26 @@
+# Build output
+**/bin/
+**/obj/
+/out/
+.pages-out/
+
+# VCS, IDE and local state
+.git/
+.gitignore
+.github/
+.vs/
+.vscode/
+.idea/
+**/*.user
+.aspire/
+.wrangler/
+
+# Not needed to build the API image
+tests/
+docs/
+README.md
+Dockerfile
+.dockerignore
+fly.toml
+wrangler.jsonc
+scripts/

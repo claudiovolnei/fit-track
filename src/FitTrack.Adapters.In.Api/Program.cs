@@ -121,11 +121,25 @@ if (app.Environment.IsDevelopment())
     // Documentation UI on /scalar, reading the document the API already exposes on /openapi/v1.json.
     // Development-only, like the seeded accounts.
     app.MapScalarApiReference();
+}
 
+// Containers run as Production, where migrations are opt-in through configuration:
+// Database__MigrateOnStartup=true (see fly.toml). The development seeder stays dev-only.
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<FitTrackDbContext>().Database.MigrateAsync();
-    await DevelopmentSeeder.SeedAsync(scope.ServiceProvider);
+
+    if (app.Environment.IsDevelopment())
+    {
+        await DevelopmentSeeder.SeedAsync(scope.ServiceProvider);
+    }
 }
+
+// Platform health probes. Aspire only maps /health and /alive in Development, and the
+// fly.toml check needs a stable path in Production. A static 200 keeps the machine routable
+// while the database (which may autosuspend on a free tier) wakes up.
+app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 
 app.UseCors();
 
