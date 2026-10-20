@@ -27,14 +27,7 @@ internal static class DevelopmentSeeder
 
     public static async Task SeedAsync(IServiceProvider services)
     {
-        var roles = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-        foreach (var role in Roles.All)
-        {
-            if (!await roles.RoleExistsAsync(role))
-            {
-                await roles.CreateAsync(new IdentityRole<Guid>(role));
-            }
-        }
+        await RoleSeeder.EnsureRolesAsync(services);
 
         var users = services.GetRequiredService<UserManager<AppUser>>();
         await EnsureAccountAsync(users, AdminEmail, "Administrador", AdminPassword, Roles.Admin);

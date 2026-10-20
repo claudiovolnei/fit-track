@@ -130,6 +130,9 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Databas
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<FitTrackDbContext>().Database.MigrateAsync();
 
+    // Registration assigns Roles.User, so the role rows must exist before the first account.
+    await RoleSeeder.EnsureRolesAsync(scope.ServiceProvider);
+
     if (app.Environment.IsDevelopment())
     {
         await DevelopmentSeeder.SeedAsync(scope.ServiceProvider);
