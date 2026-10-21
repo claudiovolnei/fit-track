@@ -118,6 +118,9 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
 
                     b.HasIndex("MuscleGroupId");
 
+                    b.HasIndex("Name")
+                        .IsUnique();
+
                     b.ToTable("exercises", (string)null);
                 });
 

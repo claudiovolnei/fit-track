@@ -23,6 +23,10 @@ internal sealed class ExerciseRecordConfiguration : IEntityTypeConfiguration<Exe
             .HasForeignKey(exercise => exercise.MuscleGroupId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // A repeated exercise name would make the catalog ambiguous, so the database refuses it.
+        builder.HasIndex(exercise => exercise.Name)
+            .IsUnique();
+
         builder.HasIndex(exercise => exercise.MuscleGroupId);
     }
 }
