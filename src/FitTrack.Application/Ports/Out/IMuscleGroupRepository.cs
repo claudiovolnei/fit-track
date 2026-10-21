@@ -27,4 +27,10 @@ public interface IMuscleGroupRepository
         CancellationToken cancellationToken);
 
     Task SaveAsync(MuscleGroup muscleGroup, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Drops the aggregate. The use case refuses deletion while exercises still belong to the
+    /// group, so the raw removal only runs on an empty group.
+    /// </summary>
+    Task RemoveAsync(MuscleGroup muscleGroup, CancellationToken cancellationToken);
 }

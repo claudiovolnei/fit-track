@@ -23,6 +23,9 @@ internal static class MuscleGroupEndpoints
         group.MapPut("/{id:guid}", UpdateAsync)
             .RequireAuthorization(Policies.PersonalTrainerOnly);
 
+        group.MapDelete("/{id:guid}", DeleteAsync)
+            .RequireAuthorization(Policies.PersonalTrainerOnly);
+
         return app;
     }
 
@@ -67,5 +70,15 @@ internal static class MuscleGroupEndpoints
             cancellationToken);
 
         return Results.Ok(muscleGroup);
+    }
+
+    private static async Task<IResult> DeleteAsync(
+        Guid id,
+        IDeleteMuscleGroup useCase,
+        CancellationToken cancellationToken)
+    {
+        await useCase.ExecuteAsync(new DeleteMuscleGroupCommand(id), cancellationToken);
+
+        return Results.NoContent();
     }
 }

@@ -23,6 +23,9 @@ internal static class ExerciseEndpoints
         group.MapPut("/{id:guid}", UpdateAsync)
             .RequireAuthorization(Policies.PersonalTrainerOnly);
 
+        group.MapDelete("/{id:guid}", DeleteAsync)
+            .RequireAuthorization(Policies.PersonalTrainerOnly);
+
         return app;
     }
 
@@ -70,5 +73,15 @@ internal static class ExerciseEndpoints
             cancellationToken);
 
         return Results.Ok(exercise);
+    }
+
+    private static async Task<IResult> DeleteAsync(
+        Guid id,
+        IDeleteExercise useCase,
+        CancellationToken cancellationToken)
+    {
+        await useCase.ExecuteAsync(new DeleteExerciseCommand(id), cancellationToken);
+
+        return Results.NoContent();
     }
 }

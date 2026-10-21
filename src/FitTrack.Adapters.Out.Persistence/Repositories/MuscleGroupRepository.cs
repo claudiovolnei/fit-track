@@ -59,4 +59,19 @@ internal sealed class MuscleGroupRepository(FitTrackDbContext dbContext) : IMusc
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task RemoveAsync(MuscleGroup muscleGroup, CancellationToken cancellationToken)
+    {
+        var record = await dbContext.MuscleGroups
+            .FirstOrDefaultAsync(candidate => candidate.Id == muscleGroup.Id.Value, cancellationToken);
+
+        if (record is null)
+        {
+            return;
+        }
+
+        dbContext.MuscleGroups.Remove(record);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

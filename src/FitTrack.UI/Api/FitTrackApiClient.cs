@@ -39,6 +39,9 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         CancellationToken cancellationToken = default) =>
         PutAsync<MuscleGroupResponse>($"muscle-groups/{muscleGroupId}", request, cancellationToken);
 
+    public Task DeleteMuscleGroupAsync(Guid muscleGroupId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"muscle-groups/{muscleGroupId}", cancellationToken);
+
     public Task<IReadOnlyList<ExerciseResponse>> GetExercisesAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<ExerciseResponse>>("exercises", cancellationToken);
 
@@ -62,6 +65,9 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         UpdateExerciseRequest request,
         CancellationToken cancellationToken = default) =>
         PutAsync<ExerciseResponse>($"exercises/{exerciseId}", request, cancellationToken);
+
+    public Task DeleteExerciseAsync(Guid exerciseId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"exercises/{exerciseId}", cancellationToken);
 
     public Task<IReadOnlyList<WorkoutSessionResponse>> GetSessionsAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<WorkoutSessionResponse>>("sessions", cancellationToken);

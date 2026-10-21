@@ -52,6 +52,9 @@ public static class ErrorMessages
         ["muscle_group.name.required"] = "Informe o nome do grupo muscular.",
         ["muscle_group.name.too_long"] = "O nome do grupo muscular é longo demais.",
         ["muscle_group.name.duplicate"] = "Já existe um grupo muscular com esse nome.",
+        ["exercise.in_use"] =
+            "Exercício em uso: ele faz parte de uma prescrição ou de um treino registrado.",
+        ["muscle_group.in_use"] = "Grupo em uso: ainda há exercícios vinculados a ele.",
 
         // Administration
         ["role.required"] = "Escolha pelo menos um perfil.",

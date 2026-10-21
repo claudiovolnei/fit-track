@@ -32,4 +32,11 @@ internal sealed class InMemoryMuscleGroupRepository : IMuscleGroupRepository
 
         return Task.CompletedTask;
     }
+
+    public Task RemoveAsync(MuscleGroup muscleGroup, CancellationToken cancellationToken)
+    {
+        _byId.Remove(muscleGroup.Id);
+
+        return Task.CompletedTask;
+    }
 }

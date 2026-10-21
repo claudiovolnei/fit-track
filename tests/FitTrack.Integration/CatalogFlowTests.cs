@@ -127,4 +127,104 @@ public sealed class CatalogFlowTests(FitTrackApiFactory factory) : IClassFixture
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [RequiresPostgresFact]
+    public async Task PersonalTrainer_CanDeleteAnUnreferencedExercise()
+    {
+        var client = await factory.CreateClient().SignInAsync(TrainerEmail, TrainerPassword);
+        var muscleGroup = await client.CreateMuscleGroupAsync("Disposable Back");
+        var name = $"Integration Droppable {Guid.NewGuid():N}";
+        var created = await client.PostAsJsonAsync("/exercises", new CreateExerciseRequest(name, muscleGroup.Id));
+        created.EnsureSuccessStatusCode();
+        var exercise = (await created.Content.ReadFromJsonAsync<ExerciseResponse>())!;
+
+        var deleted = await client.DeleteAsync($"/exercises/{exercise.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+
+        var listed = await client.GetFromJsonAsync<IReadOnlyList<ExerciseResponse>>("/exercises");
+
+        Assert.DoesNotContain(listed!, item => item.Id == exercise.Id);
+    }
+
+    [RequiresPostgresFact]
+    public async Task PrescribedExercise_CannotBeDeleted()
+    {
+        var client = await factory.CreateClient().SignInAsync(TrainerEmail, TrainerPassword);
+        var muscleGroup = await client.CreateMuscleGroupAsync("Prescribed Chest");
+        var name = $"Integration Prescribed {Guid.NewGuid():N}";
+        var created = await client.PostAsJsonAsync("/exercises", new CreateExerciseRequest(name, muscleGroup.Id));
+        created.EnsureSuccessStatusCode();
+        var exercise = (await created.Content.ReadFromJsonAsync<ExerciseResponse>())!;
+
+        // The exercise enters a prescription: from now on the catalog refuses its deletion.
+        var series = await client.CreateSeriesAsync($"Series {Guid.NewGuid():N}");
+        await client.AddWorkoutAsync(series.Id, "Workout A", Prescriptions.For(exercise.Id));
+
+        var deleted = await client.DeleteAsync($"/exercises/{exercise.Id}");
+
+        Assert.Equal(HttpStatusCode.Conflict, deleted.StatusCode);
+        Assert.Equal("exercise.in_use", await deleted.ReadProblemTitleAsync());
+    }
+
+    [RequiresPostgresFact]
+    public async Task PersonalTrainer_CanDeleteAnEmptyMuscleGroup()
+    {
+        var client = await factory.CreateClient().SignInAsync(TrainerEmail, TrainerPassword);
+        var muscleGroup = await client.CreateMuscleGroupAsync("Disposable Shoulders");
+
+        var deleted = await client.DeleteAsync($"/muscle-groups/{muscleGroup.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+
+        var listed = await client.GetFromJsonAsync<IReadOnlyList<MuscleGroupResponse>>("/muscle-groups");
+
+        Assert.DoesNotContain(listed!, item => item.Id == muscleGroup.Id);
+    }
+
+    [RequiresPostgresFact]
+    public async Task MuscleGroupWithExercises_CannotBeDeleted()
+    {
+        var client = await factory.CreateClient().SignInAsync(TrainerEmail, TrainerPassword);
+        var muscleGroup = await client.CreateMuscleGroupAsync("Busy Group");
+        var created = await client.PostAsJsonAsync(
+            "/exercises",
+            new CreateExerciseRequest($"Integration Held {Guid.NewGuid():N}", muscleGroup.Id));
+        created.EnsureSuccessStatusCode();
+
+        var deleted = await client.DeleteAsync($"/muscle-groups/{muscleGroup.Id}");
+
+        Assert.Equal(HttpStatusCode.Conflict, deleted.StatusCode);
+        Assert.Equal("muscle_group.in_use", await deleted.ReadProblemTitleAsync());
+    }
+
+    [RequiresPostgresFact]
+    public async Task UnknownCatalogMember_IsNotFound()
+    {
+        var client = await factory.CreateClient().SignInAsync(TrainerEmail, TrainerPassword);
+
+        var exerciseResponse = await client.DeleteAsync($"/exercises/{Guid.NewGuid()}");
+        var muscleGroupResponse = await client.DeleteAsync($"/muscle-groups/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, exerciseResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, muscleGroupResponse.StatusCode);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Athlete_CannotDeleteFromTheCatalog()
+    {
+        var client = await factory.CreateClient().SignInAsync(TrainerEmail, TrainerPassword);
+        var muscleGroup = await client.CreateMuscleGroupAsync("Guarded Group");
+
+        var athleteClient = factory.CreateClient();
+        var email = $"athlete-{Guid.NewGuid():N}@fittrack.local";
+        await athleteClient.RegisterAsync(email, AthletePassword);
+        await athleteClient.SignInAsync(email, AthletePassword);
+
+        var exerciseResponse = await athleteClient.DeleteAsync($"/exercises/{Guid.NewGuid()}");
+        var muscleGroupResponse = await athleteClient.DeleteAsync($"/muscle-groups/{muscleGroup.Id}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, exerciseResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, muscleGroupResponse.StatusCode);
+    }
 }

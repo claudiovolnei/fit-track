@@ -16,4 +16,10 @@ public interface IExerciseRepository
         CancellationToken cancellationToken);
 
     Task SaveAsync(Exercise exercise, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Drops the aggregate. The use case refuses deletion while other records reference the
+    /// exercise, so the raw removal only runs on an isolated catalog member.
+    /// </summary>
+    Task RemoveAsync(Exercise exercise, CancellationToken cancellationToken);
 }

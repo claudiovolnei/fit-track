@@ -25,4 +25,11 @@ internal sealed class InMemoryExerciseRepository : IExerciseRepository
 
         return Task.CompletedTask;
     }
+
+    public Task RemoveAsync(Exercise exercise, CancellationToken cancellationToken)
+    {
+        _byId.Remove(exercise.Id);
+
+        return Task.CompletedTask;
+    }
 }

@@ -42,6 +42,7 @@ internal sealed class DomainExceptionMiddleware(RequestDelegate next)
         DomainException domain => (StatusCodes.Status400BadRequest, domain.Code),
         InvalidCommandException => (StatusCodes.Status400BadRequest, "invalid_command"),
         ForbiddenException => (StatusCodes.Status403Forbidden, "forbidden"),
+        ConflictException conflict => (StatusCodes.Status409Conflict, conflict.Code),
         NotFoundException => (StatusCodes.Status404NotFound, "not_found"),
         _ => null,
     };

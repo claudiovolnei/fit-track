@@ -46,4 +46,19 @@ internal sealed class ExerciseRepository(FitTrackDbContext dbContext) : IExercis
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task RemoveAsync(Exercise exercise, CancellationToken cancellationToken)
+    {
+        var record = await dbContext.Exercises
+            .FirstOrDefaultAsync(candidate => candidate.Id == exercise.Id.Value, cancellationToken);
+
+        if (record is null)
+        {
+            return;
+        }
+
+        dbContext.Exercises.Remove(record);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

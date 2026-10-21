@@ -81,6 +81,11 @@
                                     @onclick="() => SaveGroupAsync(group)">
                                 Salvar
                             </button>
+                            <button class="btn btn-danger btn-sm" type="button" disabled="@_busy"
+                                    title="Excluir grupo"
+                                    @onclick="() => DeleteGroupAsync(group)">
+                                @(IsPending(RowKey.Group(group.Id)) ? "Confirmar exclusão?" : "Excluir")
+                            </button>
                         </div>
                     </div>
                 }
@@ -185,6 +190,11 @@
                                     @onclick="() => SaveAsync(row)">
                                 Salvar
                             </button>
+                            <button class="btn btn-danger btn-sm" type="button" disabled="@_busy"
+                                    title="Excluir exercício"
+                                    @onclick="() => DeleteAsync(row)">
+                                @(IsPending(RowKey.Exercise(row.Id)) ? "Confirmar exclusão?" : "Excluir")
+                            </button>
                         </div>
                     </div>
                 }
@@ -215,6 +225,29 @@
     private int _exerciseTotal;
     private int _loadVersion;
 
+    /// <summary>Row armed for deletion: the next tap on its Excluir button performs the removal.</summary>
+    private string? _pendingKey;
+
+    private bool IsPending(string key) => _pendingKey == key;
+
+    /// <summary>
+    /// First tap arms the row (the button switches to the confirm label); the second tap on the
+    /// armed row reaches the deletion. Any run finishes disarms it.
+    /// </summary>
+    private bool ConfirmArm(string key)
+    {
+        if (_pendingKey != key)
+        {
+            _pendingKey = key;
+            _error = null;
+            _notice = null;
+            StateHasChanged();
+            return false;
+        }
+
+        return true;
+    }
+
     private bool HasGroupSearch => !string.IsNullOrWhiteSpace(_groupSearch);
 
     private bool HasExerciseSearch => !string.IsNullOrWhiteSpace(_exerciseSearch);
@@ -237,6 +270,48 @@
             _groupSearch = name;
             _groupPage = 1;
             _notice = "Grupo criado.";
+        });
+    }
+
+    private async Task DeleteGroupAsync(GroupRowModel group)
+    {
+        if (!ConfirmArm(RowKey.Group(group.Id)))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            // The page snapshot is still the pre-deletion one: with a single row, step back before
+            // the reload so the screen does not land on an empty trailing page.
+            if (_groups.Count == 1 && _groupPage > 1)
+            {
+                _groupPage--;
+            }
+
+            await Api.DeleteMuscleGroupAsync(group.Id);
+            _notice = "Grupo excluído.";
+        });
+    }
+
+    private async Task DeleteAsync(RowModel row)
+    {
+        if (!ConfirmArm(RowKey.Exercise(row.Id)))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            // The page snapshot is still the pre-deletion one: with a single row, step back before
+            // the reload so the screen does not land on an empty trailing page.
+            if (_rows.Count == 1 && _exercisePage > 1)
+            {
+                _exercisePage--;
+            }
+
+            await Api.DeleteExerciseAsync(row.Id);
+            _notice = "Exercício excluído.";
         });
     }
 
@@ -317,6 +392,7 @@
     private async Task RunAsync(Func<Task> action)
     {
         _busy = true;
+        _pendingKey = null;
         _error = null;
         _notice = null;
 
@@ -378,6 +454,14 @@
         public string Name { get; set; } = string.Empty;
 
         public Guid MuscleGroupId { get; set; } = Guid.Empty;
+    }
+
+    /// <summary>Stable keys for the rows the deletion confirmation relies on.</summary>
+    private static class RowKey
+    {
+        public static string Group(Guid id) => $"group:{id}";
+
+        public static string Exercise(Guid id) => $"exercise:{id}";
     }
 
     private sealed class GroupRowModel

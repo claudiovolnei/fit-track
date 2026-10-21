@@ -208,7 +208,7 @@ sequenceDiagram
 | Authentication | `POST /auth/register`, `POST /auth/login`, `POST /auth/change-password` | Register/login anonymous; password change authenticated |
 | Account | `GET/POST/DELETE /me/avatar`, `GET /users/{userId}/avatar` | Authenticated |
 | Administration | `GET/POST /admin/users`, `POST/DELETE /admin/users/{userId}/roles`, `POST /admin/users/{userId}/password` | `Admin` |
-| Catalog | `GET /exercises`, `POST /exercises`, `PUT /exercises/{id}`, `GET /muscle-groups`, `POST /muscle-groups`, `PUT /muscle-groups/{id}` | Reads authenticated; writes `PersonalTrainer` |
+| Catalog | `GET /exercises`, `POST /exercises`, `PUT/DELETE /exercises/{id}`, `GET/POST /muscle-groups`, `PUT/DELETE /muscle-groups/{id}` | Reads authenticated; writes `PersonalTrainer`. Deletion is refused (409) while the member is still referenced |
 | Planning | `GET /athletes`, `GET /athletes/{userId}/workouts`, `GET/POST /workout-series`, `GET/PUT /workout-series/{seriesId}`, `POST /workout-series/{seriesId}/workouts`, `PUT/DELETE /workout-series/{seriesId}/workouts/{workoutId}` | `PersonalTrainer` |
 | Athlete series | `GET /workout-series/mine` | Authenticated (no id; always the caller's own series) |
 | Execution | `GET/POST /sessions`, `POST /sessions/{id}/sets`, `POST /sessions/{id}/finish`, `DELETE /sessions/{id}` | Authenticated, own sessions only |
@@ -221,12 +221,12 @@ Development the OpenAPI document is served at `/openapi/v1.json` and the Scalar 
 
 - JWT authentication with the `Admin`, `PersonalTrainer` and `User` (athlete) roles enforced by endpoint policies and by the use cases.
 - Public registration, password change, avatar upload/removal and admin account management (create account, grant/revoke roles, reset password).
-- Muscle-group and exercise catalog with an active flag; trainers write it, any signed-in user reads it.
+- Muscle-group and exercise catalog with an active flag; trainers write it, any signed-in user reads it. Deletion is guarded: a member still referenced by a prescription, a performed set or a child exercise is refused with 409.
 - One series per athlete, with up to five workouts A–E, each with sets, repetitions and load; creating the series also starts its 60-day term.
 - Today's workout starts idempotently, runs a server-based timer, accepts only prescribed exercises and takes repetitions from the prescription.
 - Finishing closes the session; cancelling removes it. History shows duration, set count, volume and a per-exercise comparison with the current prescription.
 - Collection screens support search and pagination; the API keeps the original plain-array response unless paging parameters are sent.
-- Responsive pt-BR Blazor UI with role-aware navigation, installable PWA assets and an offline app shell.
+- Responsive pt-BR Blazor UI with role-aware navigation, installable PWA assets and an offline app shell. The mobile tab bar caps at four tabs, and one navigation registry (`FitTrack.UI/Layout/NavOptions.cs`) drives both the desktop sidebar and the mobile bottom tabs, ordered by priority: athlete, trainer, admin; anything beyond the cap moves to a "Mais" sheet.
 
 ### Screens
 

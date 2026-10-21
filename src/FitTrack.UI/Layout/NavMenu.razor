@@ -1,4 +1,5 @@
 @* App navigation: sidebar on desktop, top bar and bottom tabs on mobile. *@
+@* Both menus derive from NavOptions: one registry, the tabbar capped at four options plus "Mais". *@
 
 @implements IDisposable
 
@@ -15,57 +16,17 @@
     </a>
 
     <nav class="side-nav">
-        <span class="nav-label">Visão geral</span>
-        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
-            <AppIcon Name="home" />
-            <span>Início</span>
-        </NavLink>
-
-        <AuthorizeView Roles="User">
-            <Authorized>
-                <span class="nav-label">Treino</span>
-                <NavLink class="nav-link" href="/today">
-                    <AppIcon Name="dumbbell" />
-                    <span>Hoje</span>
+        @foreach (NavSection group in NavOptions.Sidebar(LoggedInRoles, IsAuthenticated))
+        {
+            <span class="nav-label">@group.Label</span>
+            @foreach (NavItem item in group.Items)
+            {
+                <NavLink class="nav-link" href="@item.Href" Match="@MatchFor(item)">
+                    <AppIcon Name="@item.Icon" />
+                    <span>@item.Label</span>
                 </NavLink>
-                <NavLink class="nav-link" href="/workouts">
-                    <AppIcon Name="history" />
-                    <span>Meus treinos</span>
-                </NavLink>
-            </Authorized>
-        </AuthorizeView>
-
-        <AuthorizeView Roles="PersonalTrainer">
-            <Authorized>
-                <span class="nav-label">Gestão</span>
-                <NavLink class="nav-link" href="/series">
-                    <AppIcon Name="layers" />
-                    <span>Séries de treino</span>
-                </NavLink>
-                <NavLink class="nav-link" href="/athletes">
-                    <AppIcon Name="users" />
-                    <span>Atletas</span>
-                </NavLink>
-                <NavLink class="nav-link" href="/exercises/manage">
-                    <AppIcon Name="library" />
-                    <span>Catálogo</span>
-                </NavLink>
-            </Authorized>
-        </AuthorizeView>
-
-        <AuthorizeView Roles="Admin">
-            <Authorized>
-                <span class="nav-label">Administração</span>
-                <NavLink class="nav-link" href="/admin/users">
-                    <AppIcon Name="users" />
-                    <span>Usuários</span>
-                </NavLink>
-                <NavLink class="nav-link" href="/exercises">
-                    <AppIcon Name="library" />
-                    <span>Exercícios</span>
-                </NavLink>
-            </Authorized>
-        </AuthorizeView>
+            }
+        }
     </nav>
 
     <div class="sidebar-footer">
@@ -118,85 +79,85 @@
 </header>
 
 <nav class="tabbar" aria-label="Navegação principal">
-    <NavLink class="tab-link" href="/" Match="NavLinkMatch.All">
-        <AppIcon Name="home" Size="22" />
-        <span>Início</span>
-    </NavLink>
-
-    <AuthorizeView Roles="User">
-        <Authorized>
-            <NavLink class="tab-link" href="/today">
-                <AppIcon Name="dumbbell" Size="22" />
-                <span>Hoje</span>
-            </NavLink>
-            <NavLink class="tab-link" href="/workouts">
-                <AppIcon Name="history" Size="22" />
-                <span>Histórico</span>
-            </NavLink>
-        </Authorized>
-    </AuthorizeView>
-
-    <AuthorizeView Roles="PersonalTrainer">
-        <Authorized>
-            <NavLink class="tab-link" href="/series">
-                <AppIcon Name="layers" Size="22" />
-                <span>Séries</span>
-            </NavLink>
-            <NavLink class="tab-link" href="/athletes">
-                <AppIcon Name="users" Size="22" />
-                <span>Atletas</span>
-            </NavLink>
-            <NavLink class="tab-link" href="/exercises/manage">
-                <AppIcon Name="library" Size="22" />
-                <span>Catálogo</span>
-            </NavLink>
-        </Authorized>
-    </AuthorizeView>
-
-    <AuthorizeView Roles="Admin">
-        <Authorized>
-            <NavLink class="tab-link" href="/admin/users">
-                <AppIcon Name="users" Size="22" />
-                <span>Usuários</span>
-            </NavLink>
-            <NavLink class="tab-link" href="/exercises">
-                <AppIcon Name="library" Size="22" />
-                <span>Exercícios</span>
-            </NavLink>
-        </Authorized>
-    </AuthorizeView>
-
-    <AuthorizeView>
-        <Authorized>
-            <NavLink class="tab-link" href="/account" aria-label="Conta">
-                <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@context.User.Identity?.Name" Size="22" />
+    @foreach (NavItem tab in NavOptions.Tabs(LoggedInRoles, IsAuthenticated).Tabs)
+    {
+        if (tab.Key == NavOptions.AccountKey)
+        {
+            <NavLink class="tab-link" href="@tab.Href" Match="@MatchFor(tab)" aria-label="Conta">
+                <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@_user?.Identity?.Name" Size="22" />
                 <span>Conta</span>
             </NavLink>
-        </Authorized>
-    </AuthorizeView>
+        }
+        else
+        {
+            <NavLink class="tab-link" href="@tab.Href" Match="@MatchFor(tab)">
+                <AppIcon Name="@tab.Icon" Size="22" />
+                <span>@tab.Label</span>
+            </NavLink>
+        }
+    }
 
-    <AuthorizeView>
-        <NotAuthorized>
-            <NavLink class="tab-link" href="/login">
-                <AppIcon Name="user" Size="22" />
-                <span>Entrar</span>
-            </NavLink>
-            <NavLink class="tab-link" href="/register">
-                <AppIcon Name="sparkles" Size="22" />
-                <span>Criar conta</span>
-            </NavLink>
-        </NotAuthorized>
-    </AuthorizeView>
+    @if (NavOptions.Tabs(LoggedInRoles, IsAuthenticated).HasMore)
+    {
+        <button type="button" class="tab-link tab-link--more" aria-expanded="@_moreOpen"
+                aria-label="Mais funcionalidades" @onclick="ToggleMore">
+            <AppIcon Name="menu" Size="22" />
+            <span>Mais</span>
+        </button>
+    }
 </nav>
+
+@if (_moreOpen)
+{
+    <div class="sheet-overlay" @onclick="CloseMore"></div>
+
+    <div class="tab-sheet" role="dialog" aria-label="Mais funcionalidades">
+        @foreach (SheetGroup group in NavOptions.Overflow(LoggedInRoles, IsAuthenticated))
+        {
+            <span class="sheet-label">@group.Label</span>
+            @foreach (NavItem item in group.Items)
+            {
+                <NavLink class="sheet-link" href="@item.Href" Match="@MatchFor(item)" @onclick="CloseMore">
+                    <AppIcon Name="@item.Icon" />
+                    <span>@item.Label</span>
+                </NavLink>
+            }
+        }
+
+        <span class="sheet-label">Conta</span>
+        <NavLink class="sheet-link" href="/account" Match="NavLinkMatch.All" @onclick="CloseMore">
+            <UserAvatar AvatarUrl="@_avatarUrl" NameOrEmail="@_user?.Identity?.Name" Size="20" />
+            <span>Minha conta</span>
+        </NavLink>
+        <button type="button" class="sheet-link sheet-link--danger" @onclick="SignOutAsync">
+            <AppIcon Name="logout" />
+            <span>Sair</span>
+        </button>
+    </div>
+}
 
 @code {
     private string? _avatarUrl;
+    private ClaimsPrincipal? _user;
+    private bool _moreOpen;
+
+    private bool IsAuthenticated => _user?.Identity?.IsAuthenticated == true;
+
+    // The registry checks membership on the role names it carries; the active highlight rules
+    // mirror the claims, not the Authorization UI widgets, so both tabs and "Mais" agree.
+    private string[] LoggedInRoles => IsAuthenticated
+        ? [.. _user!.FindAll(ClaimTypes.Role).Select(claim => claim.Value)]
+        : [];
+
+    private static NavLinkMatch MatchFor(NavItem item) =>
+        item.Exact ? NavLinkMatch.All : NavLinkMatch.Prefix;
 
     protected override void OnInitialized()
     {
         _avatarUrl = AvatarState.AvatarUrl;
         AvatarState.Changed += OnAvatarChanged;
         AuthState.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        Navigation.LocationChanged += OnLocationChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -216,6 +177,8 @@
 
     private async Task RefreshAvatarAsync(AuthenticationState state)
     {
+        _user = state.User;
+
         if (state.User.Identity?.IsAuthenticated != true)
         {
             _avatarUrl = null;
@@ -232,6 +195,13 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    // The sheet belongs to the tab bar: navigating from the list always closes it.
+    private void OnLocationChanged(object? sender, EventArgs _) => CloseMore();
+
+    private void ToggleMore() => _moreOpen = !_moreOpen;
+
+    private void CloseMore() => _moreOpen = false;
+
     private void OnAvatarChanged()
     {
         _avatarUrl = AvatarState.AvatarUrl;
@@ -242,6 +212,7 @@
     {
         AvatarState.Changed -= OnAvatarChanged;
         AuthState.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 
     private async Task SignOutAsync()

@@ -215,6 +215,7 @@ svg {
 }
 
 .tab-link {
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -222,13 +223,24 @@ svg {
     gap: 4px;
     min-height: 52px;
     padding: 5px 4px;
+    border: 0;
     border-radius: 12px;
+    background: transparent;
     color: var(--muted);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.01em;
+    font-family: inherit;
     text-align: center;
+    cursor: pointer;
     transition: color var(--transition), background var(--transition);
+}
+
+.tab-link > span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tab-link:hover {
@@ -242,6 +254,81 @@ svg {
 
 .tab-link.active .app-icon {
     filter: drop-shadow(0 0 10px rgba(201, 249, 74, 0.35));
+}
+
+/* "Mais" sheet: the features that did not fit the four-tab cap, grouped by priority. */
+
+.sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    background: rgba(4, 6, 10, 0.6);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.tab-sheet {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 121;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: min(62dvh, 480px);
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--bg-soft);
+    box-shadow: var(--shadow);
+}
+
+.sheet-label {
+    margin: 14px 8px 4px;
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.sheet-label:first-child {
+    margin-top: 2px;
+}
+
+.sheet-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.sheet-link:hover {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.sheet-link.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.sheet-link--danger {
+    color: var(--danger);
+    border: 1px solid rgba(255, 107, 129, 0.3);
+}
+
+.sheet-link--danger:hover {
+    background: rgba(255, 107, 129, 0.08);
 }
 
 /* Brand */
@@ -303,7 +390,9 @@ svg {
     }
 
     .topbar,
-    .tabbar {
+    .tabbar,
+    .sheet-overlay,
+    .tab-sheet {
         display: none;
     }
 
@@ -2283,11 +2372,13 @@ code {
 
 .searchable-select__list {
     position: absolute;
-    z-index: 30;
+    /* Above the fixed tab bar: rows near the bottom of the screen must keep every
+       option reachable, and the bounded height keeps the menu visible underneath. */
+    z-index: 130;
     top: calc(100% + 4px);
     right: 0;
     left: 0;
-    max-height: 260px;
+    max-height: 240px;
     margin: 0;
     padding: 6px;
     overflow-y: auto;
