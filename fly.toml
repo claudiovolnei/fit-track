@@ -18,8 +18,10 @@ primary_region = "gru" # São Paulo
   Database__MigrateOnStartup = "true"
   # Persists the DataProtection key ring (password-reset tokens) on the volume below.
   DataProtection__KeysPath = "/data/keys"
-  # Browser origin served by Cloudflare Workers. Add one numbered entry per extra origin.
+  # Browser origins served by Cloudflare Workers. Add one numbered entry per extra origin.
   Cors__AllowedOrigins__0 = "https://fit-track.claudiovolneisilva.workers.dev"
+  Cors__AllowedOrigins__1 = "https://fit-track-treinos.com.br"
+  Cors__AllowedOrigins__2 = "https://www.fit-track-treinos.com.br"
 
 [mounts]
   source = "fittrack_data"
