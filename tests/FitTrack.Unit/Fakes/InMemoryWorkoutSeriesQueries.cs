@@ -98,7 +98,8 @@ internal sealed class InMemoryWorkoutSeriesQueries(
             muscleGroup.Name.Value,
             exercise.Sets,
             exercise.Repetitions,
-            exercise.LoadKilograms);
+            exercise.LoadKilograms,
+            exercise.RestSeconds);
     }
 
     private TodayWorkoutDto? Today(WorkoutSeriesWorkout workout, DateOnly? today, DateTimeOffset? now) =>
@@ -119,3 +120,4 @@ internal sealed class InMemoryWorkoutSeriesQueries(
                         set.Repetitions.Value))]))
                 .FirstOrDefault();
 }
+

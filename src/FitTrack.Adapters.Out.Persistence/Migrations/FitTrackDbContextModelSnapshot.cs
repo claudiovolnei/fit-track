@@ -242,6 +242,11 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.Property<int>("Repetitions")
                         .HasColumnType("integer");
 
+                    b.Property<int>("RestSeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(60);
+
                     b.Property<int>("Sets")
                         .HasColumnType("integer");
 

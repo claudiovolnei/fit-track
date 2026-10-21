@@ -365,7 +365,7 @@ public sealed class WorkoutSeriesExecutionTests
         series.AddWorkout(
             new WorkoutSeriesWorkoutId(_ids.NewId()),
             new WorkoutName("Peito e Tríceps"),
-            [new PrescribedExercise(_bench, 3, 12, 40m)]);
+            [new PrescribedExercise(_bench, 3, 12, 40m, PrescribedExercise.DefaultRestSeconds)]);
 
         await _series.SaveAsync(series, CancellationToken.None);
 

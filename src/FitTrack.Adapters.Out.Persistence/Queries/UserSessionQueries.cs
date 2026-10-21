@@ -156,6 +156,7 @@ internal sealed class UserSessionQueries(FitTrackDbContext dbContext, IClock clo
                     row.exercise.Sets,
                     row.exercise.Repetitions,
                     row.exercise.LoadKilograms,
+                    row.exercise.RestSeconds,
                 })
             .OrderBy(row => row.WorkoutSeriesWorkoutId)
             .ThenBy(row => row.Position)
@@ -173,7 +174,8 @@ internal sealed class UserSessionQueries(FitTrackDbContext dbContext, IClock clo
                         row.MuscleGroupName,
                         row.Sets,
                         row.Repetitions,
-                        row.LoadKilograms)),
+                        row.LoadKilograms,
+                        row.RestSeconds)),
                 ]);
     }
 

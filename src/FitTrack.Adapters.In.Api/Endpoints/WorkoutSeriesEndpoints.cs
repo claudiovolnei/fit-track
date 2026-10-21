@@ -176,5 +176,6 @@ internal static class WorkoutSeriesEndpoints
             exercise.ExerciseId,
             exercise.Sets,
             exercise.Repetitions,
-            exercise.LoadKilograms))];
+            exercise.LoadKilograms,
+            exercise.RestSeconds))];
 }

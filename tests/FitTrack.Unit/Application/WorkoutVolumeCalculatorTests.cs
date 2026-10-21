@@ -1,5 +1,6 @@
-using FitTrack.Application.Dtos;
+﻿using FitTrack.Application.Dtos;
 using FitTrack.Application.UseCases;
+using FitTrack.Domain.WorkoutPlanning;
 
 namespace FitTrack.Unit.Application;
 
@@ -30,8 +31,8 @@ public sealed class WorkoutVolumeCalculatorTests
 
         var prescription = new[]
         {
-            new PrescribedExerciseDto(Bench, "Supino reto", "Peito", 3, 10, 80m),
-            new PrescribedExerciseDto(Squat, "Agachamento", "Pernas", 3, 10, 100m),
+            new PrescribedExerciseDto(Bench, "Supino reto", "Peito", 3, 10, 80m, PrescribedExercise.DefaultRestSeconds),
+            new PrescribedExerciseDto(Squat, "Agachamento", "Pernas", 3, 10, 100m, PrescribedExercise.DefaultRestSeconds),
         };
 
         var volume = WorkoutVolumeCalculator.Calculate(performed, prescription, Names);
@@ -65,7 +66,7 @@ public sealed class WorkoutVolumeCalculatorTests
 
         var prescription = new[]
         {
-            new PrescribedExerciseDto(Bench, "Supino reto", "Peito", 4, 10, 50m),
+            new PrescribedExerciseDto(Bench, "Supino reto", "Peito", 4, 10, 50m, PrescribedExercise.DefaultRestSeconds),
         };
 
         var volume = WorkoutVolumeCalculator.Calculate(performed, prescription, Names);
@@ -88,7 +89,7 @@ public sealed class WorkoutVolumeCalculatorTests
 
         var prescription = new[]
         {
-            new PrescribedExerciseDto(Bench, "Supino reto", "Peito", 3, 10, 80m),
+            new PrescribedExerciseDto(Bench, "Supino reto", "Peito", 3, 10, 80m, PrescribedExercise.DefaultRestSeconds),
         };
 
         var volume = WorkoutVolumeCalculator.Calculate(performed, prescription, Names);
@@ -112,7 +113,7 @@ public sealed class WorkoutVolumeCalculatorTests
     {
         var prescription = new[]
         {
-            new PrescribedExerciseDto(Bench, "Flexão", "Peito", 3, 12, null),
+            new PrescribedExerciseDto(Bench, "Flexão", "Peito", 3, 12, null, PrescribedExercise.DefaultRestSeconds),
         };
 
         var volume = WorkoutVolumeCalculator.Calculate([], prescription, Names);
@@ -141,7 +142,7 @@ public sealed class WorkoutVolumeCalculatorTests
     {
         var prescription = new[]
         {
-            new PrescribedExerciseDto(Bench, "Supino reto", "Peito", 3, 10, 80m),
+            new PrescribedExerciseDto(Bench, "Supino reto", "Peito", 3, 10, 80m, PrescribedExercise.DefaultRestSeconds),
         };
 
         var matched = WorkoutVolumeCalculator.Calculate(
@@ -171,3 +172,5 @@ public sealed class WorkoutVolumeCalculatorTests
         Assert.Equal(4.17m, summary.DeltaPercent);
     }
 }
+
+

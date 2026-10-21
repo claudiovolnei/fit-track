@@ -19,7 +19,14 @@ public readonly record struct PrescribedExercise
 
     public const int MaxRepetitions = 100;
 
-    public PrescribedExercise(ExerciseId exerciseId, int sets, int repetitions, decimal? loadKilograms)
+    /// <summary>No rest, meaning the athlete moves straight to the next set.</summary>
+    public const int MinRestSeconds = 0;
+
+    public const int MaxRestSeconds = 600;
+
+    public const int DefaultRestSeconds = 60;
+
+    public PrescribedExercise(ExerciseId exerciseId, int sets, int repetitions, decimal? loadKilograms, int restSeconds)
     {
         if (exerciseId.Value == Guid.Empty)
         {
@@ -49,10 +56,18 @@ public readonly record struct PrescribedExercise
                 "Prescribed load cannot be negative.");
         }
 
+        if (restSeconds < MinRestSeconds || restSeconds > MaxRestSeconds)
+        {
+            throw new DomainException(
+                "workout_series.exercise.prescription.invalid",
+                $"Prescribed rest must be between {MinRestSeconds} and {MaxRestSeconds} seconds.");
+        }
+
         ExerciseId = exerciseId;
         Sets = sets;
         Repetitions = repetitions;
         LoadKilograms = loadKilograms;
+        RestSeconds = restSeconds;
     }
 
     public ExerciseId ExerciseId { get; }
@@ -63,4 +78,7 @@ public readonly record struct PrescribedExercise
 
     /// <summary>Target load in kilograms, or null for a bodyweight exercise.</summary>
     public decimal? LoadKilograms { get; }
+
+    /// <summary>Rest between sets in seconds; 0 means the next set starts right away.</summary>
+    public int RestSeconds { get; }
 }

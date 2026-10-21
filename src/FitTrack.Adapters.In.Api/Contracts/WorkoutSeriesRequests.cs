@@ -11,6 +11,7 @@ internal sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<Prescr
 
 /// <summary>
 /// HTTP contract for one prescribed exercise. The load is nullable because a bodyweight exercise has no
-/// weight to prescribe; the accepted ranges stay in the domain, which is where the rule lives.
+/// weight to prescribe; the accepted ranges stay in the domain, which is where the rule lives. The rest
+/// is optional on the wire: omitted means the domain default.
 /// </summary>
-internal sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms);
+internal sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms, int? RestSeconds = null);

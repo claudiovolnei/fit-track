@@ -42,7 +42,8 @@ internal static class WorkoutSeriesMapper
                         new ExerciseId(exercise.ExerciseId),
                         exercise.Sets,
                         exercise.Repetitions,
-                        exercise.LoadKilograms))]);
+                        exercise.LoadKilograms,
+                        exercise.RestSeconds))]);
         }
 
         return series;
@@ -124,6 +125,7 @@ internal static class WorkoutSeriesMapper
         Sets = exercise.Sets,
         Repetitions = exercise.Repetitions,
         LoadKilograms = exercise.LoadKilograms,
+        RestSeconds = exercise.RestSeconds,
     };
 
     /// <summary>
@@ -155,6 +157,7 @@ internal static class WorkoutSeriesMapper
                 link.Sets = exercise.Sets;
                 link.Repetitions = exercise.Repetitions;
                 link.LoadKilograms = exercise.LoadKilograms;
+                link.RestSeconds = exercise.RestSeconds;
             }
             else
             {

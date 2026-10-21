@@ -53,7 +53,8 @@ internal static class WorkoutSeriesMapping
                     label.MuscleGroupName,
                     exercise.Sets,
                     exercise.Repetitions,
-                    exercise.LoadKilograms);
+                    exercise.LoadKilograms,
+                    exercise.RestSeconds);
             })],
             today);
 }

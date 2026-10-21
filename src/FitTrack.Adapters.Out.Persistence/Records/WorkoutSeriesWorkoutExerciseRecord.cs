@@ -19,4 +19,7 @@ public sealed class WorkoutSeriesWorkoutExerciseRecord
 
     /// <summary>Null for a bodyweight exercise: there is no weight to prescribe.</summary>
     public decimal? LoadKilograms { get; set; }
+
+    /// <summary>Rest between sets in seconds; 0 means no rest. NOT NULL — old rows migrated to the default.</summary>
+    public int RestSeconds { get; set; }
 }

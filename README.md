@@ -3,7 +3,8 @@
 Fitness tracking platform with three profiles: administrators manage accounts, personal trainers own
 the muscle-group/exercise catalog and build a workout series for a specific athlete, and athletes
 follow that series, start today's workout and log the sets they actually performed. A series holds up
-to five workouts labelled A–E; each workout prescribes exercises, sets, repetitions and load, and the
+to five workouts labelled A–E; each workout prescribes exercises, sets, repetitions, load and a rest
+time per exercise (60 seconds by default, editable), and the
 delivery term is 60 days counted from its creation. The web client UI is in Brazilian Portuguese.
 
 ## Stack
@@ -138,6 +139,7 @@ erDiagram
         int Sets
         int Repetitions
         decimal LoadKilograms
+        int RestSeconds
     }
 
     WORKOUT_SERIES_ASSIGNMENT {
@@ -222,8 +224,8 @@ Development the OpenAPI document is served at `/openapi/v1.json` and the Scalar 
 - JWT authentication with the `Admin`, `PersonalTrainer` and `User` (athlete) roles enforced by endpoint policies and by the use cases.
 - Public registration, password change, avatar upload/removal and admin account management (create account, grant/revoke roles, reset password).
 - Muscle-group and exercise catalog with an active flag; trainers write it, any signed-in user reads it. Deletion is guarded: a member still referenced by a prescription, a performed set or a child exercise is refused with 409.
-- One series per athlete, with up to five workouts A–E, each with sets, repetitions and load; creating the series also starts its 60-day term.
-- Today's workout starts idempotently, runs a server-based timer, accepts only prescribed exercises and takes repetitions from the prescription.
+- One series per athlete, with up to five workouts A–E, each with sets, repetitions, load and a rest time per prescribed exercise (default 60 s, editable, 0 disables the timer); creating the series also starts its 60-day term.
+- Today's workout starts idempotently, runs a server-based timer, accepts only prescribed exercises and takes repetitions from the prescription. The athlete opens a countdown modal per exercise from the prescribed rest time, pauses/resumes it and gets an alert when it reaches zero.
 - Finishing closes the session; cancelling removes it. History shows duration, set count, volume and a per-exercise comparison with the current prescription.
 - Collection screens support search and pagination; the API keeps the original plain-array response unless paging parameters are sent.
 - Responsive pt-BR Blazor UI with role-aware navigation, installable PWA assets and an offline app shell. The mobile tab bar caps at four tabs, and one navigation registry (`FitTrack.UI/Layout/NavOptions.cs`) drives both the desktop sidebar and the mobile bottom tabs, ordered by priority: athlete, trainer, admin; anything beyond the cap moves to a "Mais" sheet.
@@ -240,7 +242,7 @@ Captured from the local Aspire AppHost with the development seed.
 | Trainer: workout editor | Athlete: today's workout |
 | --- | --- |
 | <img src="docs/images/series-detail.png" width="380" alt="Workout series editor with workouts A and B"> | <img src="docs/images/today-active.png" width="380" alt="Running workout with timer and load fields"> |
-| Workouts A–E with the prescription editor (exercise, sets, repetitions and load). | Workout A in progress: running timer, prescribed loads and one log button per exercise. |
+| Workouts A–E with the prescription editor (exercise, sets, repetitions, load and rest time). | Workout A in progress: running timer, prescribed loads and one log button per exercise, with a rest countdown per exercise. |
 
 | Athlete: history |
 | --- |

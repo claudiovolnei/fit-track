@@ -168,7 +168,7 @@ public sealed class WorkoutSeriesTests
     public void PrescribedExercise_EmptyExercise_Fails()
     {
         var exception = Assert.Throws<DomainException>(() =>
-            _ = new PrescribedExercise(new ExerciseId(Guid.Empty), 3, 12, 40m));
+            _ = new PrescribedExercise(new ExerciseId(Guid.Empty), 3, 12, 40m, PrescribedExercise.DefaultRestSeconds));
 
         Assert.Equal("workout_series.exercise.required", exception.Code);
     }
@@ -181,7 +181,7 @@ public sealed class WorkoutSeriesTests
     public void PrescribedExercise_OutOfRange_Fails(int sets, int repetitions)
     {
         var exception = Assert.Throws<DomainException>(() =>
-            _ = new PrescribedExercise(Bench, sets, repetitions, 40m));
+            _ = new PrescribedExercise(Bench, sets, repetitions, 40m, PrescribedExercise.DefaultRestSeconds));
 
         Assert.Equal("workout_series.exercise.prescription.invalid", exception.Code);
     }
@@ -190,7 +190,7 @@ public sealed class WorkoutSeriesTests
     public void PrescribedExercise_NegativeLoad_Fails()
     {
         var exception = Assert.Throws<DomainException>(() =>
-            _ = new PrescribedExercise(Bench, 3, 12, -1m));
+            _ = new PrescribedExercise(Bench, 3, 12, -1m, PrescribedExercise.DefaultRestSeconds));
 
         Assert.Equal("workout_series.exercise.prescription.invalid", exception.Code);
     }
@@ -198,7 +198,7 @@ public sealed class WorkoutSeriesTests
     [Fact]
     public void PrescribedExercise_WithoutLoad_IsAllowed()
     {
-        var exercise = new PrescribedExercise(Bench, 3, 12, loadKilograms: null);
+        var exercise = new PrescribedExercise(Bench, 3, 12, loadKilograms: null, restSeconds: PrescribedExercise.DefaultRestSeconds);
 
         Assert.Null(exercise.LoadKilograms);
     }
@@ -211,5 +211,6 @@ public sealed class WorkoutSeriesTests
         int sets = 3,
         int repetitions = 12,
         decimal? load = 40m) =>
-        new(exercise, sets, repetitions, load);
+        new(exercise, sets, repetitions, load, PrescribedExercise.DefaultRestSeconds);
 }
+

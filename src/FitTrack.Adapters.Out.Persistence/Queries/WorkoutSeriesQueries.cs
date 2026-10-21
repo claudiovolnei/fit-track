@@ -165,6 +165,7 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
                     row.exercise.Sets,
                     row.exercise.Repetitions,
                     row.exercise.LoadKilograms,
+                    row.exercise.RestSeconds,
                 })
             .ToListAsync(cancellationToken);
 
@@ -193,7 +194,8 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
                         exercise.MuscleGroupName,
                         exercise.Sets,
                         exercise.Repetitions,
-                        exercise.LoadKilograms))
+                        exercise.LoadKilograms,
+                        exercise.RestSeconds))
                     .ToList();
 
                 workoutDtos.Add(new WorkoutSeriesWorkoutDto(
