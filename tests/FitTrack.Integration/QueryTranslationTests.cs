@@ -82,6 +82,36 @@ public sealed class QueryTranslationTests
         Assert.Contains("ILIKE", sql);
     }
 
+    [Fact]
+    public void RosterScope_TranslatesToSqlOverTheTrainerAthleteLink()
+    {
+        using var dbContext = CreateDbContext();
+
+        var sql = dbContext.Users
+            .Where(user => dbContext.TrainerAthleteAssignments
+                .Where(link => link.TrainerId == Guid.NewGuid())
+                .Select(link => link.AthleteId)
+                .Contains(user.Id))
+            .ToQueryString();
+
+        Assert.Contains("trainer_athlete_assignments", sql);
+        Assert.Contains("AspNetUsers", sql);
+    }
+
+    [Fact]
+    public void RosterCandidates_TranslatesToSqlWithoutTheLink()
+    {
+        using var dbContext = CreateDbContext();
+
+        var sql = dbContext.Users
+            .Where(user => !dbContext.TrainerAthleteAssignments
+                .Select(link => link.AthleteId)
+                .Contains(user.Id))
+            .ToQueryString();
+
+        Assert.Contains("trainer_athlete_assignments", sql);
+    }
+
     private static FitTrackDbContext CreateDbContext() =>
         new(new DbContextOptionsBuilder<FitTrackDbContext>()
             .UseNpgsql("Host=localhost;Database=translation-only;Username=unused;Password=unused")

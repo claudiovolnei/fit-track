@@ -21,6 +21,7 @@ public static class OutAdapterRegistration
         services.AddScoped<IWorkoutSessionRepository, WorkoutSessionRepository>();
         services.AddScoped<IWorkoutSeriesRepository, WorkoutSeriesRepository>();
         services.AddScoped<IWorkoutSeriesAssignmentRepository, WorkoutSeriesAssignmentRepository>();
+        services.AddScoped<ITrainerAthleteAssignmentRepository, TrainerAthleteAssignmentRepository>();
         services.AddScoped<IQueryExercises, ExerciseQueries>();
         services.AddScoped<IQueryMuscleGroups, MuscleGroupQueries>();
         services.AddScoped<IQueryUserSessions, UserSessionQueries>();

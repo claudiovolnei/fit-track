@@ -16,6 +16,15 @@ internal sealed record AthleteHandle(Guid UserId, string Email, HttpClient Clien
 
         await client.SignInAsync(email, Password);
 
+        // The series suites arrange an athlete on the seeded trainer's roster, which the series
+        // assignment requires; the roster flow covers the other side of that rule on its own.
+        var trainer = await factory
+            .CreateClient()
+            .SignInAsync(SeriesArrange.TrainerEmail, SeriesArrange.TrainerPassword);
+
+        var linked = await trainer.LinkTrainerAsync(userId);
+        await linked.EnsureSuccessWithBodyAsync();
+
         return new AthleteHandle(userId, email, client);
     }
 

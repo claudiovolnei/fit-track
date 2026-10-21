@@ -23,8 +23,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 // Identity token providers (password reset, e-mail confirmation) protect their payloads with
-// DataProtection keys. Persisting them on the Fly volume keeps tokens valid across deploys and
-// restarts; without this, every restart invalidates outstanding tokens.
+// DataProtection keys. When the host offers a persistent path (DataProtection:KeysPath), persisting
+// them keeps tokens valid across deploys and restarts. A free host with an ephemeral disk simply
+// keeps the ring in memory; the admin reset flow consumes its token in the same request.
 var keysPath = builder.Configuration["DataProtection:KeysPath"];
 if (!string.IsNullOrWhiteSpace(keysPath))
 {
@@ -50,6 +51,8 @@ builder.Services.AddScoped<IUpdateMuscleGroup, UpdateMuscleGroup>();
 builder.Services.AddScoped<IDeleteMuscleGroup, DeleteMuscleGroup>();
 builder.Services.AddScoped<IListUserSessions, ListUserSessions>();
 builder.Services.AddScoped<IListAthletes, ListAthletes>();
+builder.Services.AddScoped<ILinkAthlete, LinkAthlete>();
+builder.Services.AddScoped<IUnlinkAthlete, UnlinkAthlete>();
 builder.Services.AddScoped<IListUsers, ListUsers>();
 builder.Services.AddScoped<ICreateWorkoutSeries, CreateWorkoutSeries>();
 builder.Services.AddScoped<IListWorkoutSeries, ListWorkoutSeries>();
@@ -112,6 +115,7 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(Policies.AdminOnly, policy => policy.RequireRole(Roles.Admin));
     options.AddPolicy(Policies.PersonalTrainerOnly, policy => policy.RequireRole(Roles.PersonalTrainer));
+    options.AddPolicy(Policies.TrainerOrAdmin, policy => policy.RequireRole(Roles.Admin, Roles.PersonalTrainer));
 });
 
 builder.Services.AddOpenApi();

@@ -153,14 +153,25 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
     public Task<IReadOnlyList<AthleteResponse>> GetAthletesAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<AthleteResponse>>("athletes", cancellationToken);
 
+    /// <summary>
+    /// "<c>candidates</c>" flips the read to the link screen: athletes still linked to nobody,
+    /// which is what the linking of either profile searches through.
+    /// </summary>
     public Task<PagedResultResponse<AthleteResponse>> GetAthletesPageAsync(
         string? search,
         int page,
         int pageSize,
+        bool candidates = false,
         CancellationToken cancellationToken = default) =>
         GetAsync<PagedResultResponse<AthleteResponse>>(
-            ListPath("athletes", search, page, pageSize),
+            ListPath("athletes", search, page, pageSize, candidates: candidates),
             cancellationToken);
+
+    public Task LinkTrainerAsync(Guid athleteId, Guid? trainerId = null, CancellationToken cancellationToken = default) =>
+        PostAsync($"athletes/{athleteId}/trainer", new LinkTrainerRequest(trainerId), cancellationToken);
+
+    public Task UnlinkTrainerAsync(Guid athleteId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"athletes/{athleteId}/trainer", cancellationToken);
 
     public Task<IReadOnlyList<WorkoutSessionResponse>> GetAthleteWorkoutsAsync(
         Guid userId,
@@ -184,9 +195,10 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         string? search,
         int page,
         int pageSize,
+        string? role = null,
         CancellationToken cancellationToken = default) =>
         GetAsync<PagedResultResponse<UserAccountResponse>>(
-            ListPath("admin/users", search, page, pageSize),
+            ListPath("admin/users", search, page, pageSize, role: role),
             cancellationToken);
 
     public Task<UserAccountResponse> CreateUserAsync(
@@ -247,7 +259,9 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         string? search,
         int page,
         int pageSize,
-        Guid? muscleGroupId = null)
+        Guid? muscleGroupId = null,
+        bool candidates = false,
+        string? role = null)
     {
         var parameters = new List<string>();
 
@@ -259,6 +273,16 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         if (muscleGroupId is { } groupId && groupId != Guid.Empty)
         {
             parameters.Add("muscleGroupId=" + groupId);
+        }
+
+        if (candidates)
+        {
+            parameters.Add("candidates=true");
+        }
+
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            parameters.Add("role=" + role);
         }
 
         parameters.Add("page=" + page);

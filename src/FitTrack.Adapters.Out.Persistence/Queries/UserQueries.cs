@@ -13,13 +13,27 @@ namespace FitTrack.Adapters.Out.Persistence.Queries;
 internal sealed class UserQueries(FitTrackDbContext dbContext) : IQueryUsers
 {
     public async Task<IReadOnlyList<UserAccountDto>> ListAsync(CancellationToken cancellationToken) =>
-        (await ListAsync(ListQuery.All, cancellationToken)).Items;
+        (await ListAsync(ListQuery.All, null, cancellationToken)).Items;
 
     public async Task<PagedResult<UserAccountDto>> ListAsync(
         ListQuery query,
+        string? role,
         CancellationToken cancellationToken)
     {
         var source = dbContext.Users.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            var roleName = role.Trim();
+
+            source = source.Where(account => dbContext.UserRoles
+                .Join(
+                    dbContext.Roles,
+                    userRole => userRole.RoleId,
+                    roleRow => roleRow.Id,
+                    (userRole, roleRow) => new { userRole.UserId, roleRow.Name })
+                .Any(entry => entry.UserId == account.Id && entry.Name == roleName));
+        }
 
         if (query.Search is { } search)
         {

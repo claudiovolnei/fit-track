@@ -1,5 +1,5 @@
 @page "/athletes/{UserId:guid}/workouts"
-@attribute [Authorize(Roles = "PersonalTrainer")]
+@attribute [Authorize(Roles = "PersonalTrainer,Admin")]
 @inject FitTrackApiClient Api
 
 <PageTitle>Treinos do atleta — FitTrack</PageTitle>

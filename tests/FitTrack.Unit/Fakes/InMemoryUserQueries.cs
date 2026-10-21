@@ -23,12 +23,17 @@ internal sealed class InMemoryUserQueries : IQueryUsers
 
     public Task<PagedResult<UserAccountDto>> ListAsync(
         ListQuery query,
+        string? role,
         CancellationToken cancellationToken)
     {
         WasQueried = true;
 
+        var filtered = string.IsNullOrWhiteSpace(role)
+            ? _accounts
+            : _accounts.Where(account => account.Roles.Contains(role, StringComparer.OrdinalIgnoreCase));
+
         return Task.FromResult(FakePaging.Apply(
-            _accounts.OrderBy(account => account.Email),
+            filtered.OrderBy(account => account.Email),
             query,
             account => $"{account.Name} {account.Email}"));
     }

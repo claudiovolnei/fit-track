@@ -166,6 +166,31 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.ToTable("performed_sets", (string)null);
                 });
 
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.TrainerAthleteAssignmentRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AthleteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("LinkedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<Guid>("TrainerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AthleteId")
+                        .IsUnique();
+
+                    b.HasIndex("TrainerId");
+
+                    b.ToTable("trainer_athlete_assignments", (string)null);
+                });
+
             modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSeriesAssignmentRecord", b =>
                 {
                     b.Property<Guid>("Id")

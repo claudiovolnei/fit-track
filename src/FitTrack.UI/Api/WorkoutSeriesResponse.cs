@@ -43,10 +43,11 @@ public sealed record MyWorkoutSeriesResponse(
     int DaysRemaining,
     bool IsExpired);
 
-/// <summary>Wire contract: an account a series can be assigned to.</summary>
+/// <summary>Wire contract: an athlete the roster grants access to. The trainer's e-mail is filled only for the admin read.</summary>
 public sealed record AthleteResponse(
     Guid UserId,
     string Email,
     Guid? WorkoutSeriesId,
     string? WorkoutSeriesName,
-    int DaysRemaining);
+    int DaysRemaining,
+    string? PersonalTrainerEmail = null);

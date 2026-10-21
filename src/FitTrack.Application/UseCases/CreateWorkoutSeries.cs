@@ -11,7 +11,8 @@ namespace FitTrack.Application.UseCases;
 
 /// <summary>
 /// Creates a reusable workout series. The name is unique per trainer, checked here so the caller gets
-/// a stated rule instead of the raw unique-index error. Restricted to personal trainers.
+/// a stated rule instead of the raw unique-index error. Restricted to personal trainers, who can only
+/// assign the series to athletes on their own roster — the roster of the athlete side is the check.
 /// </summary>
 public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
 {
@@ -19,6 +20,7 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
     private readonly IWorkoutSeriesRepository _series;
     private readonly IQueryWorkoutSeries _query;
     private readonly IQueryAthletes _athletes;
+    private readonly ITrainerAthleteAssignmentRepository _links;
     private readonly IWorkoutSeriesAssignmentRepository _assignments;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
@@ -28,6 +30,7 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
         IWorkoutSeriesRepository series,
         IQueryWorkoutSeries query,
         IQueryAthletes athletes,
+        ITrainerAthleteAssignmentRepository links,
         IWorkoutSeriesAssignmentRepository assignments,
         IClock clock,
         IIdGenerator idGenerator)
@@ -36,6 +39,7 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
         _series = series;
         _query = query;
         _athletes = athletes;
+        _links = links;
         _assignments = assignments;
         _clock = clock;
         _idGenerator = idGenerator;
@@ -63,6 +67,19 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
         if (athleteId is not null && !await _athletes.ExistsAsync(athleteId.Value, cancellationToken))
         {
             throw new NotFoundException($"No athlete with id '{athleteId.Value.Value}'.");
+        }
+
+        // The roster rules what a trainer can prescribe: an unlinked athlete or one under another
+        // trainer is refused the same way, without revealing whose roster the athlete is on.
+        if (athleteId is not null)
+        {
+            var roster = await _links.GetByAthleteIdAsync(athleteId.Value, cancellationToken);
+
+            if (roster is null || roster.TrainerId != _currentUser.Id)
+            {
+                throw new ForbiddenException(
+                    "A personal trainer only prescribes series for their own athletes.");
+            }
         }
 
         var series = WorkoutSeries.Create(

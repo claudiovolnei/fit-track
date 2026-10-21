@@ -71,17 +71,37 @@ public sealed class ListEndpointsTests(FitTrackApiFactory factory) : IClassFixtu
     }
 
     [RequiresPostgresFact]
-    public async Task Athletes_SearchAndPage()
+    public async Task Athletes_ListsTheRosterAndSearchesTheCandidates()
     {
         var trainer = await factory.TrainerAsync();
         var token = Token();
 
-        await factory.CreateClient().RegisterAccountAsync(
+        var firstId = await factory.CreateClient().RegisterAccountAsync(
             $"athlete-{token}-a@fittrack.local",
             "Athlete123$");
-        await factory.CreateClient().RegisterAccountAsync(
+        var secondId = await factory.CreateClient().RegisterAccountAsync(
             $"athlete-{token}-b@fittrack.local",
             "Athlete123$");
+
+        // A fresh athlete is on nobody's roster, so the plain read hides them from the trainer.
+        var roster = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
+            $"/athletes?search={token}");
+
+        Assert.NotNull(roster);
+        Assert.Equal(0, roster!.TotalCount);
+
+        // The candidates read is the one that finds athletes free to link, search included.
+        var candidates = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
+            $"/athletes?search={token}&candidates=true&page=1&pageSize=1");
+
+        Assert.NotNull(candidates);
+        Assert.Equal(2, candidates!.TotalCount);
+        Assert.Single(candidates.Items);
+        Assert.True(candidates.HasNext);
+        Assert.Contains(token, candidates.Items[0].Email);
+
+        await (await trainer.LinkTrainerAsync(firstId)).EnsureSuccessWithBodyAsync();
+        await (await trainer.LinkTrainerAsync(secondId)).EnsureSuccessWithBodyAsync();
 
         var page = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
             $"/athletes?search={token}&page=1&pageSize=1");
@@ -96,6 +116,12 @@ public sealed class ListEndpointsTests(FitTrackApiFactory factory) : IClassFixtu
             $"/athletes?search={token}");
 
         Assert.Equal(2, compat!.Count);
+
+        var candidatesAfter = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
+            $"/athletes?search={token}&candidates=true");
+
+        Assert.NotNull(candidatesAfter);
+        Assert.Equal(0, candidatesAfter!.TotalCount);
     }
 
     [RequiresPostgresFact]

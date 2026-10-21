@@ -80,7 +80,7 @@ flowchart LR
 | `WorkoutCatalog` | `MuscleGroup`, `Exercise` | The catalog a trainer reads when prescribing exercises |
 | `WorkoutPlanning` | `WorkoutSeries`, `WorkoutSeriesAssignment` | Series for one athlete, workouts A–E, prescriptions and the 60-day term |
 | `WorkoutExecution` | `WorkoutSession`, `PerformedSet` | A workout started from a prescribed workout, its running clock, sets and finish/cancel state |
-| `Identity` | `UserId`, `Roles` plus the Identity `AppUser` | Accounts, roles and the current-user boundary |
+| `Identity` | `UserId`, `Roles`, `TrainerAthleteAssignment` plus the Identity `AppUser` | Accounts, roles, the athlete↔trainer roster link and the current-user boundary |
 
 ### Domain model
 
@@ -210,8 +210,9 @@ sequenceDiagram
 | Authentication | `POST /auth/register`, `POST /auth/login`, `POST /auth/change-password` | Register/login anonymous; password change authenticated |
 | Account | `GET/POST/DELETE /me/avatar`, `GET /users/{userId}/avatar` | Authenticated |
 | Administration | `GET/POST /admin/users`, `POST/DELETE /admin/users/{userId}/roles`, `POST /admin/users/{userId}/password` | `Admin` |
+| Administration | `GET/POST /admin/users?role=`, `POST/DELETE /admin/users/{userId}/roles`, `POST /admin/users/{userId}/password` | `Admin`; the `role` filter is a plain role name, e.g. `PersonalTrainer` |
 | Catalog | `GET /exercises`, `POST /exercises`, `PUT/DELETE /exercises/{id}`, `GET/POST /muscle-groups`, `PUT/DELETE /muscle-groups/{id}` | Reads authenticated; writes `PersonalTrainer`. Deletion is refused (409) while the member is still referenced |
-| Planning | `GET /athletes`, `GET /athletes/{userId}/workouts`, `GET/POST /workout-series`, `GET/PUT /workout-series/{seriesId}`, `POST /workout-series/{seriesId}/workouts`, `PUT/DELETE /workout-series/{seriesId}/workouts/{workoutId}` | `PersonalTrainer` |
+| Roster & planning | `GET /athletes?candidates=`, `GET /athletes/{userId}/workouts`, `POST/DELETE /athletes/{userId}/trainer`, `GET/POST /workout-series`, `GET/PUT /workout-series/{seriesId}`, `POST /workout-series/{seriesId}/workouts`, `PUT/DELETE /workout-series/{seriesId}/workouts/{workoutId}` | `PersonalTrainer` **or** `Admin`. The personal trainer reads only their own athletes' list and history and prescribes only to them; the admin reads and acts on every roster. `GET /athletes?candidates=true` lists athletes linked to nobody; `POST .../trainer` links (idempotent when the trainer is the same, 409 `roster.busy` otherwise), `DELETE .../trainer` unlinks |
 | Athlete series | `GET /workout-series/mine` | Authenticated (no id; always the caller's own series) |
 | Execution | `GET/POST /sessions`, `POST /sessions/{id}/sets`, `POST /sessions/{id}/finish`, `DELETE /sessions/{id}` | Authenticated, own sessions only |
 
@@ -225,6 +226,7 @@ Development the OpenAPI document is served at `/openapi/v1.json` and the Scalar 
 - Public registration, password change, avatar upload/removal and admin account management (create account, grant/revoke roles, reset password).
 - Muscle-group and exercise catalog with an active flag; trainers write it, any signed-in user reads it. Deletion is guarded: a member still referenced by a prescription, a performed set or a child exercise is refused with 409.
 - One series per athlete, with up to five workouts A–E, each with sets, repetitions, load and a rest time per prescribed exercise (default 60 s, editable, 0 disables the timer); creating the series also starts its 60-day term.
+- Each athlete answers to one personal trainer. The roster link gates what a trainer sees and does: only their own athletes on `/Athletes`, only their history, and series can only be prescribed to (or reassigned through) a linked athlete. `Admin` sees and acts on every roster. The same screen doubles as the link screen — a trainer searches athletes linked to nobody to add them, the admin names the trainer, and either can unlink (the series stays; the next trainer replaces it).
 - Today's workout starts idempotently, runs a server-based timer, accepts only prescribed exercises and takes repetitions from the prescription. The athlete opens a countdown modal per exercise from the prescribed rest time, pauses/resumes it and gets an alert when it reaches zero.
 - Finishing closes the session; cancelling removes it. History shows duration, set count, volume and a per-exercise comparison with the current prescription.
 - Collection screens support search and pagination; the API keeps the original plain-array response unless paging parameters are sent.
@@ -262,17 +264,21 @@ dotnet run --project src/FitTrack.AppHost
 - API: <http://localhost:5080>
 - API documentation (Development): `/openapi/v1.json` and Scalar at <http://localhost:5080/scalar>
 
-On startup in Development the API applies the EF Core migrations and seeds a starter catalog plus
-three accounts, so the flow can be exercised without manual setup:
+On startup in Development the API applies the EF Core migrations (which also backfill the roster
+links from existing series assignments) and seeds a starter catalog plus four accounts, so the flow
+can be exercised without manual setup:
 
 | Role | Email | Password |
 | --- | --- | --- |
 | Admin | `admin@fittrack.local` | `Admin123$` |
 | Personal trainer | `trainer@fittrack.local` | `Trainer123$` |
 | Athlete | `athlete@fittrack.local` | `Athlete123$` |
+| Athlete (no trainer) | `athlete2@fittrack.local` | `Athlete123$` |
 
-The seed does not create a series. Sign in as the trainer, open **Atletas**, create a series for the
-athlete and add workouts A–E; then sign in as the athlete to start today's workout.
+The seed links the first athlete to the personal trainer but does not create a series. Sign in as the
+trainer, open **Atletas**, create a series for the athlete and add workouts A–E; then sign in as the
+athlete to start today's workout. The second athlete is on nobody's roster and shows up in the trainers'
+link search (candidatos).
 
 The signing key and database credentials committed in `appsettings.Development.json` are
 development-only. Real environments must supply `Jwt:SigningKey` and the connection string as

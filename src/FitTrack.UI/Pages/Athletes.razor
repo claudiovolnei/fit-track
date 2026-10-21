@@ -1,13 +1,16 @@
 @page "/athletes"
-@attribute [Authorize(Roles = "PersonalTrainer")]
+@attribute [Authorize(Roles = "PersonalTrainer,Admin")]
 @inject FitTrackApiClient Api
 @inject NavigationManager Nav
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthState
 
 <PageTitle>Atletas — FitTrack</PageTitle>
 
 <PageHeader Eyebrow="Gestão"
             Title="Atletas"
-            Subtitle="Cada atleta tem sua própria série. Crie a série para ele e o prazo de 60 dias começa na criação.">
+            Subtitle="@(_isAdmin
+                ? "Todo atleta e seu personal. Vincule quem ainda não tem personal e desvincule de qualquer roster."
+                : "Seus alunos ficam aqui e cada um tem sua própria série. Busque acima para vincular um atleta sem personal a você.")">
     <Actions>
         <a class="btn btn-secondary" href="/series">
             <AppIcon Name="layers" Size="18" />
@@ -25,7 +28,9 @@
 }
 
 <SearchField Value="@_search" ValueChanged="SearchAsync"
-             Placeholder="Buscar atleta por e-mail"
+             Placeholder="@(_isAdmin
+                ? "Buscar atleta por e-mail"
+                : "Buscar atletas sem personal para vincular a você")"
              AriaLabel="Buscar atleta por e-mail" />
 
 @if (_loading)
@@ -43,7 +48,9 @@ else if (_totalCount == 0)
         <p>
             @(HasSearch
                 ? "Tente outro e-mail."
-                : "Quando uma conta com perfil de atleta for criada, ela aparece aqui para receber uma série.")
+                : _isAdmin
+                    ? "Quando uma conta com perfil de atleta for criada, ela aparece aqui."
+                    : "Você ainda não tem alunos. Busque um atleta sem personal acima e vincule-o a você.")
         </p>
         @if (HasSearch)
         {
@@ -68,7 +75,20 @@ else
                 </div>
 
                 <div class="athlete-status">
-                    @if (athlete.SeriesId is null)
+                    @if (_isAdmin)
+                    {
+                        if (athlete.PersonalTrainerEmail is null)
+                        {
+                            <span class="chip">Sem personal</span>
+                        }
+                        else
+                        {
+                            <span class="chip chip--accent">
+                                Personal: @DisplayText.NameFromEmail(athlete.PersonalTrainerEmail)
+                            </span>
+                        }
+                    }
+                    else if (athlete.SeriesId is null)
                     {
                         <span class="chip">Sem série vinculada</span>
                     }
@@ -87,6 +107,33 @@ else
                         }
                     }
                 </div>
+
+                @if (_linkingFor == athlete.UserId)
+                {
+                    <div class="inline-form" style="margin-top: 12px;">
+                        <div class="field">
+                            <label for="trainer-for-@athlete.UserId">Personal que recebe o atleta</label>
+                            <select id="trainer-for-@athlete.UserId" @bind="_linkTrainerId">
+                                @foreach (var trainer in _trainers)
+                                {
+                                    <option value="@trainer.UserId">@DisplayText.NameFromEmail(trainer.Email)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-primary btn-sm" type="button"
+                                    disabled="@(_busy || _trainers.Count == 0)"
+                                    @onclick="() => LinkAsync(athlete.UserId)">
+                                <AppIcon Name="plus" Size="16" />
+                                Vincular
+                            </button>
+                            <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                                    @onclick="CancelLinkAsync">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                }
 
                 @if (_creatingFor == athlete.UserId)
                 {
@@ -112,16 +159,55 @@ else
                 }
 
                 <div class="actions">
-                    <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
-                            @onclick="() => StartCreateAsync(athlete.UserId)">
-                        <AppIcon Name="plus" Size="16" />
-                        Nova série para este atleta
-                    </button>
+                    @if (_isAdmin)
+                    {
+                        @if (athlete.PersonalTrainerEmail is null)
+                        {
+                            <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                                    @onclick="() => StartLinkAsync(athlete.UserId)">
+                                <AppIcon Name="plus" Size="16" />
+                                Vincular personal
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-danger btn-sm" type="button" disabled="@_busy"
+                                    @onclick="() => UnlinkAsync(athlete.UserId)">
+                                <AppIcon Name="logout" Size="16" />
+                                Desvincular
+                            </button>
+                        }
+                    }
+                    else if (CandidatesMode)
+                    {
+                        <button class="btn btn-primary btn-sm" type="button" disabled="@_busy"
+                                @onclick="() => LinkAsync(athlete.UserId)">
+                            <AppIcon Name="plus" Size="16" />
+                            Vincular a mim
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                                @onclick="() => StartCreateAsync(athlete.UserId)">
+                            <AppIcon Name="plus" Size="16" />
+                            Nova série para este atleta
+                        </button>
 
-                    <a class="btn btn-secondary" href="/athletes/@athlete.UserId/workouts">
-                        Ver treinos
-                        <AppIcon Name="chevron-right" Size="16" />
-                    </a>
+                        <button class="btn btn-danger btn-sm" type="button" disabled="@_busy"
+                                @onclick="() => UnlinkAsync(athlete.UserId)">
+                            <AppIcon Name="logout" Size="16" />
+                            Desvincular
+                        </button>
+                    }
+
+                    @if (!_isAdmin)
+                    {
+                        <a class="btn btn-secondary" href="/athletes/@athlete.UserId/workouts">
+                            Ver treinos
+                            <AppIcon Name="chevron-right" Size="16" />
+                        </a>
+                    }
                 </div>
             </article>
         }
@@ -133,11 +219,20 @@ else
 @code {
     private const int PageSize = 12;
 
+    private bool _isAdmin;
+
+    // Admin: every athlete, with the trainer each one answers to. Personal: the own roster by
+    // default — with a search on, the read flips to candidates, athletes linked to nobody.
+    private bool CandidatesMode => !_isAdmin && HasSearch;
+
     private IReadOnlyList<AthleteRow> _athletes = [];
+    private IReadOnlyList<UserAccountResponse> _trainers = [];
     private bool _loading = true;
     private bool _busy;
     private string? _error;
     private Guid? _creatingFor;
+    private Guid? _linkingFor;
+    private Guid _linkTrainerId;
     private string _newSeriesName = string.Empty;
     private string _search = string.Empty;
     private int _page = 1;
@@ -146,7 +241,31 @@ else
 
     private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
 
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _isAdmin = state.User.IsInRole("Admin");
+
+        if (_isAdmin)
+        {
+            await LoadTrainersAsync();
+        }
+
+        await ReloadAsync();
+    }
+
+    private async Task LoadTrainersAsync()
+    {
+        try
+        {
+            var result = await Api.GetUsersPageAsync(null, 1, 100, "PersonalTrainer");
+            _trainers = result.Items;
+        }
+        catch (ApiException)
+        {
+            // The select stays empty; the admin falls back to asking for the trainer by role later.
+        }
+    }
 
     private async Task SearchAsync(string value)
     {
@@ -168,6 +287,20 @@ else
         await ReloadAsync();
     }
 
+    private void StartLinkAsync(Guid userId)
+    {
+        _linkingFor = userId;
+
+        _linkTrainerId = _trainers.Count > 0
+            ? _trainers[0].UserId
+            : Guid.Empty;
+    }
+
+    private void CancelLinkAsync()
+    {
+        _linkingFor = null;
+    }
+
     private void StartCreateAsync(Guid userId)
     {
         _creatingFor = userId;
@@ -179,6 +312,24 @@ else
         _creatingFor = null;
         _newSeriesName = string.Empty;
     }
+
+    private async Task LinkAsync(Guid userId) =>
+        await RunAsync(async () =>
+        {
+            var trainerId = _isAdmin ? _linkTrainerId : (Guid?)null;
+
+            await Api.LinkTrainerAsync(userId, trainerId);
+
+            CancelLinkAsync();
+            await ReloadAsync();
+        });
+
+    private async Task UnlinkAsync(Guid userId) =>
+        await RunAsync(async () =>
+        {
+            await Api.UnlinkTrainerAsync(userId);
+            await ReloadAsync();
+        });
 
     private async Task CreateForAthleteAsync(Guid userId) =>
         await RunAsync(async () =>
@@ -219,7 +370,7 @@ else
 
         try
         {
-            var result = await Api.GetAthletesPageAsync(_search, _page, PageSize);
+            var result = await Api.GetAthletesPageAsync(_search, _page, PageSize, CandidatesMode);
 
             if (version != _loadVersion)
             {
@@ -235,6 +386,7 @@ else
                     SeriesId = athlete.WorkoutSeriesId,
                     SeriesName = athlete.WorkoutSeriesName,
                     DaysRemaining = athlete.DaysRemaining,
+                    PersonalTrainerEmail = athlete.PersonalTrainerEmail,
                 }),
             ];
 
@@ -269,5 +421,7 @@ else
         public string? SeriesName { get; init; }
 
         public int DaysRemaining { get; init; }
+
+        public string? PersonalTrainerEmail { get; init; }
     }
 }

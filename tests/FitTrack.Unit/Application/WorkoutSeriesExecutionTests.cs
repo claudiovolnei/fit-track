@@ -23,6 +23,7 @@ public sealed class WorkoutSeriesExecutionTests
     private readonly InMemoryWorkoutSessionRepository _sessions = new();
     private readonly InMemoryExerciseRepository _exercises = new();
     private readonly InMemoryMuscleGroupRepository _muscleGroups = new();
+    private readonly InMemoryTrainerAthleteAssignmentRepository _links = new();
     private readonly InMemoryUserSessionQueries _history = new();
     private readonly SequentialIdGenerator _ids = new();
     private readonly FixedClock _clock = new(Now);
@@ -42,6 +43,9 @@ public sealed class WorkoutSeriesExecutionTests
             .SaveAsync(Exercise.Create(_bench, new ExerciseName("Bench Press"), _chest), CancellationToken.None)
             .GetAwaiter()
             .GetResult();
+
+        // The athlete follows the trainer, so their history read passes the privacy guard.
+        _links.SeedLink(_trainer.Value, _athlete.Value);
     }
 
     [Fact]
@@ -329,7 +333,7 @@ public sealed class WorkoutSeriesExecutionTests
 
     private IGetMyWorkoutSeries MySeries(StubCurrentUser user) => new GetMyWorkoutSeries(user, Queries, _clock);
 
-    private IListAthleteWorkouts History(StubCurrentUser user) => new ListAthleteWorkouts(user, _history);
+    private IListAthleteWorkouts History(StubCurrentUser user) => new ListAthleteWorkouts(user, _links, _history);
 
     private async Task<StartWorkoutResult> StartTodayAsync()
     {

@@ -7,8 +7,9 @@ using FitTrack.Application.Ports.In;
 namespace FitTrack.Adapters.In.Api.Endpoints;
 
 /// <summary>
-/// Inbound adapter for the planning slice. The trainer side carries the personal trainer policy; the
-/// athlete side only requires an authenticated account, and each use case re-states who may act.
+/// Inbound adapter for the planning slice. The series side keeps the personal trainer policy; the
+/// athlete side is the roster of both profiles, and each use case re-states who may act and whose
+/// athletes the caller may touch.
 /// </summary>
 internal static class WorkoutSeriesEndpoints
 {
@@ -16,10 +17,12 @@ internal static class WorkoutSeriesEndpoints
     {
         var athletes = app.MapGroup("/athletes")
             .WithTags("Athletes")
-            .RequireAuthorization(Policies.PersonalTrainerOnly);
+            .RequireAuthorization(Policies.TrainerOrAdmin);
 
         athletes.MapGet("/", ListAthletesAsync);
         athletes.MapGet("/{userId:guid}/workouts", ListAthleteWorkoutsAsync);
+        athletes.MapPost("/{userId:guid}/trainer", LinkTrainerAsync);
+        athletes.MapDelete("/{userId:guid}/trainer", UnlinkTrainerAsync);
 
         var series = app.MapGroup("/workout-series")
             .WithTags("Workout series")
@@ -47,6 +50,7 @@ internal static class WorkoutSeriesEndpoints
         string? search,
         int? page,
         int? pageSize,
+        bool? candidates,
         IListAthletes useCase,
         CancellationToken cancellationToken)
     {
@@ -56,7 +60,7 @@ internal static class WorkoutSeriesEndpoints
             return invalid;
         }
 
-        var result = await useCase.ExecuteAsync(query, cancellationToken);
+        var result = await useCase.ExecuteAsync(query, candidates == true, cancellationToken);
 
         return ListRequest.Ok(result, ListRequest.IsPaged(page, pageSize));
     }
@@ -78,6 +82,27 @@ internal static class WorkoutSeriesEndpoints
         var result = await useCase.ExecuteAsync(new ListAthleteWorkoutsCommand(userId), query, cancellationToken);
 
         return ListRequest.Ok(result, ListRequest.IsPaged(page, pageSize));
+    }
+
+    private static async Task<IResult> LinkTrainerAsync(
+        Guid userId,
+        LinkTrainerRequest request,
+        ILinkAthlete useCase,
+        CancellationToken cancellationToken)
+    {
+        await useCase.ExecuteAsync(new LinkAthleteCommand(userId, request.PersonalTrainerId), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> UnlinkTrainerAsync(
+        Guid userId,
+        IUnlinkAthlete useCase,
+        CancellationToken cancellationToken)
+    {
+        await useCase.ExecuteAsync(new UnlinkAthleteCommand(userId), cancellationToken);
+
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ListSeriesAsync(

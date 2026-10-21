@@ -24,8 +24,7 @@ internal static class AdminEndpoints
             .WithTags("Administration")
             .RequireAuthorization(Policies.AdminOnly);
 
-        group.MapGet("/users", ListAsync);
-        group.MapPost("/users", CreateAsync);
+        group.MapGet("/users", ListAsync);        group.MapPost("/users", CreateAsync);
         group.MapPost("/users/{userId:guid}/roles", GrantAsync);
         group.MapDelete("/users/{userId:guid}/roles/{role}", RevokeAsync);
         group.MapPost("/users/{userId:guid}/password", ResetPasswordAsync);
@@ -35,6 +34,7 @@ internal static class AdminEndpoints
 
     private static async Task<IResult> ListAsync(
         string? search,
+        string? role,
         int? page,
         int? pageSize,
         IListUsers useCase,
@@ -46,7 +46,11 @@ internal static class AdminEndpoints
             return invalid;
         }
 
-        var result = await useCase.ExecuteAsync(query, cancellationToken);
+        // An unknown role is refused the same way a grant refuses it, so the filter cannot
+        // silently answer an empty list for a typo.
+        var known = string.IsNullOrWhiteSpace(role) ? null : KnownRole(role);
+
+        var result = await useCase.ExecuteAsync(query, known, cancellationToken);
 
         return ListRequest.Ok(result, ListRequest.IsPaged(page, pageSize));
     }

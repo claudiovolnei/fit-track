@@ -8,5 +8,6 @@ public interface IQueryUsers
     /// <summary>Every account with the profiles it holds, ordered by e-mail.</summary>
     Task<IReadOnlyList<UserAccountDto>> ListAsync(CancellationToken cancellationToken);
 
-    Task<PagedResult<UserAccountDto>> ListAsync(ListQuery query, CancellationToken cancellationToken);
+    /// <summary>The same page, restricted to the accounts holding <paramref name="role"/>, when named.</summary>
+    Task<PagedResult<UserAccountDto>> ListAsync(ListQuery query, string? role, CancellationToken cancellationToken);
 }

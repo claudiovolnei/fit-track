@@ -27,6 +27,7 @@ public sealed class SeriesRefusalTests
     private readonly InMemoryExerciseRepository _exercises = new();
     private readonly InMemoryMuscleGroupRepository _muscleGroups = new();
     private readonly InMemoryAthleteQueries _athletes = new();
+    private readonly InMemoryTrainerAthleteAssignmentRepository _links = new();
     private readonly SequentialIdGenerator _ids = new();
     private readonly FixedClock _clock = new(Now);
     private readonly UserId _trainer = UserId.New();
@@ -39,6 +40,7 @@ public sealed class SeriesRefusalTests
         SaveMuscleGroup(MuscleGroup.Create(_chest, new MuscleGroupName("Chest")));
         SaveExercise(Exercise.Create(_bench, new ExerciseName("Bench Press"), _chest));
         _athletes.Seed(_athlete.Value, "athlete@fittrack.local");
+        _links.SeedLink(_trainer.Value, _athlete.Value);
     }
 
     [Theory]
@@ -178,7 +180,7 @@ public sealed class SeriesRefusalTests
         _muscleGroups,
         _sessions);
 
-    private ICreateWorkoutSeries Create => new CreateWorkoutSeries(Trainer, _series, Queries, _athletes, _assignments, _clock, _ids);
+    private ICreateWorkoutSeries Create => new CreateWorkoutSeries(Trainer, _series, Queries, _athletes, _links, _assignments, _clock, _ids);
 
     private IAddSeriesWorkout Add => new AddSeriesWorkout(Trainer, _series, _exercises, Queries, _ids);
 

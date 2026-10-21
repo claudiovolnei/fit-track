@@ -28,10 +28,16 @@ public sealed class ListUsers : IListUsers
 
     public Task<PagedResult<UserAccountDto>> ExecuteAsync(
         ListQuery query,
+        CancellationToken cancellationToken) =>
+        ExecuteAsync(query, role: null, cancellationToken);
+
+    public Task<PagedResult<UserAccountDto>> ExecuteAsync(
+        ListQuery query,
+        string? role,
         CancellationToken cancellationToken)
     {
         _currentUser.RequireAdmin("list the accounts");
 
-        return _users.ListAsync(query, cancellationToken);
+        return _users.ListAsync(query, role, cancellationToken);
     }
 }

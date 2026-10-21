@@ -17,6 +17,7 @@ public sealed class WorkoutSeriesManagementTests
 
     private readonly InMemoryWorkoutSeriesRepository _series = new();
     private readonly InMemoryWorkoutSeriesAssignmentRepository _assignments = new();
+    private readonly InMemoryTrainerAthleteAssignmentRepository _links = new();
     private readonly InMemoryWorkoutSessionRepository _sessions = new();
     private readonly InMemoryExerciseRepository _exercises = new();
     private readonly InMemoryMuscleGroupRepository _muscleGroups = new();
@@ -36,6 +37,9 @@ public sealed class WorkoutSeriesManagementTests
         SaveExercise(Exercise.Create(_bench, new ExerciseName("Bench Press"), _chest));
         SaveExercise(Exercise.Create(_row, new ExerciseName("Barbell Row"), _chest));
         _athletes.Seed(_athlete.Value, "athlete@fittrack.local");
+
+        // The athlete starts on the trainer's roster: the link screen is tested on its own.
+        _links.SeedLink(_trainer.Value, _athlete.Value);
     }
 
     [Fact]
@@ -76,6 +80,7 @@ public sealed class WorkoutSeriesManagementTests
     public async Task CreateWorkoutSeries_SameNameForAnotherTrainer_IsAllowed()
     {
         await SeedSeriesAsync(_trainer, "Hipertrofia A/B/C");
+        _links.SeedLink(_otherTrainer.Value, _athlete.Value);
 
         var created = await Create(OtherTrainer).ExecuteAsync(
             new CreateWorkoutSeriesCommand("Hipertrofia A/B/C", _athlete.Value),
@@ -297,6 +302,7 @@ public sealed class WorkoutSeriesManagementTests
     public async Task ListAthletes_ShowsTheAssignedSeriesAndTheDaysRemaining()
     {
         var series = await SeedSeriesAsync(_trainer);
+        _athletes.Link(_trainer.Value, _athlete.Value);
         _athletes.AssignSeries(_athlete.Value, series.Id.Value, series.Name.Value, Now.AddDays(WorkoutSeriesAssignment.TermInDays));
 
         var athletes = await ListAthletes(Trainer).ExecuteAsync(CancellationToken.None);
@@ -311,6 +317,8 @@ public sealed class WorkoutSeriesManagementTests
     [Fact]
     public async Task ListAthletes_WithoutASeries_LeavesTheFieldsEmpty()
     {
+        _athletes.Link(_trainer.Value, _athlete.Value);
+
         var athletes = await ListAthletes(Trainer).ExecuteAsync(CancellationToken.None);
 
         var only = Assert.Single(athletes);
@@ -327,7 +335,7 @@ public sealed class WorkoutSeriesManagementTests
 
     private InMemoryWorkoutSeriesQueries Queries => new(_series, _assignments, _exercises, _muscleGroups, _sessions);
 
-    private ICreateWorkoutSeries Create(StubCurrentUser user) => new CreateWorkoutSeries(user, _series, Queries, _athletes, _assignments, _clock, _ids);
+    private ICreateWorkoutSeries Create(StubCurrentUser user) => new CreateWorkoutSeries(user, _series, Queries, _athletes, _links, _assignments, _clock, _ids);
 
     private IRenameWorkoutSeries Rename(StubCurrentUser user) => new RenameWorkoutSeries(user, _series, Queries);
 

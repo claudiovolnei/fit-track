@@ -23,4 +23,16 @@ public static class CurrentUserExtensions
             throw new ForbiddenException($"Only administrators can {action}.");
         }
     }
+
+    /// <summary>
+    /// The roster screens both profiles share: the personal trainer acts on their own athletes and
+    /// the administrator on any of them, which is why each use case still states whose scope applies.
+    /// </summary>
+    public static void RequirePersonalTrainerOrAdmin(this ICurrentUser currentUser, string action)
+    {
+        if (!currentUser.IsPersonalTrainer && !currentUser.IsAdmin)
+        {
+            throw new ForbiddenException($"Only personal trainers or administrators can {action}.");
+        }
+    }
 }

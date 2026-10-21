@@ -60,6 +60,10 @@ public static class ErrorMessages
         ["role.required"] = "Escolha pelo menos um perfil.",
         ["role.unknown"] = "Esse perfil não existe.",
 
+        // Roster (vínculo atleta ↔ personal)
+        ["roster.busy"] = "Esse atleta já está vinculado a outro personal.",
+        ["roster.trainer.required"] = "Escolha o personal que vai receber o atleta.",
+
         // Avatar
         ["avatar.too_large"] = "A imagem deve ter no máximo 2 MB.",
         ["avatar.type.invalid"] = "Aceitamos apenas imagens JPEG, PNG ou WebP.",

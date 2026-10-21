@@ -7,4 +7,7 @@ internal static class Policies
 
     /// <summary>Authoring the catalog and the training plans belongs to the personal trainer.</summary>
     public const string PersonalTrainerOnly = "PersonalTrainerOnly";
+
+    /// <summary>The roster screens both profiles share: linking and listing athlete access.</summary>
+    public const string TrainerOrAdmin = "TrainerOrAdmin";
 }

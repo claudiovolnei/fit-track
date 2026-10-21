@@ -86,7 +86,7 @@ public static class NavOptions
             NavGroup.Trainer, "Gestão", NavAuth.Roles, [RolePersonalTrainer]),
         new(
             "athletes", "/athletes", "Atletas", "users",
-            NavGroup.Trainer, "Gestão", NavAuth.Roles, [RolePersonalTrainer]),
+            NavGroup.Trainer, "Gestão", NavAuth.Roles, [RolePersonalTrainer, RoleAdmin]),
         new(
             "catalog", "/exercises/manage", "Catálogo", "library",
             NavGroup.Trainer, "Gestão", NavAuth.Roles, [RolePersonalTrainer]),

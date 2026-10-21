@@ -103,6 +103,20 @@ internal static class ApiClientExtensions
     }
 
     /// <summary>
+    /// Links an athlete to a trainer. The personal trainer links to themselves; the administrator is
+    /// the one who names the trainer. Kept raw on purpose: the roster tests assert the status codes.
+    /// </summary>
+    public static Task<HttpResponseMessage> LinkTrainerAsync(
+        this HttpClient client,
+        Guid athleteId,
+        Guid? trainerId = null) =>
+        client.PostAsJsonAsync($"/athletes/{athleteId}/trainer", new LinkTrainerRequest(trainerId));
+
+    /// <summary>Removes the athlete's roster link, as the signed-in trainer or administrator.</summary>
+    public static Task<HttpResponseMessage> UnlinkTrainerAsync(this HttpClient client, Guid athleteId) =>
+        client.DeleteAsync($"/athletes/{athleteId}/trainer");
+
+    /// <summary>
     /// Fails with the response body in the message. A bare status code hides the reason the API gave,
     /// which is the one thing a failing test needs to show.
     /// </summary>

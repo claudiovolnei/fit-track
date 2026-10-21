@@ -1,6 +1,7 @@
 using FitTrack.Adapters.Out.Persistence;
 using FitTrack.Adapters.Out.Persistence.Accounts;
 using FitTrack.Adapters.Out.Persistence.Records;
+using FitTrack.Application.Ports.Out;
 using FitTrack.Domain.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -25,16 +26,57 @@ internal static class DevelopmentSeeder
 
     public const string AthletePassword = "Athlete123$";
 
+    public const string Athlete2Email = "athlete2@fittrack.local";
+
+    public const string Athlete2Password = "Athlete123$";
+
     public static async Task SeedAsync(IServiceProvider services)
     {
         await RoleSeeder.EnsureRolesAsync(services);
 
         var users = services.GetRequiredService<UserManager<AppUser>>();
         await EnsureAccountAsync(users, AdminEmail, "Administrador", AdminPassword, Roles.Admin);
-        await EnsureAccountAsync(users, TrainerEmail, "Claudio Volnei", TrainerPassword, Roles.PersonalTrainer);
-        await EnsureAccountAsync(users, AthleteEmail, "Atleta FitTrack", AthletePassword, Roles.User);
+        var trainer = await EnsureAccountAsync(users, TrainerEmail, "Claudio Volnei", TrainerPassword, Roles.PersonalTrainer);
+        var athlete = await EnsureAccountAsync(users, AthleteEmail, "Atleta FitTrack", AthletePassword, Roles.User);
 
+        // A second athlete with no trainer at all, so the link screen (and its candidate search)
+        // has both states ready: one athlete on the trainer's roster and one on nobody's.
+        await EnsureAccountAsync(users, Athlete2Email, "Atleta Nômade", Athlete2Password, Roles.User);
+
+        await EnsureRosterLinkAsync(services, trainer, athlete);
         await EnsureCatalogAsync(services.GetRequiredService<FitTrackDbContext>());
+    }
+
+    /// <summary>
+    /// The seeded athlete answers to the seeded trainer, so the acceptance flow (train, follow,
+    /// prescribe) runs without setting the roster by hand. Written through the repository on purpose:
+    /// the seed has no authenticated caller, but the gather rules stay the domain's.
+    /// </summary>
+    private static async Task EnsureRosterLinkAsync(
+        IServiceProvider services,
+        AppUser trainer,
+        AppUser athlete)
+    {
+        if (trainer is null || athlete is null)
+        {
+            return;
+        }
+
+        var links = services.GetRequiredService<ITrainerAthleteAssignmentRepository>();
+        var athleteId = new UserId(athlete.Id);
+
+        if (await links.GetByAthleteIdAsync(athleteId, CancellationToken.None) is not null)
+        {
+            return;
+        }
+
+        await links.SaveAsync(
+            TrainerAthleteAssignment.Link(
+                new TrainerAthleteAssignmentId(Guid.NewGuid()),
+                new UserId(trainer.Id),
+                athleteId,
+                DateTimeOffset.UtcNow),
+            CancellationToken.None);
     }
 
     /// <summary>
@@ -83,7 +125,7 @@ internal static class DevelopmentSeeder
         await dbContext.SaveChangesAsync();
     }
 
-    private static async Task EnsureAccountAsync(
+    private static async Task<AppUser> EnsureAccountAsync(
         UserManager<AppUser> users,
         string email,
         string name,
@@ -100,7 +142,7 @@ internal static class DevelopmentSeeder
                 await users.UpdateAsync(account);
             }
 
-            return;
+            return account;
         }
 
         account = new AppUser
@@ -121,5 +163,7 @@ internal static class DevelopmentSeeder
         }
 
         await users.AddToRoleAsync(account, role);
+
+        return account;
     }
 }

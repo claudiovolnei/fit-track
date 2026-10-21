@@ -32,8 +32,10 @@ public sealed class NavOptionsTests
     {
         var tabs = NavOptions.Tabs([Admin], authenticated: true);
 
-        Assert.Equal(["home", "admin-users", "admin-exercises", "account"], Keys(tabs.Tabs));
-        Assert.False(tabs.HasMore);
+        // The roster screen is shared with the personal trainer, so it takes a tab slot before the
+        // administration items; what does not fit moves to the "Mais" sheet.
+        Assert.Equal(["home", "athletes", "admin-users"], Keys(tabs.Tabs));
+        Assert.True(tabs.HasMore);
     }
 
     [Fact]

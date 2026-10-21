@@ -15,3 +15,9 @@ internal sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<Prescr
 /// is optional on the wire: omitted means the domain default.
 /// </summary>
 internal sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms, int? RestSeconds = null);
+
+/// <summary>
+/// HTTP contract for linking an athlete to a trainer. The trainer id is optional because the
+/// personal trainer links to themselves; the administrator is the one who names the trainer.
+/// </summary>
+internal sealed record LinkTrainerRequest(Guid? PersonalTrainerId);

@@ -30,6 +30,9 @@ public sealed class FitTrackDbContext(DbContextOptions<FitTrackDbContext> option
     public DbSet<WorkoutSeriesAssignmentRecord> WorkoutSeriesAssignments =>
         Set<WorkoutSeriesAssignmentRecord>();
 
+    public DbSet<TrainerAthleteAssignmentRecord> TrainerAthleteAssignments =>
+        Set<TrainerAthleteAssignmentRecord>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

@@ -43,10 +43,11 @@ public sealed record MyWorkoutSeriesResponse(
     int DaysRemaining,
     bool IsExpired);
 
-/// <summary>Athlete the trainer may assign a series to, with whatever is assigned right now.</summary>
+/// <summary>Athlete a roster read returns, with the trainer they answer to (filled for the admin).</summary>
 public sealed record AthleteResponse(
     Guid UserId,
     string Email,
     Guid? WorkoutSeriesId,
     string? WorkoutSeriesName,
-    int DaysRemaining);
+    int DaysRemaining,
+    string? PersonalTrainerEmail = null);
