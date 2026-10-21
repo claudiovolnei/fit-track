@@ -57,6 +57,98 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
     }
 
     [RequiresPostgresFact]
+    public async Task Trainer_PrescribingTheRest_RoundTripsItAndTheDefaultFillsTheOmission()
+    {
+        var trainer = await factory.TrainerAsync();
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Descanso");
+
+        var series = await trainer.CreateSeriesAsync($"Descanso {Guid.NewGuid():N}");
+
+        // The rest is not typed: the API answers the default the domain owns.
+        var defaulted = await trainer.AddWorkoutAsync(
+            series.Id, "Peito", Prescriptions.For(exercise.Id));
+
+        Assert.Equal(60, Assert.Single(defaulted.Exercises).RestSeconds);
+
+        // A rest the trainer chose survives the round trip through PostgreSQL.
+        var chosen = await trainer.AddWorkoutAsync(
+            series.Id, "Costas", Prescriptions.For(exercise.Id, restSeconds: 90));
+
+        Assert.Equal(90, Assert.Single(chosen.Exercises).RestSeconds);
+
+        // No rest at all is a prescription of its own: the athlete is not offered a timer.
+        var withoutRest = await trainer.AddWorkoutAsync(
+            series.Id, "Pernas", Prescriptions.For(exercise.Id, restSeconds: 0));
+
+        Assert.Equal(0, Assert.Single(withoutRest.Exercises).RestSeconds);
+
+        var read = await trainer.GetFromJsonAsync<WorkoutSeriesResponse>($"/workout-series/{series.Id}");
+
+        Assert.Equal(
+            new[] { 60, 90, 0 },
+            read!.Workouts.Select(workout => workout.Exercises.Single().RestSeconds));
+    }
+
+    [RequiresPostgresFact]
+    public async Task Trainer_EditingTheRestOfAWorkout_KeepsTheNewRest()
+    {
+        var trainer = await factory.TrainerAsync();
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Edita Descanso");
+
+        var series = await trainer.CreateSeriesAsync($"Edita {Guid.NewGuid():N}");
+        var workout = await trainer.AddWorkoutAsync(
+            series.Id, "Peito", Prescriptions.For(exercise.Id, restSeconds: 60));
+
+        // The path the personal screen takes when the rest of a saved workout changes.
+        var changed = await trainer.PutAsJsonAsync(
+            $"/workout-series/{series.Id}/workouts/{workout.Id}",
+            new SetSeriesWorkoutRequest("Peito", [Prescriptions.For(exercise.Id, restSeconds: 120)]));
+
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+
+        var updated = (await changed.Content.ReadFromJsonAsync<WorkoutSeriesWorkoutResponse>())!;
+
+        Assert.Equal(120, Assert.Single(updated.Exercises).RestSeconds);
+
+        var read = await trainer.GetFromJsonAsync<WorkoutSeriesResponse>($"/workout-series/{series.Id}");
+
+        Assert.Equal(120, Assert.Single(read!.Workouts[0].Exercises).RestSeconds);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Trainer_RefusingARestOutOfRange_AnswersTheAgreedCode()
+    {
+        var trainer = await factory.TrainerAsync();
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Descanso Recusado");
+
+        var series = await trainer.CreateSeriesAsync($"Recusado {Guid.NewGuid():N}");
+
+        var response = await trainer.PostAsJsonAsync(
+            $"/workout-series/{series.Id}/workouts",
+            new SetSeriesWorkoutRequest("Peito", [Prescriptions.For(exercise.Id, restSeconds: -1)]));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("workout_series.exercise.prescription.invalid", await response.ReadProblemTitleAsync());
+    }
+
+    [RequiresPostgresFact]
+    public async Task Athlete_ReadsTheRestTheTrainerPrescribed()
+    {
+        var trainer = await factory.TrainerAsync();
+        var athlete = await factory.CreateAthleteAsync();
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Série Descanso do Atleta");
+
+        var series = await trainer.CreateSeriesAsync($"Atleta {Guid.NewGuid():N}", athlete.UserId);
+        await trainer.AddWorkoutAsync(
+            series.Id, "Peito e Tríceps", Prescriptions.For(exercise.Id, restSeconds: 120));
+
+        var mine = (await athlete.Client.ReadMySeriesAsync())!;
+
+        var workout = Assert.Single(mine.Series.Workouts);
+        Assert.Equal(120, Assert.Single(workout.Exercises).RestSeconds);
+    }
+
+    [RequiresPostgresFact]
     public async Task Trainer_RemovingAWorkout_RenumbersTheLabelsThatFollow()
     {
         var trainer = await factory.TrainerAsync();

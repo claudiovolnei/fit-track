@@ -10,7 +10,7 @@ public sealed record SetWorkoutSeriesNameRequest(string Name, Guid? AthleteId = 
 /// Request body for one prescribed exercise. The load is nullable because a bodyweight exercise has no
 /// weight to prescribe.
 /// </summary>
-public sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms);
+public sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms, int? RestSeconds = null);
 
 /// <summary>Request body for the name and the prescription of one workout of a series.</summary>
 public sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<PrescribedExerciseRequest> Exercises);

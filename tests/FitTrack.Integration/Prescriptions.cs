@@ -12,6 +12,7 @@ internal static class Prescriptions
         Guid exerciseId,
         int sets = 3,
         int repetitions = 12,
-        decimal? loadKilograms = 40m) =>
-        new(exerciseId, sets, repetitions, loadKilograms);
+        decimal? loadKilograms = 40m,
+        int? restSeconds = null) =>
+        new(exerciseId, sets, repetitions, loadKilograms, restSeconds);
 }

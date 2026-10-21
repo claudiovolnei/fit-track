@@ -78,6 +78,9 @@ public sealed class SeriesRefusalTests
         SeriesRefusals.WorkoutPrescriptionOutOfRange => await CodeOfAsync(() =>
             AddToANewSeriesAsync("Peito e Tríceps", [Prescription(_bench, sets: 0)])),
 
+        SeriesRefusals.WorkoutRestOutOfRange => await CodeOfAsync(() =>
+            AddToANewSeriesAsync("Peito e Tríceps", [Prescription(_bench, restSeconds: 601)])),
+
         SeriesRefusals.WorkoutLimitReached => await CodeOfAsync(async () =>
         {
             var seriesId = await CreateAsync("Hipertrofia A/B/C");
@@ -200,6 +203,7 @@ public sealed class SeriesRefusalTests
         ExerciseId exercise,
         int sets = 3,
         int repetitions = 12,
-        decimal? load = 40m) =>
-        new(exercise.Value, sets, repetitions, load);
+        decimal? load = 40m,
+        int? restSeconds = null) =>
+        new(exercise.Value, sets, repetitions, load, restSeconds);
 }

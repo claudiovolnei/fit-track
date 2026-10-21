@@ -7,7 +7,8 @@ public sealed record PrescribedExerciseResponse(
     string MuscleGroupName,
     int Sets,
     int Repetitions,
-    decimal? LoadKilograms);
+    decimal? LoadKilograms,
+    int RestSeconds);
 
 /// <summary>Wire contract: the workout already started today from one workout of the series.</summary>
 public sealed record TodayWorkoutResponse(

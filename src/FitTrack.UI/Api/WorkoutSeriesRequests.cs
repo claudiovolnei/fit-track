@@ -4,7 +4,7 @@ namespace FitTrack.UI.Api;
 public sealed record SetWorkoutSeriesNameRequest(string Name, Guid? AthleteId = null);
 
 /// <summary>Wire contract: one prescribed exercise of a workout.</summary>
-public sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms);
+public sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms, int? RestSeconds = null);
 
 /// <summary>Wire contract: the name and the prescription of one workout of a series.</summary>
 public sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<PrescribedExerciseRequest> Exercises);

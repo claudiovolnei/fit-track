@@ -2465,3 +2465,50 @@ code {
 .volume-exercises span strong {
     color: var(--text-soft);
 }
+
+/* --------------------------------------------------------------------------
+   Rest timer: the chip the athlete clicks and the modal that counts the rest down
+   -------------------------------------------------------------------------- */
+
+.rest-chip {
+    cursor: pointer;
+    margin-top: 4px;
+    border: 0;
+    font: inherit;
+    line-height: inherit;
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+
+.modal-card {
+    padding: 24px;
+    width: 100%;
+    max-width: 360px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.modal-title {
+    margin: 0 0 8px;
+    font-size: 1.05rem;
+}
+
+.rest-timer-value {
+    font-size: 3rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin: 12px 0;
+    letter-spacing: 0.04em;
+}

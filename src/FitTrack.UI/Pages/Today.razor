@@ -114,6 +114,14 @@ else
                                 <div class="exercise-prescription">
                                     <strong>@prescribed.Sets × @prescribed.Repetitions</strong>
                                     <span>@Load(prescribed.LoadKilograms)</span>
+                                    @if (prescribed.RestSeconds > 0)
+                                    {
+                                        <button type="button" class="chip chip--accent rest-chip"
+                                                aria-label="@RestLabel(prescribed.ExerciseName, prescribed.RestSeconds)"
+                                                @onclick="() => OpenRestTimer(prescribed.ExerciseName, prescribed.RestSeconds)">
+                                            ⏱ @(prescribed.RestSeconds)s
+                                        </button>
+                                    }
                                 </div>
                             </li>
                         }
@@ -178,6 +186,14 @@ else
                                 <div class="compare-exercise">
                                     <strong>@row.ExerciseName</strong>
                                     <small>@row.Prescribed</small>
+                                    @if (row.RestSeconds > 0)
+                                    {
+                                        <button type="button" class="chip chip--accent rest-chip"
+                                                aria-label="@RestLabel(row.ExerciseName, row.RestSeconds)"
+                                                @onclick="() => OpenRestTimer(row.ExerciseName, row.RestSeconds)">
+                                            ⏱ @(row.RestSeconds)s
+                                        </button>
+                                    }
                                 </div>
                                 <div class="set-pills">
                                     @if (row.Performed.Count == 0)
@@ -249,6 +265,11 @@ else
     </div>
 }
 
+@if (_restSeconds is { } restSeconds)
+{
+    <RestTimerModal Seconds="restSeconds" ExerciseName="@_restExerciseName" OnClose="CloseRestTimer" />
+}
+
 @code {
     private MyWorkoutSeriesResponse? _mine;
     private string? _trainerAvatarUrl;
@@ -256,6 +277,8 @@ else
 
     /// <summary>Load the athlete typed for each prescribed exercise, per workout.</summary>
     private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), decimal> _loads = [];
+    private int? _restSeconds;
+    private string _restExerciseName = string.Empty;
     private bool _loading = true;
     private bool _busy;
     private string? _error;
@@ -313,6 +336,22 @@ else
         {
             // The render handle is no longer valid because the component was disposed.
         }
+    }
+
+    private void OpenRestTimer(string exerciseName, int seconds)
+    {
+        _restExerciseName = exerciseName;
+        _restSeconds = seconds;
+    }
+
+    /// <summary>What the screen reader reads on the chip: the rest prescribed for that exercise.</summary>
+    private static string RestLabel(string exerciseName, int seconds) =>
+        $"Descanso prescrito de {exerciseName}: {seconds} segundos";
+
+    private void CloseRestTimer()
+    {
+        _restSeconds = null;
+        _restExerciseName = string.Empty;
     }
 
     private async Task StartAsync(Guid workoutId) =>
@@ -414,7 +453,8 @@ else
                 prescribed.ExerciseId,
                 prescribed.ExerciseName,
                 Prescribed(prescribed),
-                Performed(today.Sets.Where(set => set.ExerciseId == prescribed.ExerciseId))))
+                Performed(today.Sets.Where(set => set.ExerciseId == prescribed.ExerciseId)),
+                prescribed.RestSeconds))
             .ToList();
 
         var extras = today.Sets
@@ -426,7 +466,8 @@ else
             null,
             ExerciseName(exerciseId),
             "—",
-            Performed(today.Sets.Where(set => set.ExerciseId == exerciseId)))));
+            Performed(today.Sets.Where(set => set.ExerciseId == exerciseId)),
+            0)));
 
         return rows;
     }
@@ -457,5 +498,6 @@ else
         Guid? ExerciseId,
         string ExerciseName,
         string Prescribed,
-        IReadOnlyList<string> Performed);
+        IReadOnlyList<string> Performed,
+        int RestSeconds);
 }

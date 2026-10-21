@@ -146,6 +146,46 @@ public sealed class WorkoutSeriesManagementTests
     }
 
     [Fact]
+    public async Task AddSeriesWorkout_WithoutRest_CountsTheDefaultRest()
+    {
+        var series = await SeedSeriesAsync(_trainer);
+
+        var created = await Add(Trainer).ExecuteAsync(
+            new AddSeriesWorkoutCommand(series.Id.Value, "Peito", [Input(_bench)]),
+            CancellationToken.None);
+
+        var exercise = Assert.Single(created.Exercises);
+        Assert.Equal(PrescribedExercise.DefaultRestSeconds, exercise.RestSeconds);
+    }
+
+    [Fact]
+    public async Task AddSeriesWorkout_WithRest_KeepsThePrescribedRest()
+    {
+        var series = await SeedSeriesAsync(_trainer);
+
+        var created = await Add(Trainer).ExecuteAsync(
+            new AddSeriesWorkoutCommand(series.Id.Value, "Peito", [Input(_bench, restSeconds: 90)]),
+            CancellationToken.None);
+
+        var exercise = Assert.Single(created.Exercises);
+        Assert.Equal(90, exercise.RestSeconds);
+    }
+
+    [Fact]
+    public async Task AddSeriesWorkout_WithRestOutOfRange_IsRefused()
+    {
+        var series = await SeedSeriesAsync(_trainer);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            Add(Trainer).ExecuteAsync(
+                new AddSeriesWorkoutCommand(series.Id.Value, "Peito", [Input(_bench, restSeconds: 601)]),
+                CancellationToken.None));
+
+        Assert.Equal("workout_series.exercise.prescription.invalid", exception.Code);
+        Assert.Empty(series.Workouts);
+    }
+
+    [Fact]
     public async Task AddSeriesWorkout_OfAnotherTrainer_Fails()
     {
         var series = await SeedSeriesAsync(_trainer);
@@ -381,6 +421,7 @@ public sealed class WorkoutSeriesManagementTests
         ExerciseId exercise,
         int sets = 3,
         int repetitions = 12,
-        decimal? load = 40m) =>
-        new(exercise.Value, sets, repetitions, load);
+        decimal? load = 40m,
+        int? restSeconds = null) =>
+        new(exercise.Value, sets, repetitions, load, restSeconds);
 }

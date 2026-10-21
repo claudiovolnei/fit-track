@@ -203,6 +203,28 @@ public sealed class WorkoutSeriesTests
         Assert.Null(exercise.LoadKilograms);
     }
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(601)]
+    public void PrescribedExercise_RestOutOfRange_Fails(int restSeconds)
+    {
+        var exception = Assert.Throws<DomainException>(() =>
+            _ = new PrescribedExercise(Bench, 3, 12, 40m, restSeconds));
+
+        Assert.Equal("workout_series.exercise.prescription.invalid", exception.Code);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(60)]
+    [InlineData(600)]
+    public void PrescribedExercise_RestInsideTheRange_IsAllowed(int restSeconds)
+    {
+        var exercise = new PrescribedExercise(Bench, 3, 12, 40m, restSeconds);
+
+        Assert.Equal(restSeconds, exercise.RestSeconds);
+    }
+
     private static WorkoutSeries Create() =>
         WorkoutSeries.Create(WorkoutSeriesId.New(), new WorkoutSeriesName("Hipertrofia A/B/C"), Trainer);
 

@@ -261,6 +261,7 @@ else
                         Sets = exercise.Sets,
                         Repetitions = exercise.Repetitions,
                         LoadKilograms = exercise.LoadKilograms,
+                        RestSeconds = exercise.RestSeconds,
                     }),
                 ],
             }),
@@ -270,7 +271,7 @@ else
     }
 
     private static IReadOnlyList<PrescribedExerciseRequest> Prescription(IEnumerable<PrescriptionRow> rows) =>
-        [.. rows.Select(row => new PrescribedExerciseRequest(row.ExerciseId, row.Sets, row.Repetitions, row.LoadKilograms))];
+        [.. rows.Select(row => new PrescribedExerciseRequest(row.ExerciseId, row.Sets, row.Repetitions, row.LoadKilograms, row.RestSeconds))];
 
     private void ResetNewWorkout()
     {

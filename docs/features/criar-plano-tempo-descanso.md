@@ -1,7 +1,7 @@
 # Tempo de descanso por exercício prescrito (plano) e cronômetro de descanso do atleta
 
 - **Slug:** `criar-plano-tempo-descanso`
-- **Status:** especificação (pré-implementação)
+- **Status:** implementado (2026-10-21)
 - **Data:** 2026-10-21
 - **Fatia única:** o tempo de descanso passa a fazer parte da prescrição (lado do personal) e é consumido por um cronômetro na tela Hoje (lado do atleta).
 
@@ -94,10 +94,11 @@ acabou. O fluxo atual é "registrar carga → registrar série", sem pausa guiad
 6. O modal tem um único botão pausar/retomar: pausar congela a contagem; retomar continua de onde
    parou. Fechar o modal não reseta o valor salvo da prescrição, mas descarta a contagem corrente
    (reabrir reinicia do valor prescrito); ver decisão D4.
-7. Quando a contagem chega a zero, o modal exibe um alerta ("Descanso concluído — próxima série!"),
-   travado até o atleta dispensar; o chip do exercício muda de estado visual enquanto o alerta está
-   aberto. O intervalo só chama `StateHasChanged` via `InvokeAsync`, como o tick existente, e a
-   página dispostada ignora ticks em trânsito (mesmo padrão de `OnTick` atual).
+7. Quando a contagem chega a zero, o modal exibe um alerta ("Descanso concluído"), travado até o
+   atleta dispensar; o chip do exercício não muda de estado visual — o alerta vive no modal, e o
+   modal só se fecha por ação do atleta (fechar, reiniciar). A contagem é uma classe pura com
+   relógio injetado (`RestCountdown`), testada em `FitTrack.Unit`; o modal só a desenha e a tica, e a
+   página dispensada ignora ticks em trânsito.
 
 ## 5. Regras de negócio / invariantes
 
@@ -178,12 +179,16 @@ Nenhum endpoint novo; os contratos de prescrição ganham um campo.
 Tabela `workout_series_workout_exercises` (chave composta
 `workout_series_workout_id + exercise_id`) ganha uma coluna:
 
-- `rest_seconds` — `integer`, `NOT NULL`, valor padrão `60` (EF: `.HasDefaultValue(60)`), sem
+- `RestSeconds` — `integer`, `NOT NULL`, valor padrão `60` (EF: `.HasDefaultValue(60)`), sem
   restrição de faixa no banco (a faixa é invariante do domínio; isto segue o padrão atual de `Sets`).
+  O nome da coluna segue a convenção da tabela (PascalCase, como `Sets` e `LoadKilograms`); o
+  `.HasSentinel(int.MinValue)` no modelo é o que impede o default de engolir o 0 — "sem descanso" é
+  um valor legítimo e precisa ser gravado como tal.
 
-Migração EF Core nova em `src/FitTrack.Adapters.Out.Persistence/Migrations/`; linhas existentes são
-preenchidas com 60 pelo default na criação da coluna. Snapshot atualizado. Sem dado tabelado novo em
-outras tabelas; `workout_sessions` e `performed_sets` não mudam.
+Migração EF Core `20261021150319_PrescriptionRestSeconds` em
+`src/FitTrack.Adapters.Out.Persistence/Migrations/`; linhas existentes são preenchidas com 60 pelo
+default na criação da coluna. Snapshot atualizado. Sem dado tabelado novo em outras tabelas;
+`workout_sessions` e `performed_sets` não mudam.
 
 ### Value objects / dtos tocados
 
@@ -199,8 +204,9 @@ outras tabelas; `workout_sessions` e `performed_sets` não mudam.
 ### 10.1 Editor do personal
 
 - `PrescriptionEditor.razor`: campo `number` por linha, `min="0"`, `max="600"`, `step="1"`,
-  `inputmode="numeric"`, label "Descanso (s)", `placeholder` quando o valor veio implícito (60) — o
-  padrão continua: o editor mostra o valor efetivo, não um placeholder eterno.
+  `inputmode="numeric"`, label "Descanso (s)". O editor mostra o **valor efetivo** (60 quando o
+  personal não mexeu), não um placeholder eterno — o `placeholder` previsto na especificação inicial
+  foi descartado por isso.
 - `PrescriptionRow` ganha `int RestSeconds { get; set; } = 60;`.
 - `SeriesDetail.razor` carrega `RestSeconds` ao hidratar `WorkoutRow` e envia no
   `PrescribedExerciseRequest`. Mensagem de erro traduzida no bloco de `_error` existente.
@@ -209,11 +215,12 @@ outras tabelas; `workout_sessions` e `performed_sets` não mudam.
 
 - Chip de descanso dentro da linha de cada exercício prescrito (nos dois estados do card: "a fazer"
   e "em andamento"), texto "⏱ 90s" com `aria-label="Descanso prescrito de {exercício}: 90 segundos"`.
-- Componente novo `src/FitTrack.UI/Components/RestTimerModal.razor` (dialog nativo ou overlay atual
-  do design system, o que a estrutura atual já usa): título "Descanso", exercício, contagem `mm:ss`,
-  botão pausar/retomar único com ícone/troca de rótulo, alerta de conclusão com chip de sucesso.
-- Estado da contagem é `Dictionary<Guid(workoutId/exerciseId), RestTimerState>` local à página,
-  seguindo o padrão do `_loads` atual; nada cruza HTTP.
+- Componente novo `src/FitTrack.UI/Components/RestTimerModal.razor` (overlay do design system):
+  título "Descanso", exercício, contagem `mm:ss`, botão pausar/retomar único com troca de rótulo,
+  alerta de conclusão com botão "Reiniciar descanso".
+- A regra da contagem mora em `src/FitTrack.UI/Components/RestCountdown.cs` — classe pura com
+  relógio injetado, testada em `tests/FitTrack.Unit/Application/RestCountdownTests.cs`. O estado
+  fica **no modal** (uma instância por abertura): fechar descarta a contagem e nada cruza HTTP.
 
 ## 11. Critérios de aceite
 
@@ -300,7 +307,7 @@ outras tabelas; `workout_sessions` e `performed_sets` não mudam.
 | ID | Decisão | Recomendação |
 | --- | --- | --- |
 | **D1** | Nome público do campo (`restSeconds` é o candidato) | `restSeconds`, alinhado ao estilo `loadKilograms` (nome completo, snake case camelCase do JSON). |
-| **D2** | Coluna `rest_seconds` com default no banco vs. campo opcional (nulo = 60) projetado na leitura | Coluna `NOT NULL` com `DEFAULT 60`: a leitura não precisa normalizar e o dado é explícito. |
+| **D2** | Coluna `RestSeconds` com default no banco vs. campo opcional (nulo = 60) projetado na leitura | Coluna `NOT NULL` com `DEFAULT 60`: a leitura não precisa normalizar e o dado é explícito. |
 | **D3** | Faixa permitida: 0–600 com 0 = "sem descanso", ou mínimo 10 | 0–600: dá flexibilidade ("sem descanso") e evita recuperar o atributo depois; a UI pode orientar "0 = sem descanso". |
 | **D4** | Fechar o modal: descarta a contagem ou mantém rodando em segundo plano? | Descarta e reinicia do valor prescrito ao reabrir (simples e previsível); manter rodando em segundo plano adiciona estado que ninguém pediu nesta fatia. |
 | **D5** | Iniciar o cronômetro automaticamente ao registrar uma série do exercício | Fora de escopo agora; fica um follow-up bom, dependendo do feedback dos atletas. |

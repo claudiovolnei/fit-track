@@ -49,6 +49,14 @@
                                @bind="row.LoadKilograms" @bind:culture="CultureInfo.InvariantCulture" />
                     </div>
 
+                    <div class="field">
+                        <label for="prescription-rest-@prefix">Descanso (s)</label>
+                        @* The range (0–600) and the default (60) belong to the domain; the API refuses
+                           whatever is out of it, so the field only mirrors what the domain states. *@
+                        <input id="prescription-rest-@prefix" type="number" inputmode="numeric"
+                               min="0" max="600" step="1" @bind="row.RestSeconds" />
+                    </div>
+
                     <button class="btn btn-ghost btn-sm prescription-remove" type="button"
                             aria-label="Remover exercício" @onclick="() => RemoveRow(row)">
                         <AppIcon Name="trash" Size="16" />

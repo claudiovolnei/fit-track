@@ -28,7 +28,7 @@ public static class ErrorMessages
         ["workout_series.exercise.required"] = "Escolha o exercício.",
         ["workout_series.exercise.duplicate"] = "Esse exercício já está na prescrição do treino.",
         ["workout_series.exercise.prescription.invalid"] =
-            "Revise a prescrição: séries, repetições e carga precisam ser positivas.",
+            "Revise a prescrição: séries (1–20), repetições (1–100), carga (≥ 0) e descanso (0–600 s).",
         ["workout_series.assignment.athlete.required"] = "Escolha o atleta da série.",
         ["workout_series.assignment.expired"] =
             "A série venceu, então não dá para começar um treino novo. Um treino já iniciado ainda pode ser finalizado.",

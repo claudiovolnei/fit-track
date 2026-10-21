@@ -1,0 +1,149 @@
+@* Modal with a countdown for the rest between sets. The count lives in the component, so closing it
+   discards the count (the spec: the modal does not persist across close). The rule of the count lives
+   in <see cref="RestCountdown"/>, a plain class with an injected clock, so it is testable on its own;
+   this component only draws it and ticks it. *@
+
+<div class="modal-backdrop" @onclick="OnClose">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Cronômetro de descanso"
+         @onclick:stopPropagation="true">
+        <h3 class="modal-title">Descanso — @ExerciseName</h3>
+
+        <div class="rest-timer-value">@RestCountdown.Format(Countdown.Remaining)</div>
+
+        @if (Countdown.Finished)
+        {
+            <div class="alert alert--info" style="margin: 12px 0;">
+                <AppIcon Name="info" Size="18" />
+                <span>Descanso concluído</span>
+            </div>
+        }
+
+        <div class="actions" style="margin-top: 16px;">
+            @if (!Countdown.Finished)
+            {
+                <button class="btn btn-primary" type="button" @onclick="Toggle">
+                    @(Countdown.Paused ? "Continuar" : "Pausar")
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-primary" type="button" @onclick="Restart">
+                    Reiniciar descanso
+                </button>
+            }
+            <button class="btn btn-ghost" type="button" @onclick="OnClose">Fechar</button>
+        </div>
+    </div>
+</div>
+
+@implements IDisposable
+
+@code {
+    [Parameter, EditorRequired]
+    public int Seconds { get; set; }
+
+    [Parameter]
+    public string? ExerciseName { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private RestCountdown Countdown { get; set; } = new(0, () => DateTimeOffset.UtcNow);
+
+    private CancellationTokenSource? _cancellation;
+    private Task? _ticking;
+
+    protected override void OnInitialized()
+    {
+        Countdown = new RestCountdown(Seconds, () => DateTimeOffset.UtcNow);
+
+        StartTicking();
+    }
+
+    /// <summary>
+    /// The exercise behind the timer may change while the modal is open: the count is rearmed so the
+    /// title and the duration never disagree.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (Countdown.Seconds != Seconds)
+        {
+            Countdown.Rearm(Seconds);
+            StartTicking();
+        }
+    }
+
+    public void Dispose()
+    {
+        StopTicking();
+    }
+
+    private void Toggle()
+    {
+        if (Countdown.Paused)
+        {
+            Countdown.Resume();
+        }
+        else
+        {
+            Countdown.Pause();
+        }
+    }
+
+    private void Restart()
+    {
+        Countdown.Restart();
+
+        StartTicking();
+    }
+
+    /// <summary>
+    /// Ticks the count. The await resumes on the renderer's context, so the render is scheduled where
+    /// it belongs — no dispatcher hop and no <c>async void</c> that could throw on the way out.
+    /// </summary>
+    private async Task TickAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested && !Countdown.Finished)
+            {
+                await Task.Delay(1000, cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The modal closed while the tick was waiting.
+        }
+        catch (ObjectDisposedException)
+        {
+            // The modal left the scene while this tick was still on its way.
+        }
+        catch (InvalidOperationException)
+        {
+            // The render handle is no longer valid because the component was disposed.
+        }
+    }
+
+    private void StartTicking()
+    {
+        StopTicking();
+
+        _cancellation = new CancellationTokenSource();
+        _ticking = TickAsync(_cancellation.Token);
+    }
+
+    private void StopTicking()
+    {
+        _cancellation?.Cancel();
+        _cancellation?.Dispose();
+        _cancellation = null;
+        _ticking = null;
+    }
+}

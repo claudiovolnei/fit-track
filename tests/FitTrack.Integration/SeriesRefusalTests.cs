@@ -55,6 +55,10 @@ public sealed class SeriesRefusalTests(FitTrackApiFactory factory) : IClassFixtu
             "Peito e Tríceps",
             async trainer => [Prescriptions.For((await SeriesArrange.NewExerciseAsync(trainer)).Id, sets: 0)]),
 
+        SeriesRefusals.WorkoutRestOutOfRange => await AtANewWorkoutAsync(
+            "Peito e Tríceps",
+            async trainer => [Prescriptions.For((await SeriesArrange.NewExerciseAsync(trainer)).Id, restSeconds: 601)]),
+
         SeriesRefusals.WorkoutLimitReached => await WhenSignedInAsync(SixthWorkoutAsync),
 
         SeriesRefusals.WorkoutRemovedTwice => await WhenSignedInAsync(RemovingTheSameWorkoutTwiceAsync),

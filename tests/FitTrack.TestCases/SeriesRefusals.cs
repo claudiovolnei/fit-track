@@ -30,6 +30,8 @@ public static class SeriesRefusals
 
     public const string WorkoutPrescriptionOutOfRange = "workout-prescription-out-of-range";
 
+    public const string WorkoutRestOutOfRange = "workout-rest-out-of-range";
+
     public const string WorkoutLimitReached = "workout-limit-reached";
 
     public const string WorkoutRemovedTwice = "workout-removed-twice";
@@ -47,6 +49,7 @@ public static class SeriesRefusals
         new(WorkoutPrescriptionEmpty, "workout_series.workout.exercises.empty"),
         new(WorkoutPrescriptionDuplicateExercise, "workout_series.exercise.duplicate"),
         new(WorkoutPrescriptionOutOfRange, "workout_series.exercise.prescription.invalid"),
+        new(WorkoutRestOutOfRange, "workout_series.exercise.prescription.invalid"),
         new(WorkoutLimitReached, "workout_series.workout.limit_reached"),
         new(WorkoutRemovedTwice, "workout_series.workout.not_found"),
         new(AssignmentExpired, "workout_series.assignment.expired"),
