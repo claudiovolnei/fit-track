@@ -285,6 +285,13 @@ development-only. Real environments must supply `Jwt:SigningKey` and the connect
 configuration or secrets. Aspire stores PostgreSQL data in the `fittrack-postgres-data` volume, so the
 database survives an AppHost restart.
 
+## Deploy
+
+Production runs the API as a Docker image on Render's free plan, PostgreSQL on Neon's free plan and
+the Blazor client as static assets on Cloudflare Workers. `render.yaml` is the Render Blueprint; the
+step-by-step cut-over, free-tier limits and rollback are in
+[docs/deploy/render-neon.md](docs/deploy/render-neon.md).
+
 ## Tests
 
 ```bash

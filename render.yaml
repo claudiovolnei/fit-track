@@ -1,0 +1,47 @@
+# Render Blueprint for the FitTrack API.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Deploy:
+#   1. Create a Neon project and copy the pooled connection string.
+#   2. In Render, New > Blueprint, point at this repository and apply this file.
+#   3. Fill the two secrets marked `sync: false` in the service's Environment tab:
+#        ConnectionStrings__fittrack  -> Neon, ending in "SSL Mode=Require"
+#        Jwt__SigningKey              -> at least 32 random characters
+#   4. Point the Cloudflare Workers build variable API_BASE_URL at the service URL.
+#
+# Free plan limits that matter here: the service sleeps after 15 idle minutes and wakes in
+# about a minute; the filesystem is ephemeral, so the API keeps nothing on disk. The
+# DataProtection key ring is therefore in memory: password-reset tokens do not survive a
+# restart, and the admin reset flow consumes its token in the same request.
+
+services:
+  - type: web
+    name: fittrack-api-claudiovolnei
+    runtime: docker
+    plan: free
+    region: ohio
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # Render routes to the port in PORT (10000 by default), which the Dockerfile does not know.
+      - key: ASPNETCORE_URLS
+        value: http://+:10000
+      # Applies the EF Core migrations on boot. Keep it true on the single free instance.
+      - key: Database__MigrateOnStartup
+        value: "true"
+      # Browser origins served by Cloudflare Workers. One numbered entry per origin.
+      - key: Cors__AllowedOrigins__0
+        value: https://fit-track.claudiovolneisilva.workers.dev
+      - key: Cors__AllowedOrigins__1
+        value: https://fit-track-treinos.com.br
+      - key: Cors__AllowedOrigins__2
+        value: https://www.fit-track-treinos.com.br
+      - key: ConnectionStrings__fittrack
+        sync: false
+      - key: Jwt__SigningKey
+        sync: false

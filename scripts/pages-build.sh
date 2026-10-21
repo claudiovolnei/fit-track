@@ -3,13 +3,14 @@
 #
 # The Workers build image has no .NET 10 SDK, so the SDK is installed on the fly.
 # Environment variables (Workers > Settings > Build > Build variables and secrets):
-#   API_BASE_URL    Optional, defaults to the Fly.io API below
+#   API_BASE_URL    Optional, defaults to the Render API below
 #   DOTNET_VERSION  Optional, defaults to 10.0
 set -euo pipefail
 
 DOTNET_VERSION="${DOTNET_VERSION:-10.0}"
-# Public API URL. Override with a build variable in Cloudflare Workers if it ever changes.
-API_BASE_URL="${API_BASE_URL:-https://fittrack-api-claudiovolnei.fly.dev}"
+# Public API URL. The Render blueprint names the service after this subdomain; override with a
+# build variable in Cloudflare Workers if the host assigns another URL or a custom domain.
+API_BASE_URL="${API_BASE_URL:-https://fittrack-api-claudiovolnei.onrender.com}"
 
 curl -sSL https://dot.net/v1/dotnet-install.sh \
   | bash -s -- --channel "$DOTNET_VERSION" --install-dir "$HOME/.dotnet"

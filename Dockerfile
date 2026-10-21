@@ -23,7 +23,8 @@ RUN dotnet publish src/FitTrack.Adapters.In.Api/FitTrack.Adapters.In.Api.csproj 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
-# Fly terminates TLS and forwards over HTTP to this port.
+# The reverse proxy terminates TLS and forwards over HTTP to this port. Hosts that assign a
+# different port (Render uses 10000) override ASPNETCORE_URLS in the service environment.
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_FORWARDEDHEADERS_ENABLED=true \
     DOTNET_NOLOGO=true
