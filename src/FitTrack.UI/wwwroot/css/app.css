@@ -2319,6 +2319,7 @@ code {
 
 .pagination {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 12px;
@@ -2329,7 +2330,10 @@ code {
     color: var(--muted);
     font-size: 0.82rem;
     font-variant-numeric: tabular-nums;
-    min-width: 110px;
+    /* Fixed widths are what pushed the shared card over the viewport on the catalog
+       screens: the row's min-content (two buttons + this span) must shrink on narrow
+       phones, with wrap as the last resort, instead of scrolling the whole page. */
+    min-width: clamp(88px, 20vw, 110px);
     text-align: center;
 }
 
