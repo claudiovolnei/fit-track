@@ -200,6 +200,9 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.Property<DateTimeOffset>("AssignedAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamptz");
+
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamptz");
 

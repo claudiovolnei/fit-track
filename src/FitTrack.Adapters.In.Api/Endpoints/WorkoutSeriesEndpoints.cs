@@ -24,6 +24,15 @@ internal static class WorkoutSeriesEndpoints
         athletes.MapPost("/{userId:guid}/trainer", LinkTrainerAsync);
         athletes.MapDelete("/{userId:guid}/trainer", UnlinkTrainerAsync);
 
+        // The cycle of a series belongs to the personal trainer: the administrator links people, the
+        // trainer decides the plan. Its own group, so the policy says that without touching the
+        // roster's.
+        var cycles = app.MapGroup("/athletes/{athleteId:guid}/series")
+            .WithTags("Workout series")
+            .RequireAuthorization(Policies.PersonalTrainerOnly);
+
+        cycles.MapPost("/end", EndSeriesAsync);
+
         var series = app.MapGroup("/workout-series")
             .WithTags("Workout series")
             .RequireAuthorization(Policies.PersonalTrainerOnly);
@@ -124,15 +133,29 @@ internal static class WorkoutSeriesEndpoints
     }
 
     private static async Task<IResult> CreateSeriesAsync(
-        SetWorkoutSeriesNameRequest request,
+        CreateWorkoutSeriesRequest request,
         ICreateWorkoutSeries useCase,
         CancellationToken cancellationToken)
     {
         var series = await useCase.ExecuteAsync(
-            new CreateWorkoutSeriesCommand(request.Name, request.AthleteId),
+            new CreateWorkoutSeriesCommand(request.Name, request.AthleteId, request.CopyPreviousWorkouts),
             cancellationToken);
 
         return Results.Created($"/workout-series/{series.Id}", series);
+    }
+
+    /// <summary>
+    /// Ends the cycle the athlete is in: the athlete is left without a series, so the trainer can
+    /// create the next one when the time comes.
+    /// </summary>
+    private static async Task<IResult> EndSeriesAsync(
+        Guid athleteId,
+        IEndWorkoutSeries useCase,
+        CancellationToken cancellationToken)
+    {
+        await useCase.ExecuteAsync(new EndWorkoutSeriesCommand(athleteId), cancellationToken);
+
+        return Results.NoContent();
     }
 
     private static async Task<IResult> GetSeriesAsync(

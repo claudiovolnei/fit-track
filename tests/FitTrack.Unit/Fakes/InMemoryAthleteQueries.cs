@@ -18,6 +18,8 @@ internal sealed class InMemoryAthleteQueries : IQueryAthletes
         public string? SeriesName { get; set; }
 
         public DateTimeOffset? ExpiresAt { get; set; }
+
+        public string? EndedSeriesName { get; set; }
     }
 
     private readonly List<Entry> _athletes = [];
@@ -39,6 +41,20 @@ internal sealed class InMemoryAthleteQueries : IQueryAthletes
         entry.SeriesId = seriesId;
         entry.SeriesName = seriesName;
         entry.ExpiresAt = expiresAt;
+    }
+
+    /// <summary>
+    /// The cycle the trainer closed: the athlete follows nothing, and the series of the cycle stays
+    /// named, the way the roster shows it.
+    /// </summary>
+    public void CloseSeries(Guid userId, string seriesName)
+    {
+        var entry = _athletes.Single(athlete => athlete.UserId == userId);
+
+        entry.SeriesId = null;
+        entry.SeriesName = null;
+        entry.ExpiresAt = null;
+        entry.EndedSeriesName = seriesName;
     }
 
     public void Link(Guid trainerId, Guid athleteId)
@@ -111,7 +127,9 @@ internal sealed class InMemoryAthleteQueries : IQueryAthletes
             athlete.Email,
             athlete.SeriesId,
             athlete.SeriesName,
-            DaysRemaining(athlete.ExpiresAt, now));
+            DaysRemaining(athlete.ExpiresAt, now),
+            PersonalTrainerEmail: null,
+            EndedSeriesName: athlete.EndedSeriesName);
 
     private static AthleteDto ToDto(Entry athlete, DateTimeOffset now, Guid trainerId) =>
         trainerId == Guid.Empty

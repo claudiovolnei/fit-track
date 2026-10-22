@@ -11,15 +11,25 @@ internal static class WorkoutSeriesAssignmentMapper
     /// Rehydrates through <see cref="WorkoutSeriesAssignment.Assign"/>, which recomputes the term from
     /// the stored <c>AssignedAt</c>: the 60-day rule keeps a single implementation instead of a second
     /// copy that could drift from the column. The stored <c>ExpiresAt</c> exists for the queries and
-    /// the expiry index.
+    /// the expiry index. A cycle closed early is rehydrated through
+    /// <see cref="WorkoutSeriesAssignment.Close"/>, so the stored instant is the one the rule keeps.
     /// </summary>
-    public static WorkoutSeriesAssignment ToDomain(WorkoutSeriesAssignmentRecord record) =>
-        WorkoutSeriesAssignment.Assign(
+    public static WorkoutSeriesAssignment ToDomain(WorkoutSeriesAssignmentRecord record)
+    {
+        var assignment = WorkoutSeriesAssignment.Assign(
             new WorkoutSeriesAssignmentId(record.Id),
             new WorkoutSeriesId(record.WorkoutSeriesId),
             new UserId(record.UserId),
             new UserId(record.TrainerId),
             record.AssignedAt);
+
+        if (record.ClosedAt is { } closedAt)
+        {
+            assignment.Close(closedAt);
+        }
+
+        return assignment;
+    }
 
     public static WorkoutSeriesAssignmentRecord ToRecord(WorkoutSeriesAssignment assignment) => new()
     {
@@ -29,6 +39,7 @@ internal static class WorkoutSeriesAssignmentMapper
         TrainerId = assignment.TrainerId.Value,
         AssignedAt = assignment.AssignedAt,
         ExpiresAt = assignment.ExpiresAt,
+        ClosedAt = assignment.ClosedAt,
     };
 
     public static void CopyInto(WorkoutSeriesAssignment assignment, WorkoutSeriesAssignmentRecord record)
@@ -37,5 +48,6 @@ internal static class WorkoutSeriesAssignmentMapper
         record.TrainerId = assignment.TrainerId.Value;
         record.AssignedAt = assignment.AssignedAt;
         record.ExpiresAt = assignment.ExpiresAt;
+        record.ClosedAt = assignment.ClosedAt;
     }
 }

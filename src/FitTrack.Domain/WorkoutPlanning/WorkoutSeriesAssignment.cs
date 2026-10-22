@@ -4,9 +4,10 @@ using FitTrack.Domain.Identity;
 namespace FitTrack.Domain.WorkoutPlanning;
 
 /// <summary>
-/// The link between one athlete and the one series they are following. It is an aggregate of its own
-/// because the series is a reusable template: the same series is assigned to many athletes, each with
-/// their own term. The term is fixed at <see cref="TermInDays"/> days, counted from the assignment.
+/// The link between one athlete and the one series they are following, with its own term. The term is
+/// fixed at <see cref="TermInDays"/> days, counted from the assignment. A cycle the trainer closes
+/// early is kept as <see cref="ClosedAt"/>: the athlete follows nothing from then on, but the series
+/// they were doing stays reachable, so the next cycle can start from the same sheet.
 /// </summary>
 public sealed class WorkoutSeriesAssignment
 {
@@ -43,6 +44,15 @@ public sealed class WorkoutSeriesAssignment
     /// <summary>The instant the term ends. From here on the athlete can no longer start a new workout.</summary>
     public DateTimeOffset ExpiresAt { get; private set; }
 
+    /// <summary>
+    /// The instant the trainer closed the cycle before the term was over. Null while the athlete is
+    /// following the series.
+    /// </summary>
+    public DateTimeOffset? ClosedAt { get; private set; }
+
+    /// <summary>True while the athlete follows the series.</summary>
+    public bool IsOpen => ClosedAt is null;
+
     public static WorkoutSeriesAssignment Assign(
         WorkoutSeriesAssignmentId id,
         WorkoutSeriesId seriesId,
@@ -71,13 +81,23 @@ public sealed class WorkoutSeriesAssignment
             assignedAt.AddDays(TermInDays));
     }
 
-    /// <summary>Points the athlete at another series and restarts the term from the new assignment.</summary>
+    /// <summary>Points the athlete at another series and restarts the term from now.</summary>
     public void Reassign(WorkoutSeriesId seriesId, UserId trainerId, DateTimeOffset assignedAt)
     {
         SeriesId = seriesId;
         TrainerId = trainerId;
         AssignedAt = assignedAt;
         ExpiresAt = assignedAt.AddDays(TermInDays);
+        ClosedAt = null;
+    }
+
+    /// <summary>
+    /// Closes the cycle before the term is over. The athlete follows nothing from now on, and the
+    /// series they were doing stays reachable, so the next cycle can start from the same sheet.
+    /// </summary>
+    public void Close(DateTimeOffset closedAt)
+    {
+        ClosedAt ??= closedAt;
     }
 
     /// <summary>True from the instant the term ends on. Evaluated against the instant the caller passes.</summary>

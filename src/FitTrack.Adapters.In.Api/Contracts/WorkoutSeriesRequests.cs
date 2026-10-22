@@ -6,6 +6,15 @@ namespace FitTrack.Adapters.In.Api.Contracts;
 /// </summary>
 internal sealed record SetWorkoutSeriesNameRequest(string Name, Guid? AthleteId = null);
 
+/// <summary>
+/// HTTP contract for creating a series. It carries more than the name because a series born for an
+/// athlete can start from the sheet of the cycle they are coming from.
+/// </summary>
+internal sealed record CreateWorkoutSeriesRequest(
+    string Name,
+    Guid? AthleteId = null,
+    bool CopyPreviousWorkouts = false);
+
 /// <summary>HTTP contract for the name and the prescription of one workout of a series.</summary>
 internal sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<PrescribedExerciseRequest> Exercises);
 

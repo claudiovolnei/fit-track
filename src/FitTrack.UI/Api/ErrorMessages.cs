@@ -32,6 +32,8 @@ public static class ErrorMessages
         ["workout_series.assignment.athlete.required"] = "Escolha o atleta da série.",
         ["workout_series.assignment.expired"] =
             "A série venceu, então não dá para começar um treino novo. Um treino já iniciado ainda pode ser finalizado.",
+        ["workout_series.assignment.running"] =
+            "O atleta tem um treino em andamento. Finalize o treino antes de vencer a série.",
 
         // Today's workout
         ["session.set.workout.required"] = "Esse treino não veio de uma série.",

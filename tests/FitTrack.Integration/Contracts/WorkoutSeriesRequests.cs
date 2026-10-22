@@ -7,6 +7,15 @@ namespace FitTrack.Integration.Contracts;
 public sealed record SetWorkoutSeriesNameRequest(string Name, Guid? AthleteId = null);
 
 /// <summary>
+/// Request body for creating a series. It carries more than the name because a series born for an
+/// athlete can start from the sheet of the cycle they are coming from.
+/// </summary>
+public sealed record CreateWorkoutSeriesRequest(
+    string Name,
+    Guid? AthleteId = null,
+    bool CopyPreviousWorkouts = false);
+
+/// <summary>
 /// Request body for one prescribed exercise. The load is nullable because a bodyweight exercise has no
 /// weight to prescribe.
 /// </summary>

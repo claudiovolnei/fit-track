@@ -26,6 +26,15 @@ internal sealed class InMemoryUserSessionQueries : IQueryUserSessions
         Task.FromResult<IReadOnlyList<WorkoutSessionDto>>(
             _sessions.Where(entry => entry.UserId == userId).Select(entry => entry.Session).ToList());
 
+    public Task<bool> HasRunningSessionAsync(
+        UserId userId,
+        DateOnly workoutDate,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(_sessions.Any(entry =>
+            entry.UserId == userId
+            && entry.Session.WorkoutDate == workoutDate
+            && entry.Session.FinishedAt is null));
+
     public Task<WorkoutHistoryDto> ListByUserAsync(
         UserId userId,
         ListQuery query,

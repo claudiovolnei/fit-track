@@ -17,7 +17,7 @@ internal sealed class AthleteQueries(FitTrackDbContext dbContext) : IQueryAthlet
     private sealed record AthleteRow(Guid Id, string? Email);
 
     /// <summary>What the athlete follows, until the days left are counted at the read instant.</summary>
-    private sealed record FollowedSeries(Guid SeriesId, string Name, DateTimeOffset ExpiresAt);
+    private sealed record FollowedSeries(Guid SeriesId, string Name, DateTimeOffset ExpiresAt, bool IsClosed);
 
     public async Task<PagedResult<AthleteDto>> ListAsync(
         DateTimeOffset now,
@@ -117,13 +117,18 @@ internal sealed class AthleteQueries(FitTrackDbContext dbContext) : IQueryAthlet
             {
                 var series = followed.GetValueOrDefault(athlete.Id);
 
+                // A cycle the trainer closed early is no longer followed: the athlete has no series
+                // until the next one is created, and the sheet stays named for the next cycle.
+                var active = series is null || series.IsClosed ? null : series;
+
                 return new AthleteDto(
                     athlete.Id,
                     athlete.Email!,
-                    series?.SeriesId,
-                    series?.Name,
-                    series is null ? 0 : WorkoutSeriesAssignment.DaysRemainingUntil(series.ExpiresAt, now),
-                    trainers.GetValueOrDefault(athlete.Id));
+                    active?.SeriesId,
+                    active?.Name,
+                    active is null ? 0 : WorkoutSeriesAssignment.DaysRemainingUntil(active.ExpiresAt, now),
+                    trainers.GetValueOrDefault(athlete.Id),
+                    series is { IsClosed: true } ? series.Name : null);
             })
             .ToList();
 
@@ -143,7 +148,11 @@ internal sealed class AthleteQueries(FitTrackDbContext dbContext) : IQueryAthlet
                 (assignment, series) => new
                 {
                     assignment.UserId,
-                    Series = new FollowedSeries(series.Id, series.Name, assignment.ExpiresAt),
+                    Series = new FollowedSeries(
+                        series.Id,
+                        series.Name,
+                        assignment.ExpiresAt,
+                        assignment.ClosedAt != null),
                 })
             .ToDictionaryAsync(entry => entry.UserId, entry => entry.Series, cancellationToken);
 

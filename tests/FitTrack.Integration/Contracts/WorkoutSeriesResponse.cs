@@ -51,4 +51,5 @@ public sealed record AthleteResponse(
     Guid? WorkoutSeriesId,
     string? WorkoutSeriesName,
     int DaysRemaining,
-    string? PersonalTrainerEmail = null);
+    string? PersonalTrainerEmail = null,
+    string? EndedSeriesName = null);

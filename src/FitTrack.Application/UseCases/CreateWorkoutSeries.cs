@@ -12,7 +12,7 @@ namespace FitTrack.Application.UseCases;
 /// <summary>
 /// Creates a reusable workout series. The name is unique per trainer, checked here so the caller gets
 /// a stated rule instead of the raw unique-index error. Restricted to personal trainers, who can only
-/// assign the series to athletes on their own roster — the roster of the athlete side is the check.
+/// assign the series to athletes on their own roster: the roster of the athlete side is the check.
 /// </summary>
 public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
 {
@@ -82,6 +82,11 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
             }
         }
 
+        // The link the athlete follows, closed or not: it is where the sheet of the last cycle lives.
+        var existing = athleteId is null
+            ? null
+            : await _assignments.GetByUserIdAsync(athleteId.Value, cancellationToken);
+
         var series = WorkoutSeries.Create(
             new WorkoutSeriesId(_idGenerator.NewId()),
             name,
@@ -90,14 +95,34 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
 
         await _series.SaveAsync(series, cancellationToken);
 
+        if (command.CopyPreviousWorkouts && existing is not null)
+        {
+            // The prescription travels with the cycle: the trainer moves the loads, not the sheet.
+            var source = await _series.GetByIdAsync(existing.SeriesId, cancellationToken);
+
+            if (source is not null)
+            {
+                foreach (var workout in source.Workouts)
+                {
+                    series.AddWorkout(
+                        new WorkoutSeriesWorkoutId(_idGenerator.NewId()),
+                        workout.Name,
+                        [.. workout.Exercises]);
+                }
+
+                // The workouts are rows of their own: they are inserted by the same path the
+                // trainer uses when composing a series by hand.
+                await _series.SaveAsync(series, cancellationToken);
+            }
+        }
+
         // When the series is created for a specific athlete, the link and the 60-day term start
-        // right away -?" there is no separate "assign" step anymore. If the athlete already had a
+        // right away: there is no separate "assign" step anymore. If the athlete already had a
         // series, the existing link is reused (reassign) instead of inserting a second one.
         if (athleteId is not null)
         {
-            var existing = await _assignments.GetByUserIdAsync(athleteId.Value, cancellationToken);
-
             WorkoutSeriesAssignment assignment;
+
             if (existing is null)
             {
                 assignment = WorkoutSeriesAssignment.Assign(

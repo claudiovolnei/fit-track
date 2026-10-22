@@ -68,6 +68,18 @@ internal sealed class UserSessionQueries(FitTrackDbContext dbContext, IClock clo
             WorkoutVolumeCalculator.Summarize(summarySessions));
     }
 
+    public Task<bool> HasRunningSessionAsync(
+        UserId userId,
+        DateOnly workoutDate,
+        CancellationToken cancellationToken) =>
+        dbContext.WorkoutSessions
+            .AsNoTracking()
+            .AnyAsync(
+                session => session.UserId == userId.Value
+                    && session.WorkoutDate == workoutDate
+                    && session.FinishedAt == null,
+                cancellationToken);
+
     private async Task<IReadOnlyList<WorkoutSessionDto>> ComposeAsync(
         IReadOnlyList<WorkoutSessionRow> rows,
         CancellationToken cancellationToken)

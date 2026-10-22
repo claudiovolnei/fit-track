@@ -47,7 +47,7 @@ internal sealed class InMemoryWorkoutSeriesQueries(
         CancellationToken cancellationToken)
     {
         var assignment = assignments.All.FirstOrDefault(candidate => candidate.UserId == userId);
-        var assigned = assignment is null
+        var assigned = assignment is null || !assignment.IsOpen
             ? null
             : series.All.FirstOrDefault(candidate => candidate.Id == assignment.SeriesId);
 

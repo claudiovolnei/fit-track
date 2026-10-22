@@ -91,6 +91,12 @@ else
                     else if (athlete.SeriesId is null)
                     {
                         <span class="chip">Sem série vinculada</span>
+                        @if (athlete.EndedSeriesName is not null)
+                        {
+                            <span class="muted" style="font-size: 0.76rem;">
+                                Ciclo anterior: @athlete.EndedSeriesName
+                            </span>
+                        }
                     }
                     else
                     {
@@ -113,16 +119,18 @@ else
                     <div class="inline-form" style="margin-top: 12px;">
                         <div class="field">
                             <label for="trainer-for-@athlete.UserId">Personal que recebe o atleta</label>
-                            <select id="trainer-for-@athlete.UserId" @bind="_linkTrainerId">
-                                @foreach (var trainer in _trainers)
-                                {
-                                    <option value="@trainer.UserId">@DisplayText.NameFromEmail(trainer.Email)</option>
-                                }
-                            </select>
+                            <SearchableSelect Id="@($"trainer-for-{athlete.UserId}")"
+                                              Options="TrainerOptions"
+                                              Value="_linkTrainerId"
+                                              ValueChanged="SetLinkTrainer"
+                                              Placeholder="Selecione um personal…"
+                                              FilterPlaceholder="Buscar por nome ou e-mail"
+                                              EmptyText="Nenhum personal encontrado"
+                                              AriaLabel="Personal que recebe o atleta" />
                         </div>
                         <div class="actions">
                             <button class="btn btn-primary btn-sm" type="button"
-                                    disabled="@(_busy || _trainers.Count == 0)"
+                                    disabled="@(_busy || _linkTrainerId == Guid.Empty)"
                                     @onclick="() => LinkAsync(athlete.UserId)">
                                 <AppIcon Name="plus" Size="16" />
                                 Vincular
@@ -143,6 +151,13 @@ else
                             <input id="series-for-@athlete.UserId" maxlength="80" placeholder="Ex.: Hipertrofia — 4 dias"
                                    @bind="_newSeriesName" @bind:event="oninput" />
                         </div>
+                        @if (athlete.EndedSeriesName is not null)
+                        {
+                            <label class="switch">
+                                <input type="checkbox" @bind="_copyPreviousWorkouts" />
+                                Reaproveitar os treinos de @athlete.EndedSeriesName
+                            </label>
+                        }
                         <div class="actions">
                             <button class="btn btn-primary btn-sm" type="button"
                                     disabled="@(_busy || string.IsNullOrWhiteSpace(_newSeriesName))"
@@ -194,6 +209,15 @@ else
                             Nova série para este atleta
                         </button>
 
+                        @if (athlete.SeriesId is not null)
+                        {
+                            <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                                    @onclick="() => EndSeriesAsync(athlete.UserId)">
+                                <AppIcon Name="check-circle" Size="16" />
+                                @(IsEnding(athlete.UserId) ? "Confirmar?" : "Vencer série atual")
+                            </button>
+                        }
+
                         <button class="btn btn-danger btn-sm" type="button" disabled="@_busy"
                                 @onclick="() => UnlinkAsync(athlete.UserId)">
                             <AppIcon Name="logout" Size="16" />
@@ -232,14 +256,23 @@ else
     private string? _error;
     private Guid? _creatingFor;
     private Guid? _linkingFor;
+    private Guid? _endingFor;
     private Guid _linkTrainerId;
     private string _newSeriesName = string.Empty;
+    private bool _copyPreviousWorkouts;
     private string _search = string.Empty;
     private int _page = 1;
     private int _totalCount;
     private int _loadVersion;
 
     private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
+
+    /// <summary>The personal trainers the admin can pick from, searched by name or e-mail.</summary>
+    private IReadOnlyList<SearchableOption> TrainerOptions =>
+        [.. _trainers.Select(trainer => new SearchableOption(
+            trainer.UserId,
+            DisplayText.NameFromEmail(trainer.Email),
+            trainer.Email))];
 
     protected override async Task OnInitializedAsync()
     {
@@ -258,8 +291,7 @@ else
     {
         try
         {
-            var result = await Api.GetUsersPageAsync(null, 1, 100, "PersonalTrainer");
-            _trainers = result.Items;
+            _trainers = await Api.GetUsersByRoleAsync("PersonalTrainer");
         }
         catch (ApiException)
         {
@@ -296,6 +328,8 @@ else
             : Guid.Empty;
     }
 
+    private void SetLinkTrainer(Guid trainerId) => _linkTrainerId = trainerId;
+
     private void CancelLinkAsync()
     {
         _linkingFor = null;
@@ -305,12 +339,37 @@ else
     {
         _creatingFor = userId;
         _newSeriesName = string.Empty;
+
+        // The sheet of the cycle the trainer closed is the one worth carrying over; a cycle still
+        // running is copied only when the trainer asks for it.
+        _copyPreviousWorkouts = _athletes
+            .FirstOrDefault(athlete => athlete.UserId == userId)?.EndedSeriesName is not null;
     }
 
     private void CancelCreateAsync()
     {
         _creatingFor = null;
         _newSeriesName = string.Empty;
+        _copyPreviousWorkouts = false;
+    }
+
+    /// <summary>Athlete whose "Vencer série atual" button is armed: the next tap ends the cycle.</summary>
+    private bool IsEnding(Guid userId) => _endingFor == userId;
+
+    /// <summary>
+    /// First tap arms the athlete (the button switches to the confirm label); the second tap on the
+    /// armed athlete ends the cycle.
+    /// </summary>
+    private bool ConfirmEndArm(Guid userId)
+    {
+        if (_endingFor != userId)
+        {
+            _endingFor = userId;
+            _error = null;
+            return false;
+        }
+
+        return true;
     }
 
     private async Task LinkAsync(Guid userId) =>
@@ -334,13 +393,30 @@ else
     private async Task CreateForAthleteAsync(Guid userId) =>
         await RunAsync(async () =>
         {
-            var created = await Api.CreateWorkoutSeriesAsync(new SetWorkoutSeriesNameRequest(_newSeriesName, userId));
+            var created = await Api.CreateWorkoutSeriesAsync(
+                new CreateWorkoutSeriesRequest(_newSeriesName, userId, _copyPreviousWorkouts));
 
             CancelCreateAsync();
 
             // Opens the dedicated screen so the trainer composes the workouts (A–E) right away.
             Nav.NavigateTo($"/series/{created.Id}");
         });
+
+    private async Task EndSeriesAsync(Guid userId)
+    {
+        if (!ConfirmEndArm(userId))
+        {
+            return;
+        }
+
+        _endingFor = null;
+
+        await RunAsync(async () =>
+        {
+            await Api.EndSeriesAsync(userId);
+            await ReloadAsync();
+        });
+    }
 
     private async Task RunAsync(Func<Task> action)
     {
@@ -387,6 +463,7 @@ else
                     SeriesName = athlete.WorkoutSeriesName,
                     DaysRemaining = athlete.DaysRemaining,
                     PersonalTrainerEmail = athlete.PersonalTrainerEmail,
+                    EndedSeriesName = athlete.EndedSeriesName,
                 }),
             ];
 
@@ -423,5 +500,8 @@ else
         public int DaysRemaining { get; init; }
 
         public string? PersonalTrainerEmail { get; init; }
+
+        /// <summary>The series of the cycle the trainer closed early, when there is one.</summary>
+        public string? EndedSeriesName { get; init; }
     }
 }

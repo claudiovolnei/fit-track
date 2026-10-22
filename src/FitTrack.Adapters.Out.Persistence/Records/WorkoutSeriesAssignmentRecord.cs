@@ -22,4 +22,10 @@ public sealed class WorkoutSeriesAssignmentRecord
     /// domain is the one that computes it; this is a projection, not a second rule.
     /// </summary>
     public DateTimeOffset ExpiresAt { get; set; }
+
+    /// <summary>
+    /// The instant the trainer closed the cycle before the term was over. Null while the athlete is
+    /// following the series.
+    /// </summary>
+    public DateTimeOffset? ClosedAt { get; set; }
 }

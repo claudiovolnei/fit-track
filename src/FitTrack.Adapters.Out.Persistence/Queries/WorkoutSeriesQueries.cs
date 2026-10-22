@@ -79,7 +79,7 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
     {
         var assignment = await dbContext.WorkoutSeriesAssignments
             .AsNoTracking()
-            .Where(candidate => candidate.UserId == userId.Value)
+            .Where(candidate => candidate.UserId == userId.Value && candidate.ClosedAt == null)
             .Select(candidate => new { candidate.WorkoutSeriesId, candidate.ExpiresAt })
             .FirstOrDefaultAsync(cancellationToken);
 

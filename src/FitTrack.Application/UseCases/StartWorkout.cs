@@ -14,7 +14,8 @@ namespace FitTrack.Application.UseCases;
 /// Starts today's workout from one workout of the series assigned to the athlete. It is idempotent: if
 /// the workout was already started today, the existing one comes back instead of a second session.
 /// A workout that is not part of the athlete's series answers as if it did not exist; once the
-/// 60-day term is over, starting a new workout is refused while one already running still resumes.
+/// 60-day term is over, or the trainer closed the cycle early, starting a new workout is
+/// refused while one already running still resumes.
 /// </summary>
 public sealed class StartWorkout : IStartWorkout
 {
@@ -49,7 +50,7 @@ public sealed class StartWorkout : IStartWorkout
         var now = _clock.UtcNow;
 
         var assignment = await _assignments.GetByUserIdAsync(_currentUser.Id, cancellationToken);
-        var series = assignment is null
+        var series = assignment is null || !assignment.IsOpen
             ? null
             : await _series.GetByIdAsync(assignment.SeriesId, cancellationToken);
 

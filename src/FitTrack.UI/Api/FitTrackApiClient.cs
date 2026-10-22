@@ -119,9 +119,16 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         GetAsync<WorkoutSeriesResponse>($"workout-series/{seriesId}", cancellationToken);
 
     public Task<WorkoutSeriesResponse> CreateWorkoutSeriesAsync(
-        SetWorkoutSeriesNameRequest request,
+        CreateWorkoutSeriesRequest request,
         CancellationToken cancellationToken = default) =>
         PostAsync<WorkoutSeriesResponse>("workout-series", request, cancellationToken);
+
+    /// <summary>
+    /// Ends the cycle the athlete is in: the athlete is left without a series, so the trainer can
+    /// create the next one when the time comes.
+    /// </summary>
+    public Task EndSeriesAsync(Guid athleteId, CancellationToken cancellationToken = default) =>
+        PostAsync($"athletes/{athleteId}/series/end", new { }, cancellationToken);
 
     public Task<WorkoutSeriesResponse> RenameWorkoutSeriesAsync(
         Guid seriesId,
@@ -190,6 +197,17 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
 
     public Task<IReadOnlyList<UserAccountResponse>> GetUsersAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<UserAccountResponse>>("admin/users", cancellationToken);
+
+    /// <summary>
+    /// Every account holding one role, without pagination: the link screen searches them all, so the
+    /// trainer is never out of reach because of the page size.
+    /// </summary>
+    public Task<IReadOnlyList<UserAccountResponse>> GetUsersByRoleAsync(
+        string role,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<UserAccountResponse>>(
+            $"admin/users?role={Uri.EscapeDataString(role)}",
+            cancellationToken);
 
     public Task<PagedResultResponse<UserAccountResponse>> GetUsersPageAsync(
         string? search,

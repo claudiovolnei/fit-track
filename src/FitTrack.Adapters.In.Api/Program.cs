@@ -55,6 +55,7 @@ builder.Services.AddScoped<ILinkAthlete, LinkAthlete>();
 builder.Services.AddScoped<IUnlinkAthlete, UnlinkAthlete>();
 builder.Services.AddScoped<IListUsers, ListUsers>();
 builder.Services.AddScoped<ICreateWorkoutSeries, CreateWorkoutSeries>();
+builder.Services.AddScoped<IEndWorkoutSeries, EndWorkoutSeries>();
 builder.Services.AddScoped<IListWorkoutSeries, ListWorkoutSeries>();
 builder.Services.AddScoped<IGetWorkoutSeries, GetWorkoutSeries>();
 builder.Services.AddScoped<IRenameWorkoutSeries, RenameWorkoutSeries>();
