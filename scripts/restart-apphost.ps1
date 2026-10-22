@@ -20,6 +20,20 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (Test-Path (Join-Path $root 'FitTrack.slnx')) { } else { $root = Split-Path -Parent $root }
 Set-Location $root
 
+# Garante que o Docker (WSL) esteja ativo e acessivel pelo Aspire no Windows.
+Write-Output "=== garantindo Docker (WSL) ativo ==="
+$env:DOCKER_HOST = "tcp://localhost:2375"
+try { wsl -d Ubuntu-24.04 -u root -e bash -c "service docker start" | Out-Null } catch { }
+$dockerDeadline = (Get-Date).AddSeconds(60)
+while ((Get-Date) -lt $dockerDeadline) {
+    $test = Test-NetConnection -ComputerName localhost -Port 2375 -WarningAction SilentlyContinue
+    if ($test.TcpTestSucceeded) { break }
+    Start-Sleep -Seconds 3
+}
+if (-not (Test-NetConnection -ComputerName localhost -Port 2375 -WarningAction SilentlyContinue).TcpTestSucceeded) {
+    throw "Docker nao ficou acessivel em localhost:2375"
+}
+
 Write-Output "=== parando AppHost/API ==="
 Get-Process 'FitTrack.AppHost','FitTrack.Adapters.In.Api' -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 3
