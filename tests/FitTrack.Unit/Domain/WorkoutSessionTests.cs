@@ -147,19 +147,6 @@ public sealed class WorkoutSessionTests
     }
 
     [Fact]
-    public void UnmarkExerciseCompleted_LeavesTheRegisteredSets()
-    {
-        var session = Start();
-        var exercise = ExerciseId.New();
-
-        session.RegisterSet(exercise, new Load(80m), new Repetitions(10));
-        session.UnmarkExerciseCompleted(exercise);
-
-        Assert.False(session.IsExerciseCompleted(exercise));
-        Assert.Single(session.PerformedSets);
-    }
-
-    [Fact]
     public void MarkExerciseCompleted_AfterFinish_Fails()
     {
         var session = Start();
@@ -171,20 +158,102 @@ public sealed class WorkoutSessionTests
         Assert.Equal("session.exercise.after_finish", exception.Code);
     }
 
+    private static WorkoutSession Start() =>
+        WorkoutSession.Start(WorkoutSessionId.New(), AnyUser, AnyDate, AnyStart);
+
     [Fact]
-    public void UnmarkExerciseCompleted_AfterFinish_Fails()
+    public void Complete_RecordsTheSetsTheLevelAndTheNote()
     {
         var session = Start();
         var exercise = ExerciseId.New();
-        session.MarkExerciseCompleted(exercise);
-        session.Finish(AnyStart.AddMinutes(10));
 
-        var exception = Assert.Throws<DomainException>(() =>
-            session.UnmarkExerciseCompleted(exercise));
+        session.Complete(
+            [new PerformedExercise(exercise, new Load(80m), new Repetitions(10), 3)],
+            WorkoutIntensity.Intenso,
+            new WorkoutNotes("Senti o ombro."),
+            AnyStart.AddMinutes(42));
 
-        Assert.Equal("session.exercise.after_finish", exception.Code);
+        Assert.False(session.IsRunning);
+        Assert.Equal(3, session.PerformedSets.Count);
+        Assert.All(session.PerformedSets, set => Assert.Equal(exercise, set.ExerciseId));
+        Assert.True(session.IsExerciseCompleted(exercise));
+        Assert.Equal(WorkoutIntensity.Intenso, session.Intensity);
+        Assert.Equal("Senti o ombro.", session.Notes!.Value.Value);
     }
 
-    private static WorkoutSession Start() =>
-        WorkoutSession.Start(WorkoutSessionId.New(), AnyUser, AnyDate, AnyStart);
+    [Fact]
+    public void Complete_Twice_Fails()
+    {
+        var session = Start();
+        session.Complete([], WorkoutIntensity.Moderado, null, AnyStart.AddMinutes(10));
+
+        var exception = Assert.Throws<DomainException>(() =>
+            session.Complete([], WorkoutIntensity.Moderado, null, AnyStart.AddMinutes(20)));
+
+        Assert.Equal("session.finish.already_finished", exception.Code);
+    }
+
+    [Fact]
+    public void Complete_BeforeTheStart_Fails()
+    {
+        var session = Start();
+
+        var exception = Assert.Throws<DomainException>(() =>
+            session.Complete([], WorkoutIntensity.Moderado, null, AnyStart.AddMinutes(-1)));
+
+        Assert.Equal("session.finish.before_start", exception.Code);
+    }
+
+    [Fact]
+    public void Complete_WithoutANote_LeavesTheSessionWithoutOne()
+    {
+        var session = Start();
+
+        session.Complete(
+            [new PerformedExercise(ExerciseId.New(), new Load(80m), new Repetitions(10), 3)],
+            WorkoutIntensity.Leve,
+            null,
+            AnyStart.AddMinutes(42));
+
+        // The note is optional: without it the session carries no note at all.
+        Assert.Null(session.Notes);
+        Assert.Equal(WorkoutIntensity.Leve, session.Intensity);
+    }
+
+    [Fact]
+    public void WorkoutNotes_AtTheLimit_IsAccepted()
+    {
+        var notes = new WorkoutNotes(new string('a', WorkoutNotes.MaxLength));
+
+        Assert.Equal(WorkoutNotes.MaxLength, notes.Value.Length);
+    }
+
+    [Fact]
+    public void PerformedExercise_WithoutSets_Fails()
+    {
+        var exception = Assert.Throws<DomainException>(() =>
+            _ = new PerformedExercise(ExerciseId.New(), new Load(80m), new Repetitions(10), 0));
+
+        Assert.Equal("set.count.not_positive", exception.Code);
+    }
+
+    [Fact]
+    public void WorkoutNotes_LongerThanTheLimit_Fails()
+    {
+        var exception = Assert.Throws<DomainException>(() =>
+            _ = new WorkoutNotes(new string('a', WorkoutNotes.MaxLength + 1)));
+
+        Assert.Equal("workout_session.notes.too_long", exception.Code);
+    }
+
+    [Fact]
+    public void WorkoutIntensity_HasOneStableNumberPerLevel()
+    {
+        // The enum is stored as a number: reordering the members must never change what an old row means.
+        Assert.Equal(1, (int)WorkoutIntensity.Leve);
+        Assert.Equal(2, (int)WorkoutIntensity.Medio);
+        Assert.Equal(3, (int)WorkoutIntensity.Moderado);
+        Assert.Equal(4, (int)WorkoutIntensity.Intenso);
+        Assert.Equal(5, (int)WorkoutIntensity.MuitoIntenso);
+    }
 }

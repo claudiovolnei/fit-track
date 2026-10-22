@@ -23,6 +23,12 @@ public sealed record TodayWorkoutResponse(
 {
     /// <summary>The exercises the athlete ticked as done in this workout.</summary>
     public IReadOnlyList<Guid> CompletedExerciseIds { get; init; } = [];
+
+    /// <summary>How intense the athlete said the workout was. Null while the workout runs.</summary>
+    public string? Intensity { get; init; }
+
+    /// <summary>What the athlete wrote about the workout. Null when they wrote nothing.</summary>
+    public string? Notes { get; init; }
 }
 
 /// <summary>One workout of a series, with its label (A..E) and the state of today.</summary>
@@ -48,7 +54,11 @@ public sealed record MyWorkoutSeriesResponse(
     string TrainerName,
     DateTimeOffset ExpiresAt,
     int DaysRemaining,
-    bool IsExpired);
+    bool IsExpired)
+{
+    /// <summary>True when the athlete is following a plan they wrote themselves.</summary>
+    public bool IsSelfAuthored { get; init; }
+}
 
 /// <summary>Athlete a roster read returns, with the trainer they answer to (filled for the admin).</summary>
 public sealed record AthleteResponse(

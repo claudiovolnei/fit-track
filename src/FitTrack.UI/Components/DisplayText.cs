@@ -96,6 +96,41 @@ public static class DisplayText
         _ => role,
     };
 
+    /// <summary>
+    /// The levels of intensity of a workout, in the order the athlete picks them. The value is what
+    /// travels to the API; the label is what the screen shows.
+    /// </summary>
+    public static IReadOnlyList<(string Value, string Label)> Intensities { get; } =
+    [
+        ("leve", "Leve"),
+        ("medio", "Médio"),
+        ("moderado", "Moderado"),
+        ("intenso", "Intenso"),
+        ("muitoIntenso", "Muito intenso"),
+    ];
+
+    /// <summary>
+    /// The level of a finished workout as the screen names it. A session finished before the athlete
+    /// started answering has no level, and the screen says nothing about it.
+    /// </summary>
+    public static string IntensityLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        foreach (var option in Intensities)
+        {
+            if (string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase))
+            {
+                return option.Label;
+            }
+        }
+
+        return value;
+    }
+
     private static string Capitalize(string word) =>
         word.Length == 0
             ? word

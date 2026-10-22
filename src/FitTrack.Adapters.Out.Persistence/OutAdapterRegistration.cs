@@ -1,3 +1,4 @@
+using FitTrack.Adapters.Out.Persistence.Accounts;
 using FitTrack.Adapters.Out.Persistence.Infrastructure;
 using FitTrack.Adapters.Out.Persistence.Queries;
 using FitTrack.Adapters.Out.Persistence.Repositories;
@@ -28,6 +29,7 @@ public static class OutAdapterRegistration
         services.AddScoped<IQueryWorkoutSeries, WorkoutSeriesQueries>();
         services.AddScoped<IQueryAthletes, AthleteQueries>();
         services.AddScoped<IQueryUsers, UserQueries>();
+        services.AddScoped<IAccountPermissions, AccountPermissions>();
 
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidIdGenerator>();

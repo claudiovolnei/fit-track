@@ -1,5 +1,5 @@
 @page "/series"
-@attribute [Authorize(Roles = "PersonalTrainer")]
+@attribute [Authorize]
 @inject FitTrackApiClient Api
 @inject ToastService Toasts
 
@@ -19,81 +19,96 @@
 <div class="alert alert--info" style="margin-bottom: 26px;">
     <AppIcon Name="info" Size="18" />
     <span>
-        Séries agora são criadas para um atleta específico. Vá em
-        <a href="/athletes">Atletas</a> e use "Nova série para este atleta".
+        Cada série pertence a um atleta. O personal cria a dele em
+        <a href="/athletes">Atletas</a>; quem tem a liberação do administrador cria a sua em
+        <a href="/meu-plano">Meu plano</a>.
     </span>
 </div>
 
-<SearchField Value="@_search" ValueChanged="SearchAsync"
-             Placeholder="Buscar série por nome"
-             AriaLabel="Buscar série por nome" />
-
-@if (_loading)
-{
-    <div class="loading-state">
-        <span class="spinner"></span>
-        <span>Carregando séries…</span>
-    </div>
-}
-else if (_totalCount == 0)
+@if (_blocked)
 {
     <div class="empty-state">
-        <AppIcon Name="@(HasSearch ? "search" : "layers")" Size="28" />
-        <h2>@(HasSearch ? "Nada encontrado" : "Nenhuma série ainda")</h2>
+        <AppIcon Name="lock" Size="28" />
+        <h2>Você ainda não pode montar séries</h2>
         <p>
-            @(HasSearch
-                ? "Tente outro nome de série."
-                : "Crie a primeira série em Atletas e comece a montar os treinos A–E.")
+            Montar uma série precisa de um personal — ou da liberação do administrador para montar o
+            seu próprio treino.
         </p>
-        @if (HasSearch)
-        {
-            <button class="btn btn-secondary" type="button" @onclick="ClearSearchAsync">Limpar busca</button>
-        }
     </div>
-
-    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
 }
 else
 {
-    <div class="section-head" style="margin-top: 22px;">
-        <h2>Suas séries</h2>
-        <span class="muted" style="font-size: 0.84rem;">@_totalCount @(_totalCount == 1 ? "série" : "séries")</span>
-    </div>
+    <SearchField Value="@_search" ValueChanged="SearchAsync"
+                 Placeholder="Buscar série por nome"
+                 AriaLabel="Buscar série por nome" />
 
-    <div class="card-grid">
-        @foreach (var row in _rows)
-        {
-            <article class="card series-card" @key="row.Id">
-                <div class="series-head">
-                    <span class="icon-tile"><AppIcon Name="layers" /></span>
-                    <div style="min-width: 0;">
-                        <h2>@row.Name</h2>
-                        <p>@row.WorkoutCount @(row.WorkoutCount == 1 ? "treino" : "treinos")</p>
+    @if (_loading)
+    {
+        <div class="loading-state">
+            <span class="spinner"></span>
+            <span>Carregando séries…</span>
+        </div>
+    }
+    else if (_totalCount == 0)
+    {
+        <div class="empty-state">
+            <AppIcon Name="@(HasSearch ? "search" : "layers")" Size="28" />
+            <h2>@(HasSearch ? "Nada encontrado" : "Nenhuma série ainda")</h2>
+            <p>
+                @(HasSearch
+                    ? "Tente outro nome de série."
+                    : "Crie a primeira série em Atletas — ou, se você tem a liberação do administrador, em Meu plano — e comece a montar os treinos A–E.")
+            </p>
+            @if (HasSearch)
+            {
+                <button class="btn btn-secondary" type="button" @onclick="ClearSearchAsync">Limpar busca</button>
+            }
+        </div>
+
+        <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
+    }
+    else
+    {
+        <div class="section-head" style="margin-top: 22px;">
+            <h2>Suas séries</h2>
+            <span class="muted" style="font-size: 0.84rem;">@_totalCount @(_totalCount == 1 ? "série" : "séries")</span>
+        </div>
+
+        <div class="card-grid">
+            @foreach (var row in _rows)
+            {
+                <article class="card series-card" @key="row.Id">
+                    <div class="series-head">
+                        <span class="icon-tile"><AppIcon Name="layers" /></span>
+                        <div style="min-width: 0;">
+                            <h2>@row.Name</h2>
+                            <p>@row.WorkoutCount @(row.WorkoutCount == 1 ? "treino" : "treinos")</p>
+                        </div>
                     </div>
-                </div>
 
-                <div class="inline-form">
-                    <div class="field">
-                        <label for="series-rename-@row.Id">Renomear</label>
-                        <input id="series-rename-@row.Id" maxlength="80" @bind="row.Name" />
+                    <div class="inline-form">
+                        <div class="field">
+                            <label for="series-rename-@row.Id">Renomear</label>
+                            <input id="series-rename-@row.Id" maxlength="80" @bind="row.Name" />
+                        </div>
+
+                        <button class="btn btn-secondary" type="button" disabled="@_busy" @onclick="() => RenameAsync(row)">
+                            Salvar nome
+                        </button>
                     </div>
 
-                    <button class="btn btn-secondary" type="button" disabled="@_busy" @onclick="() => RenameAsync(row)">
-                        Salvar nome
-                    </button>
-                </div>
+                    <div class="actions" style="margin-top: 14px;">
+                        <a class="btn btn-primary btn-block" href="/series/@row.Id">
+                            Abrir série
+                            <AppIcon Name="chevron-right" Size="18" />
+                        </a>
+                    </div>
+                </article>
+            }
+        </div>
 
-                <div class="actions" style="margin-top: 14px;">
-                    <a class="btn btn-primary btn-block" href="/series/@row.Id">
-                        Abrir série
-                        <AppIcon Name="chevron-right" Size="18" />
-                    </a>
-                </div>
-            </article>
-        }
-    </div>
-
-    <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
+        <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
+    }
 }
 
 @code {
@@ -106,6 +121,9 @@ else
     private int _page = 1;
     private int _totalCount;
     private int _loadVersion;
+
+    /// <summary>True when the API refuses: the caller may not author a series.</summary>
+    private bool _blocked;
 
     private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
 
@@ -187,6 +205,16 @@ else
         {
             if (version != _loadVersion)
             {
+                return;
+            }
+
+            // The caller may not author a series: the screen says what is missing instead of
+            // failing with a toast nobody can act on.
+            if (exception.StatusCode == HttpStatusCode.Forbidden)
+            {
+                _rows = [];
+                _totalCount = 0;
+                _blocked = true;
                 return;
             }
 

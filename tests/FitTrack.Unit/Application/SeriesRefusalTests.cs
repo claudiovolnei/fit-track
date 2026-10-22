@@ -6,6 +6,7 @@ using FitTrack.Application.UseCases;
 using FitTrack.Domain.Common;
 using FitTrack.Domain.Identity;
 using FitTrack.Domain.WorkoutCatalog;
+using FitTrack.Domain.WorkoutExecution;
 using FitTrack.Domain.WorkoutPlanning;
 using FitTrack.TestCases;
 using FitTrack.Unit.Fakes;
@@ -27,6 +28,7 @@ public sealed class SeriesRefusalTests
     private readonly InMemoryExerciseRepository _exercises = new();
     private readonly InMemoryMuscleGroupRepository _muscleGroups = new();
     private readonly InMemoryAthleteQueries _athletes = new();
+    private readonly InMemoryAccountPermissions _permissions = new();
     private readonly InMemoryTrainerAthleteAssignmentRepository _links = new();
     private readonly SequentialIdGenerator _ids = new();
     private readonly FixedClock _clock = new(Now);
@@ -113,7 +115,7 @@ public sealed class SeriesRefusalTests
         {
             var started = await StartAsync(await SeedAssignedAsync());
 
-            await LogAsync(started.Session.Id, ExerciseId.New());
+            await FinishAsync(started.Session.Id, ExerciseId.New());
         }),
 
         _ => throw new ArgumentOutOfRangeException(nameof(scenario), scenario, "Unknown series refusal."),
@@ -142,8 +144,14 @@ public sealed class SeriesRefusalTests
     private Task<StartWorkoutResult> StartAsync(Guid workoutId) =>
         Start.ExecuteAsync(new StartWorkoutCommand(workoutId), CancellationToken.None);
 
-    private Task<WorkoutSessionDto> LogAsync(Guid sessionId, ExerciseId exercise) =>
-        Log.ExecuteAsync(new LogPerformedSetCommand(sessionId, exercise.Value, 40m), CancellationToken.None);
+    private Task<WorkoutSessionDto> FinishAsync(Guid sessionId, ExerciseId exercise) =>
+        Finish.ExecuteAsync(
+            new FinishWorkoutCommand(
+                sessionId,
+                WorkoutIntensity.Moderado,
+                null,
+                [new PerformedExerciseInput(exercise.Value, 10, 40m)]),
+            CancellationToken.None);
 
     /// <summary>
     /// A series with one prescribed workout, assigned to the athlete, entirely through the use cases: the
@@ -183,15 +191,15 @@ public sealed class SeriesRefusalTests
         _muscleGroups,
         _sessions);
 
-    private ICreateWorkoutSeries Create => new CreateWorkoutSeries(Trainer, _series, Queries, _athletes, _links, _assignments, _clock, _ids);
+    private ICreateWorkoutSeries Create => new CreateWorkoutSeries(Trainer, _series, Queries, _athletes, _links, _assignments, _clock, _ids, _permissions);
 
-    private IAddSeriesWorkout Add => new AddSeriesWorkout(Trainer, _series, _exercises, Queries, _ids);
+    private IAddSeriesWorkout Add => new AddSeriesWorkout(Trainer, _series, _exercises, Queries, _ids, _permissions);
 
-    private IRemoveSeriesWorkout Remove => new RemoveSeriesWorkout(Trainer, _series);
+    private IRemoveSeriesWorkout Remove => new RemoveSeriesWorkout(Trainer, _series, _permissions);
 
     private IStartWorkout Start => new StartWorkout(Athlete, _series, _assignments, _sessions, _ids, _clock);
 
-    private ILogPerformedSet Log => new LogPerformedSet(Athlete, _series, _sessions, _clock);
+    private IFinishWorkout Finish => new FinishWorkout(Athlete, _series, _sessions, _clock);
 
     private void SaveMuscleGroup(MuscleGroup muscleGroup) =>
         _muscleGroups.SaveAsync(muscleGroup, CancellationToken.None).GetAwaiter().GetResult();

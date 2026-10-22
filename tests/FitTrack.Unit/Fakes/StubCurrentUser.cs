@@ -4,7 +4,11 @@ using FitTrack.Domain.Identity;
 namespace FitTrack.Unit.Fakes;
 
 /// <summary>Current-user stub with a fixed identity and profile.</summary>
-internal sealed class StubCurrentUser(UserId id, bool isPersonalTrainer, bool isAdmin = false) : ICurrentUser
+internal sealed class StubCurrentUser(
+    UserId id,
+    bool isPersonalTrainer,
+    bool isAdmin = false,
+    bool isAthlete = false) : ICurrentUser
 {
     public UserId Id { get; } = id;
 
@@ -12,9 +16,11 @@ internal sealed class StubCurrentUser(UserId id, bool isPersonalTrainer, bool is
 
     public bool IsAdmin { get; } = isAdmin;
 
+    public bool IsAthlete { get; } = isAthlete;
+
     public static StubCurrentUser Admin(UserId id) => new(id, isPersonalTrainer: false, isAdmin: true);
 
     public static StubCurrentUser PersonalTrainer(UserId id) => new(id, isPersonalTrainer: true);
 
-    public static StubCurrentUser Athlete(UserId id) => new(id, isPersonalTrainer: false);
+    public static StubCurrentUser Athlete(UserId id) => new(id, isPersonalTrainer: false, isAthlete: true);
 }

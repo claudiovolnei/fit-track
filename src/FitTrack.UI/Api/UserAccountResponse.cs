@@ -6,4 +6,11 @@ public sealed record UserAccountResponse(
     string Name,
     string Email,
     IReadOnlyList<string> Roles,
-    bool HasAvatar = false);
+    bool HasAvatar = false)
+{
+    /// <summary>
+    /// Whether the administrator released the account to build its own training plan, without a
+    /// personal trainer.
+    /// </summary>
+    public bool CanAuthorOwnWorkout { get; init; }
+}

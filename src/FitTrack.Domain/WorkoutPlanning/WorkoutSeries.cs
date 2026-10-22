@@ -26,7 +26,11 @@ public sealed class WorkoutSeries
 
     public WorkoutSeriesName Name { get; private set; }
 
-    /// <summary>Author of the series. Only this trainer may edit it.</summary>
+    /// <summary>
+    /// Author of the series. Only this author may edit it. A personal trainer authors the series of
+    /// their athletes; an athlete the administrator released to build their own plan authors it for
+    /// themselves — then the author is the athlete, and the series belongs to them.
+    /// </summary>
     public UserId TrainerId { get; }
 
     /// <summary>

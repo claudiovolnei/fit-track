@@ -22,6 +22,7 @@ public sealed class WorkoutSeriesManagementTests
     private readonly InMemoryExerciseRepository _exercises = new();
     private readonly InMemoryMuscleGroupRepository _muscleGroups = new();
     private readonly InMemoryAthleteQueries _athletes = new();
+    private readonly InMemoryAccountPermissions _permissions = new();
     private readonly SequentialIdGenerator _ids = new();
     private readonly FixedClock _clock = new(Now);
     private readonly UserId _trainer = UserId.New();
@@ -62,6 +63,274 @@ public sealed class WorkoutSeriesManagementTests
             Create(Athlete).ExecuteAsync(new CreateWorkoutSeriesCommand("Hipertrofia", _athlete.Value), CancellationToken.None));
 
         Assert.Empty(_series.All);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_AsAReleasedAthlete_SavesItForThemselves()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        // The athlete is the author and the athlete of the series at the same time.
+        Assert.Equal(_athlete.Value, created.TrainerId);
+        Assert.Equal(_athlete.Value, created.AthleteId);
+
+        // The series is the plan they follow: the assignment points at it.
+        var assignment = await _assignments.GetByUserIdAsync(_athlete, CancellationToken.None);
+
+        Assert.NotNull(assignment);
+        Assert.Equal(created.Id, assignment!.SeriesId.Value);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_AsAReleasedAthlete_IgnoresTheAthleteOfTheRequest()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano", _otherTrainer.Value),
+            CancellationToken.None);
+
+        Assert.Equal(_athlete.Value, created.AthleteId);
+    }
+
+    [Fact]
+    public async Task AddSeriesWorkout_AsAReleasedAthlete_ComposesTheirOwnSeries()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        var workout = await Add(ReleasedAthlete).ExecuteAsync(
+            new AddSeriesWorkoutCommand(created.Id, "Peito", [Input(_bench)]),
+            CancellationToken.None);
+
+        Assert.Equal("Peito", workout.Name);
+    }
+
+    [Fact]
+    public async Task AddSeriesWorkout_AsAnAthleteWithoutTheRelease_Fails()
+    {
+        var series = await SeedSeriesAsync(_trainer, "Do personal");
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            Add(Athlete).ExecuteAsync(
+                new AddSeriesWorkoutCommand(series.Id.Value, "Peito", [Input(_bench)]),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_AfterTheReleaseIsTakenBack_IsRefused()
+    {
+        // With the release, the athlete builds their own plan.
+        await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        // The administrator takes it back: the release lives in the account and is read on every
+        // call, so the very next one is refused — no new sign-in needed.
+        _permissions.Revoke(_athlete);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            Create(Athlete).ExecuteAsync(
+                new CreateWorkoutSeriesCommand("Outro plano"),
+                CancellationToken.None));
+
+        Assert.Single(_series.All);
+    }
+
+    [Fact]
+    public async Task AddSeriesWorkout_AfterTheReleaseIsTakenBack_IsRefused()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        _permissions.Revoke(_athlete);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            Add(Athlete).ExecuteAsync(
+                new AddSeriesWorkoutCommand(created.Id, "Peito", [Input(_bench)]),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ChangeSeriesWorkout_AsAReleasedAthlete_ComposesTheirOwnSeries()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        var workout = await Add(ReleasedAthlete).ExecuteAsync(
+            new AddSeriesWorkoutCommand(created.Id, "Peito", [Input(_bench)]),
+            CancellationToken.None);
+
+        var changed = await Change(ReleasedAthlete).ExecuteAsync(
+            new ChangeSeriesWorkoutCommand(
+                created.Id,
+                workout.Id,
+                "Peito e Tríceps",
+                [Input(_bench, 4, 10, 50m, restSeconds: 90)]),
+            CancellationToken.None);
+
+        // The prescription the athlete writes is the one the trainer's editor writes: exercise,
+        // series, repetitions, load and rest.
+        Assert.Equal("Peito e Tríceps", changed.Name);
+        var exercise = Assert.Single(changed.Exercises);
+        Assert.Equal(_bench.Value, exercise.ExerciseId);
+        Assert.Equal(4, exercise.Sets);
+        Assert.Equal(10, exercise.Repetitions);
+        Assert.Equal(50m, exercise.LoadKilograms);
+        Assert.Equal(90, exercise.RestSeconds);
+    }
+
+    [Fact]
+    public async Task RemoveSeriesWorkout_AsAReleasedAthlete_RemovesTheirOwnWorkout()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        var workout = await Add(ReleasedAthlete).ExecuteAsync(
+            new AddSeriesWorkoutCommand(created.Id, "Peito", [Input(_bench)]),
+            CancellationToken.None);
+
+        await Remove(ReleasedAthlete).ExecuteAsync(
+            new RemoveSeriesWorkoutCommand(created.Id, workout.Id),
+            CancellationToken.None);
+
+        Assert.Empty(Assert.Single(_series.All).Workouts);
+    }
+
+    [Fact]
+    public async Task RenameWorkoutSeries_AsAReleasedAthlete_RenamesTheirOwnSeries()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        var renamed = await Rename(ReleasedAthlete).ExecuteAsync(
+            new RenameWorkoutSeriesCommand(created.Id, "Meu plano fase 2"),
+            CancellationToken.None);
+
+        Assert.Equal("Meu plano fase 2", renamed.Name);
+        Assert.Equal(_athlete.Value, renamed.TrainerId);
+    }
+
+    [Fact]
+    public async Task GetWorkoutSeries_AsAReleasedAthlete_ReadsTheirOwnSeries()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        var read = await Get(ReleasedAthlete).ExecuteAsync(created.Id, CancellationToken.None);
+
+        Assert.Equal(created.Id, read.Id);
+        Assert.Equal(_athlete.Value, read.TrainerId);
+    }
+
+    [Fact]
+    public async Task GetWorkoutSeries_AsAnAthleteWithoutTheRelease_Fails()
+    {
+        var series = await SeedSeriesAsync(_trainer, "Do personal");
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            Get(Athlete).ExecuteAsync(series.Id.Value, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task TheSeriesTheAthleteBuiltIsThePlanTheyFollow()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        await Add(ReleasedAthlete).ExecuteAsync(
+            new AddSeriesWorkoutCommand(created.Id, "Peito", [Input(_bench)]),
+            CancellationToken.None);
+
+        // The plan of the athlete is the series they wrote: it comes back on their own sheet, and
+        // the sheet says the plan is theirs.
+        var mine = await MySeries(ReleasedAthlete).ExecuteAsync(CancellationToken.None);
+
+        Assert.NotNull(mine);
+        Assert.Equal(created.Id, mine!.Series.Id);
+        Assert.Equal(_athlete.Value, mine.Series.TrainerId);
+        Assert.True(mine.IsSelfAuthored);
+
+        // The workout of that series can be started, like any other.
+        var workout = Assert.Single(mine.Series.Workouts);
+
+        var started = await Start(ReleasedAthlete).ExecuteAsync(
+            new StartWorkoutCommand(workout.Id),
+            CancellationToken.None);
+
+        Assert.True(started.Started);
+        Assert.Equal(workout.Id, started.Session.WorkoutSeriesWorkoutId);
+    }
+
+    [Fact]
+    public async Task RenameWorkoutSeries_AsAnAthleteWithoutTheRelease_Fails()
+    {
+        var series = await SeedSeriesAsync(_trainer, "Do personal");
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            Rename(Athlete).ExecuteAsync(
+                new RenameWorkoutSeriesCommand(series.Id.Value, "Tomada"),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ChangeSeriesWorkout_AsAnAthleteWithoutTheRelease_Fails()
+    {
+        var series = await SeedSeriesAsync(_trainer, "Do personal");
+        var workout = await AddWorkoutAsync(series, "Peito", _bench);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            Change(Athlete).ExecuteAsync(
+                new ChangeSeriesWorkoutCommand(series.Id.Value, workout.Id.Value, "Costas", [Input(_row)]),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RemoveSeriesWorkout_AsAnAthleteWithoutTheRelease_Fails()
+    {
+        var series = await SeedSeriesAsync(_trainer, "Do personal");
+        var workout = await AddWorkoutAsync(series, "Peito", _bench);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            Remove(Athlete).ExecuteAsync(
+                new RemoveSeriesWorkoutCommand(series.Id.Value, workout.Id.Value),
+                CancellationToken.None));
+
+        Assert.Single(series.Workouts);
+    }
+
+    [Fact]
+    public async Task AddSeriesWorkout_OfAnotherAuthor_Fails()
+    {
+        // The release opens the door to the athlete's own series, not to everybody else's.
+        var series = await SeedSeriesAsync(_trainer, "Do personal");
+        _permissions.Release(_athlete);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            Add(Athlete).ExecuteAsync(
+                new AddSeriesWorkoutCommand(series.Id.Value, "Peito", [Input(_bench)]),
+                CancellationToken.None));
+
+        Assert.Empty(series.Workouts);
+    }
+
+    [Fact]
+    public async Task ListWorkoutSeries_AsAReleasedAthlete_ShowsTheirOwnSeries()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Meu plano"),
+            CancellationToken.None);
+
+        var listed = await List(ReleasedAthlete).ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(created.Id, Assert.Single(listed).Id);
     }
 
     [Fact]
@@ -373,23 +642,39 @@ public sealed class WorkoutSeriesManagementTests
 
     private StubCurrentUser Athlete => StubCurrentUser.Athlete(_athlete);
 
+    /// <summary>The athlete the administrator released to build their own plan.</summary>
+    private StubCurrentUser ReleasedAthlete
+    {
+        get
+        {
+            _permissions.Release(_athlete);
+
+            return Athlete;
+        }
+    }
+
     private InMemoryWorkoutSeriesQueries Queries => new(_series, _assignments, _exercises, _muscleGroups, _sessions);
 
-    private ICreateWorkoutSeries Create(StubCurrentUser user) => new CreateWorkoutSeries(user, _series, Queries, _athletes, _links, _assignments, _clock, _ids);
+    private ICreateWorkoutSeries Create(StubCurrentUser user) => new CreateWorkoutSeries(user, _series, Queries, _athletes, _links, _assignments, _clock, _ids, _permissions);
 
-    private IRenameWorkoutSeries Rename(StubCurrentUser user) => new RenameWorkoutSeries(user, _series, Queries);
+    private IRenameWorkoutSeries Rename(StubCurrentUser user) => new RenameWorkoutSeries(user, _series, Queries, _permissions);
 
-    private IListWorkoutSeries List(StubCurrentUser user) => new ListWorkoutSeries(user, Queries);
+    private IListWorkoutSeries List(StubCurrentUser user) => new ListWorkoutSeries(user, Queries, _permissions);
 
-    private IGetWorkoutSeries Get(StubCurrentUser user) => new GetWorkoutSeries(user, Queries);
+    private IGetWorkoutSeries Get(StubCurrentUser user) => new GetWorkoutSeries(user, Queries, _permissions);
 
-    private IAddSeriesWorkout Add(StubCurrentUser user) => new AddSeriesWorkout(user, _series, _exercises, Queries, _ids);
+    private IAddSeriesWorkout Add(StubCurrentUser user) => new AddSeriesWorkout(user, _series, _exercises, Queries, _ids, _permissions);
 
-    private IChangeSeriesWorkout Change(StubCurrentUser user) => new ChangeSeriesWorkout(user, _series, _exercises, Queries);
+    private IChangeSeriesWorkout Change(StubCurrentUser user) => new ChangeSeriesWorkout(user, _series, _exercises, Queries, _permissions);
 
-    private IRemoveSeriesWorkout Remove(StubCurrentUser user) => new RemoveSeriesWorkout(user, _series);
+    private IRemoveSeriesWorkout Remove(StubCurrentUser user) => new RemoveSeriesWorkout(user, _series, _permissions);
 
     private IListAthletes ListAthletes(StubCurrentUser user) => new ListAthletes(user, _athletes, _clock);
+
+    private IGetMyWorkoutSeries MySeries(StubCurrentUser user) => new GetMyWorkoutSeries(user, Queries, _clock);
+
+    private IStartWorkout Start(StubCurrentUser user) =>
+        new StartWorkout(user, _series, _assignments, _sessions, _ids, _clock);
 
     private async Task<WorkoutSeries> SeedSeriesAsync(UserId trainer, string name = "Hipertrofia A/B/C")
     {
@@ -402,7 +687,7 @@ public sealed class WorkoutSeriesManagementTests
 
     private async Task<WorkoutSeriesWorkout> AddWorkoutAsync(WorkoutSeries series, string name, ExerciseId exercise)
     {
-        var workout = new AddSeriesWorkout(Trainer, _series, _exercises, Queries, _ids);
+        var workout = new AddSeriesWorkout(Trainer, _series, _exercises, Queries, _ids, _permissions);
 
         var created = await workout.ExecuteAsync(
             new AddSeriesWorkoutCommand(series.Id.Value, name, [Input(exercise)]),

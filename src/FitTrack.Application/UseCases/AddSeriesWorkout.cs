@@ -9,7 +9,7 @@ namespace FitTrack.Application.UseCases;
 
 /// <summary>
 /// Adds a specific workout to a series. The series holds at most five (labels A..E) — the aggregate
-/// states the limit. Restricted to the trainer who authored the series.
+/// states the limit. Restricted to the author of the series.
 /// </summary>
 public sealed class AddSeriesWorkout : IAddSeriesWorkout
 {
@@ -18,26 +18,33 @@ public sealed class AddSeriesWorkout : IAddSeriesWorkout
     private readonly IExerciseRepository _exercises;
     private readonly IQueryWorkoutSeries _query;
     private readonly IIdGenerator _idGenerator;
+    private readonly IAccountPermissions _permissions;
 
     public AddSeriesWorkout(
         ICurrentUser currentUser,
         IWorkoutSeriesRepository series,
         IExerciseRepository exercises,
         IQueryWorkoutSeries query,
-        IIdGenerator idGenerator)
+        IIdGenerator idGenerator,
+        IAccountPermissions permissions)
     {
         _currentUser = currentUser;
         _series = series;
         _exercises = exercises;
         _query = query;
         _idGenerator = idGenerator;
+        _permissions = permissions;
     }
 
     public async Task<WorkoutSeriesWorkoutDto> ExecuteAsync(
         AddSeriesWorkoutCommand command,
         CancellationToken cancellationToken)
     {
-        _currentUser.RequirePersonalTrainer("build a workout series");
+        await WorkoutSeriesAccess.RequireAuthorAsync(
+            _currentUser,
+            _permissions,
+            "build a workout series",
+            cancellationToken);
 
         var series = await WorkoutSeriesAccess.RequireOwnedAsync(
             _series,

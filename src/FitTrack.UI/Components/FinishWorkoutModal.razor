@@ -1,0 +1,75 @@
+@* Closing the workout: the level the athlete gave the session and what they wrote about it. The modal
+   only asks; the screen sends everything the athlete marked when the athlete confirms. The two values
+   live with the screen — the two-way binding keeps them there — so the clock ticking on the page
+   never wipes what the athlete typed. *@
+
+<div class="modal-backdrop" @onclick="Cancel">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Finalizar treino"
+         @onclick:stopPropagation="true">
+        <h3 class="modal-title">Finalizar treino</h3>
+
+        <p class="muted" style="margin: 4px 0 16px; font-size: 0.84rem;">
+            Como foi este treino?
+        </p>
+
+        <div class="field">
+            <label for="finish-intensity">Nível do treino</label>
+            <select id="finish-intensity" @bind="Intensity">
+                <option value="">Selecione o nível</option>
+                @foreach (var option in DisplayText.Intensities)
+                {
+                    <option value="@option.Value">@option.Label</option>
+                }
+            </select>
+        </div>
+
+        <div class="field" style="margin-top: 14px;">
+            <label for="finish-notes">Sobre o treino</label>
+            <textarea id="finish-notes" rows="3" maxlength="500"
+                      placeholder="Como foi o treino?"
+                      @bind="Notes"></textarea>
+        </div>
+
+        <div class="actions" style="margin-top: 18px;">
+            <button class="btn btn-primary" type="button"
+                    disabled="@(Busy || string.IsNullOrEmpty(Intensity))"
+                    @onclick="ConfirmAsync">
+                <AppIcon Name="check" Size="16" />
+                Finalizar
+            </button>
+            <button class="btn btn-ghost" type="button" disabled="@Busy" @onclick="Cancel">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The level the athlete picked. Empty until they choose one.</summary>
+    [Parameter]
+    public string Intensity { get; set; } = string.Empty;
+
+    /// <summary>Raised when the level changes, so the screen keeps the value it owns.</summary>
+    [Parameter]
+    public EventCallback<string> IntensityChanged { get; set; }
+
+    /// <summary>What the athlete wrote about the workout.</summary>
+    [Parameter]
+    public string Notes { get; set; } = string.Empty;
+
+    /// <summary>Raised when the note changes, so the screen keeps the value it owns.</summary>
+    [Parameter]
+    public EventCallback<string> NotesChanged { get; set; }
+
+    /// <summary>Closes the workout with the level and the note the screen holds.</summary>
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private Task ConfirmAsync() => OnConfirm.InvokeAsync();
+
+    private Task Cancel() => OnCancel.InvokeAsync();
+}

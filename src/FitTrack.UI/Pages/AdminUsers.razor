@@ -135,6 +135,11 @@ else
                             <span class="chip chip--accent">@DisplayText.RoleLabel(role)</span>
                         }
                     }
+
+                    @if (user.CanAuthorOwnWorkout)
+                    {
+                        <span class="chip chip--success">Montagem própria liberada</span>
+                    }
                 </div>
 
                 <div class="actions">
@@ -146,6 +151,15 @@ else
                                 disabled="@_busy" @onclick="() => ToggleRoleAsync(user, role, granted)">
                             <AppIcon Name="@(granted ? "trash" : "plus")" Size="16" />
                             @(granted ? "Revogar" : "Conceder") @DisplayText.RoleLabel(role)
+                        </button>
+                    }
+
+                    @if (user.Roles.Contains("User"))
+                    {
+                        <button class="btn btn-sm @(user.CanAuthorOwnWorkout ? "btn-danger" : "btn-secondary")" type="button"
+                                disabled="@_busy" @onclick="() => ToggleSelfAuthoringAsync(user)">
+                            <AppIcon Name="@(user.CanAuthorOwnWorkout ? "trash" : "plus")" Size="16" />
+                            @(user.CanAuthorOwnWorkout ? "Revogar montagem própria" : "Permitir montar o próprio treino")
                         </button>
                     }
 
@@ -243,6 +257,21 @@ else
             else
             {
                 await Api.GrantRoleAsync(user.UserId, role);
+            }
+
+            await ReloadAsync();
+        });
+
+    private async Task ToggleSelfAuthoringAsync(UserAccountResponse user) =>
+        await RunAsync(async () =>
+        {
+            if (user.CanAuthorOwnWorkout)
+            {
+                await Api.RevokeSelfAuthoringAsync(user.UserId);
+            }
+            else
+            {
+                await Api.GrantSelfAuthoringAsync(user.UserId);
             }
 
             await ReloadAsync();

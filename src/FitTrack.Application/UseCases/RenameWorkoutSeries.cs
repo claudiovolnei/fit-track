@@ -7,28 +7,35 @@ using FitTrack.Domain.WorkoutPlanning;
 
 namespace FitTrack.Application.UseCases;
 
-/// <summary>Renames a series. Restricted to the trainer who authored it.</summary>
+/// <summary>Renames a series. Restricted to the author of it.</summary>
 public sealed class RenameWorkoutSeries : IRenameWorkoutSeries
 {
     private readonly ICurrentUser _currentUser;
     private readonly IWorkoutSeriesRepository _series;
     private readonly IQueryWorkoutSeries _query;
+    private readonly IAccountPermissions _permissions;
 
     public RenameWorkoutSeries(
         ICurrentUser currentUser,
         IWorkoutSeriesRepository series,
-        IQueryWorkoutSeries query)
+        IQueryWorkoutSeries query,
+        IAccountPermissions permissions)
     {
         _currentUser = currentUser;
         _series = series;
         _query = query;
+        _permissions = permissions;
     }
 
     public async Task<WorkoutSeriesDto> ExecuteAsync(
         RenameWorkoutSeriesCommand command,
         CancellationToken cancellationToken)
     {
-        _currentUser.RequirePersonalTrainer("rename a workout series");
+        await WorkoutSeriesAccess.RequireAuthorAsync(
+            _currentUser,
+            _permissions,
+            "rename a workout series",
+            cancellationToken);
 
         var series = await WorkoutSeriesAccess.RequireOwnedAsync(
             _series,

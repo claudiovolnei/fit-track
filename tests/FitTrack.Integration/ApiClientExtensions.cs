@@ -81,6 +81,26 @@ internal static class ApiClientExtensions
     }
 
     /// <summary>
+    /// Closes the workout as the athlete: the exercises they marked, the level they gave the session
+    /// and what they wrote about it. Everything travels in one request.
+    /// </summary>
+    public static async Task<WorkoutSessionResponse> FinishWorkoutAsync(
+        this HttpClient client,
+        Guid sessionId,
+        string intensity = "moderado",
+        string? notes = null,
+        params PerformedExerciseRequest[] exercises)
+    {
+        var response = await client.PostAsJsonAsync(
+            $"/sessions/{sessionId}/finish",
+            new FinishWorkoutRequest(intensity, notes, exercises));
+
+        await response.EnsureSuccessWithBodyAsync();
+
+        return (await response.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
+    }
+
+    /// <summary>
     /// Reads the series assigned to the signed-in athlete. Nothing assigned is a 204, which the API uses
     /// instead of an empty payload, so it comes back as null.
     /// </summary>

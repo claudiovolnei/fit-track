@@ -10,7 +10,7 @@ namespace FitTrack.Application.UseCases;
 /// <summary>
 /// Replaces the name and the prescription of one workout. Editing a workout never touches a session
 /// already started from it: the session keeps the workout id, not a copy of the prescription.
-/// Restricted to the trainer who authored the series.
+/// Restricted to the author of the series.
 /// </summary>
 public sealed class ChangeSeriesWorkout : IChangeSeriesWorkout
 {
@@ -18,24 +18,31 @@ public sealed class ChangeSeriesWorkout : IChangeSeriesWorkout
     private readonly IWorkoutSeriesRepository _series;
     private readonly IExerciseRepository _exercises;
     private readonly IQueryWorkoutSeries _query;
+    private readonly IAccountPermissions _permissions;
 
     public ChangeSeriesWorkout(
         ICurrentUser currentUser,
         IWorkoutSeriesRepository series,
         IExerciseRepository exercises,
-        IQueryWorkoutSeries query)
+        IQueryWorkoutSeries query,
+        IAccountPermissions permissions)
     {
         _currentUser = currentUser;
         _series = series;
         _exercises = exercises;
         _query = query;
+        _permissions = permissions;
     }
 
     public async Task<WorkoutSeriesWorkoutDto> ExecuteAsync(
         ChangeSeriesWorkoutCommand command,
         CancellationToken cancellationToken)
     {
-        _currentUser.RequirePersonalTrainer("build a workout series");
+        await WorkoutSeriesAccess.RequireAuthorAsync(
+            _currentUser,
+            _permissions,
+            "build a workout series",
+            cancellationToken);
 
         var series = await WorkoutSeriesAccess.RequireOwnedAsync(
             _series,

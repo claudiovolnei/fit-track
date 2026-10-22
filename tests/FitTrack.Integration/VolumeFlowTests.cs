@@ -9,7 +9,7 @@ namespace FitTrack.Integration;
 /// <summary>
 /// The volume of a session against the current prescription of its workout, exposed by the history
 /// envelope. The prescription in these tests is 4 x 10 x 50 kg, so the full prescribed volume is
-/// 2,000 kg and every logged 60 kg set adds 600 kg to the performed side.
+/// 2,000 kg and a closed workout with 60 kg records 4 x 10 x 60 = 2,400 kg on the performed side.
 /// </summary>
 public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<FitTrackApiFactory>
 {
@@ -25,13 +25,11 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
 
-        await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 60m));
-        await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 60m));
-        await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        await athlete.Client.FinishWorkoutAsync(
+            session.Id,
+            "moderado",
+            null,
+            new PerformedExerciseRequest(exercise.Id, 10, 60m));
 
         var history = await athlete.Client.GetFromJsonAsync<WorkoutHistoryResponse>(
             "/sessions?page=1&pageSize=10");
@@ -40,22 +38,22 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
         var item = Assert.Single(history!.Items);
 
         Assert.NotNull(item.Volume);
-        Assert.Equal(1200m, item.Volume!.PerformedKilograms);
+        Assert.Equal(2400m, item.Volume!.PerformedKilograms);
         Assert.Equal(2000m, item.Volume.PrescribedKilograms);
-        Assert.Equal(-800m, item.Volume.DeltaKilograms);
-        Assert.Equal(-40m, item.Volume.DeltaPercent);
+        Assert.Equal(400m, item.Volume.DeltaKilograms);
+        Assert.Equal(20m, item.Volume.DeltaPercent);
 
         var detail = Assert.Single(item.Volume.Exercises);
         Assert.Equal(exercise.Id, detail.ExerciseId);
         Assert.Equal(exercise.Name, detail.ExerciseName);
         Assert.Equal("matched", detail.Status);
-        Assert.Equal(1200m, detail.PerformedKilograms);
+        Assert.Equal(2400m, detail.PerformedKilograms);
         Assert.Equal(2000m, detail.PrescribedKilograms);
 
         Assert.NotNull(history.Summary);
         Assert.Equal(1, history.Summary!.SessionCount);
-        Assert.Equal(2, history.Summary.SetCount);
-        Assert.Equal(1200m, history.Summary.PerformedKilograms);
+        Assert.Equal(4, history.Summary.SetCount);
+        Assert.Equal(2400m, history.Summary.PerformedKilograms);
         Assert.Equal(2000m, history.Summary.PrescribedKilograms);
         Assert.Equal(0, history.Summary.SessionsWithoutPrescription);
     }
@@ -71,7 +69,11 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
 
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
-        await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        await athlete.Client.FinishWorkoutAsync(
+            session.Id,
+            "moderado",
+            null,
+            new PerformedExerciseRequest(exercise.Id, 10, 40m));
 
         var found = await athlete.Client.GetFromJsonAsync<WorkoutHistoryResponse>(
             $"/sessions?search={Uri.EscapeDataString("Peito")}&page=1&pageSize=10");
@@ -98,12 +100,8 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
             trainer, athlete.UserId, Prescriptions.For(exercise.Id, 4, 10, 50m));
 
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
-        var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
 
-        await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 60m));
-
+        // The workout is still running: the marks are on the screen, so the server holds nothing yet.
         var history = await athlete.Client.GetFromJsonAsync<WorkoutHistoryResponse>(
             "/sessions?page=1&pageSize=10");
 
@@ -111,7 +109,7 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
 
         Assert.Null(item.FinishedAt);
         Assert.NotNull(item.Volume);
-        Assert.Equal(600m, item.Volume!.PerformedKilograms);
+        Assert.Equal(0m, item.Volume!.PerformedKilograms);
         Assert.Equal(2000m, item.Volume.PrescribedKilograms);
     }
 
@@ -126,10 +124,11 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
 
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
-        await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 60m));
-        await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        await athlete.Client.FinishWorkoutAsync(
+            session.Id,
+            "moderado",
+            null,
+            new PerformedExerciseRequest(exercise.Id, 10, 60m));
 
         var athletes = await trainer.GetFromJsonAsync<IReadOnlyList<AthleteResponse>>(
             $"/athletes?search={Uri.EscapeDataString(athlete.Email)}");
@@ -148,7 +147,7 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
         Assert.Null(item.Volume);
         Assert.NotNull(history.Summary);
         Assert.Equal(1, history.Summary!.SessionsWithoutPrescription);
-        Assert.Equal(600m, history.Summary.PerformedKilograms);
+        Assert.Equal(2400m, history.Summary.PerformedKilograms);
         Assert.Equal(0m, history.Summary.PrescribedKilograms);
     }
 

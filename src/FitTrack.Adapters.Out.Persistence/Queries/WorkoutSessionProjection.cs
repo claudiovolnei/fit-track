@@ -1,5 +1,7 @@
 using FitTrack.Adapters.Out.Persistence.Records;
 using FitTrack.Application.Dtos;
+using FitTrack.Application.Mapping;
+using FitTrack.Domain.WorkoutExecution;
 using Microsoft.EntityFrameworkCore;
 
 namespace FitTrack.Adapters.Out.Persistence.Queries;
@@ -16,7 +18,9 @@ internal sealed record WorkoutSessionRow(
     DateTimeOffset? FinishedAt,
     Guid? WorkoutSeriesWorkoutId,
     IReadOnlyList<PerformedSetDto> Sets,
-    IReadOnlyList<Guid> CompletedExerciseIds)
+    IReadOnlyList<Guid> CompletedExerciseIds,
+    WorkoutIntensity? Intensity,
+    string? Notes)
 {
     /// <summary>Elapsed seconds at <paramref name="now"/>: frozen once finished, running until then.</summary>
     public WorkoutSessionDto ToDto(DateTimeOffset now, WorkoutVolumeDto? volume = null) =>
@@ -31,6 +35,8 @@ internal sealed record WorkoutSessionRow(
             volume)
         {
             CompletedExerciseIds = CompletedExerciseIds,
+            Intensity = WorkoutIntensityMapping.ToContract(Intensity),
+            Notes = Notes,
         };
 }
 
@@ -62,7 +68,9 @@ internal static class WorkoutSessionProjection
                 session.CompletedExercises
                     .OrderBy(completed => completed.ExerciseId)
                     .Select(completed => completed.ExerciseId)
-                    .ToList()));
+                    .ToList(),
+                session.Intensity != null ? (WorkoutIntensity)session.Intensity.Value : null,
+                session.Notes));
 
     public static async Task<IReadOnlyList<WorkoutSessionDto>> ListDtosAsync(
         this IQueryable<WorkoutSessionRecord> sessions,

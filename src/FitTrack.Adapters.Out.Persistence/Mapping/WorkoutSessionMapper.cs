@@ -42,7 +42,10 @@ internal static class WorkoutSessionMapper
 
         if (record.FinishedAt is { } finishedAt)
         {
-            session.Finish(finishedAt);
+            session.Finish(
+                finishedAt,
+                record.Intensity is { } intensity ? (WorkoutIntensity)intensity : null,
+                record.Notes is { } notes ? new WorkoutNotes(notes) : null);
         }
 
         return session;
@@ -56,6 +59,8 @@ internal static class WorkoutSessionMapper
         WorkoutSeriesWorkoutId = session.PlannedWorkoutId?.Value,
         StartedAt = session.StartedAt,
         FinishedAt = session.FinishedAt,
+        Intensity = session.Intensity is { } intensity ? (int)intensity : null,
+        Notes = session.Notes?.Value,
         Sets = [.. ToSetRecords(session)],
         CompletedExercises = [.. ToCompletedExerciseRecords(session)],
     };
@@ -63,6 +68,8 @@ internal static class WorkoutSessionMapper
     public static void CopyInto(WorkoutSession session, WorkoutSessionRecord record)
     {
         record.FinishedAt = session.FinishedAt;
+        record.Intensity = session.Intensity is { } intensity ? (int)intensity : null;
+        record.Notes = session.Notes?.Value;
 
         record.Sets.Clear();
         record.Sets.AddRange(ToSetRecords(session));

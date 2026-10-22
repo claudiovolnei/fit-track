@@ -14,8 +14,17 @@ public sealed record TodayWorkoutDto(
     IReadOnlyList<PerformedSetDto> Sets)
 {
     /// <summary>
-    /// The exercises the athlete ticked as done. The screen shows the tick of each one and holds the
-    /// workout back until every prescribed exercise is ticked.
+    /// The exercises the athlete ticked as done. While the workout runs the screen keeps the marks
+    /// on its own: the server only learns them when the workout is finished.
     /// </summary>
     public IReadOnlyList<Guid> CompletedExerciseIds { get; init; } = [];
+
+    /// <summary>
+    /// How intense the athlete said the workout was, as the word the contract names it. Null while
+    /// the workout runs.
+    /// </summary>
+    public string? Intensity { get; init; }
+
+    /// <summary>What the athlete wrote about the workout. Null when they wrote nothing.</summary>
+    public string? Notes { get; init; }
 }

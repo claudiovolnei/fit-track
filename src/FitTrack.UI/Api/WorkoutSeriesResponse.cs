@@ -21,6 +21,14 @@ public sealed record TodayWorkoutResponse(
 {
     /// <summary>The exercises the athlete ticked as done in this workout.</summary>
     public IReadOnlyList<Guid> CompletedExerciseIds { get; init; } = [];
+
+    /// <summary>
+    /// How intense the athlete said the workout was. Null while the workout runs.
+    /// </summary>
+    public string? Intensity { get; init; }
+
+    /// <summary>What the athlete wrote about the workout. Null when they wrote nothing.</summary>
+    public string? Notes { get; init; }
 }
 
 /// <summary>Wire contract: one specific workout of a series, labelled A..E by its position.</summary>
@@ -46,7 +54,11 @@ public sealed record MyWorkoutSeriesResponse(
     string TrainerName,
     DateTimeOffset ExpiresAt,
     int DaysRemaining,
-    bool IsExpired);
+    bool IsExpired)
+{
+    /// <summary>True when the athlete is following a plan they wrote themselves.</summary>
+    public bool IsSelfAuthored { get; init; }
+}
 
 /// <summary>Wire contract: an athlete the roster grants access to. The trainer's e-mail is filled only for the admin read.</summary>
 public sealed record AthleteResponse(

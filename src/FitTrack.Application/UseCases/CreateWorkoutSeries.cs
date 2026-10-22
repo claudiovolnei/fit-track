@@ -10,9 +10,14 @@ using FitTrack.Domain.WorkoutPlanning;
 namespace FitTrack.Application.UseCases;
 
 /// <summary>
-/// Creates a reusable workout series. The name is unique per trainer, checked here so the caller gets
-/// a stated rule instead of the raw unique-index error. Restricted to personal trainers, who can only
-/// assign the series to athletes on their own roster: the roster of the athlete side is the check.
+/// Creates a reusable workout series. The name is unique per author, checked here so the caller gets
+/// a stated rule instead of the raw unique-index error.
+/// <para>
+/// A personal trainer prescribes to the athletes on their own roster: the roster of the athlete side
+/// is the check. An athlete the administrator released to build their own plan creates the series
+/// for themselves and is its author — the sheet of the cycle they are in can be reused, so a plan
+/// they already train can become theirs to adjust.
+/// </para>
 /// </summary>
 public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
 {
@@ -24,6 +29,7 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
     private readonly IWorkoutSeriesAssignmentRepository _assignments;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
+    private readonly IAccountPermissions _permissions;
 
     public CreateWorkoutSeries(
         ICurrentUser currentUser,
@@ -33,7 +39,8 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
         ITrainerAthleteAssignmentRepository links,
         IWorkoutSeriesAssignmentRepository assignments,
         IClock clock,
-        IIdGenerator idGenerator)
+        IIdGenerator idGenerator,
+        IAccountPermissions permissions)
     {
         _currentUser = currentUser;
         _series = series;
@@ -43,13 +50,25 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
         _assignments = assignments;
         _clock = clock;
         _idGenerator = idGenerator;
+        _permissions = permissions;
     }
 
     public async Task<WorkoutSeriesDto> ExecuteAsync(
         CreateWorkoutSeriesCommand command,
         CancellationToken cancellationToken)
     {
-        _currentUser.RequirePersonalTrainer("create a workout series");
+        // The athlete who builds their own plan is not a personal trainer: the release the
+        // administrator gave them is what opens the door.
+        var selfAuthored = !_currentUser.IsPersonalTrainer;
+
+        if (selfAuthored)
+        {
+            await WorkoutSeriesAccess.RequireAuthorAsync(
+                _currentUser,
+                _permissions,
+                "create a workout series",
+                cancellationToken);
+        }
 
         var name = new WorkoutSeriesName(command.Name);
 
@@ -60,25 +79,36 @@ public sealed class CreateWorkoutSeries : ICreateWorkoutSeries
                 $"A workout series named '{name.Value}' already exists.");
         }
 
-        var athleteId = command.AthleteId is { } athlete && athlete != Guid.Empty
-            ? new UserId(athlete)
-            : (UserId?)null;
+        UserId? athleteId;
 
-        if (athleteId is not null && !await _athletes.ExistsAsync(athleteId.Value, cancellationToken))
+        if (selfAuthored)
         {
-            throw new NotFoundException($"No athlete with id '{athleteId.Value.Value}'.");
+            // The plan belongs to the athlete who is writing it: they are the author and the athlete
+            // at the same time, and the athlete of the request is ignored.
+            athleteId = _currentUser.Id;
         }
-
-        // The roster rules what a trainer can prescribe: an unlinked athlete or one under another
-        // trainer is refused the same way, without revealing whose roster the athlete is on.
-        if (athleteId is not null)
+        else
         {
-            var roster = await _links.GetByAthleteIdAsync(athleteId.Value, cancellationToken);
+            athleteId = command.AthleteId is { } athlete && athlete != Guid.Empty
+                ? new UserId(athlete)
+                : (UserId?)null;
 
-            if (roster is null || roster.TrainerId != _currentUser.Id)
+            if (athleteId is not null && !await _athletes.ExistsAsync(athleteId.Value, cancellationToken))
             {
-                throw new ForbiddenException(
-                    "A personal trainer only prescribes series for their own athletes.");
+                throw new NotFoundException($"No athlete with id '{athleteId.Value.Value}'.");
+            }
+
+            // The roster rules what a trainer can prescribe: an unlinked athlete or one under another
+            // trainer is refused the same way, without revealing whose roster the athlete is on.
+            if (athleteId is not null)
+            {
+                var roster = await _links.GetByAthleteIdAsync(athleteId.Value, cancellationToken);
+
+                if (roster is null || roster.TrainerId != _currentUser.Id)
+                {
+                    throw new ForbiddenException(
+                        "A personal trainer only prescribes series for their own athletes.");
+                }
             }
         }
 

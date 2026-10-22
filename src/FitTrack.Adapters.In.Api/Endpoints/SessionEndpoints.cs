@@ -1,6 +1,7 @@
 using FitTrack.Adapters.In.Api.Composition;
 using FitTrack.Adapters.In.Api.Contracts;
 using FitTrack.Application.Commands;
+using FitTrack.Application.Mapping;
 using FitTrack.Application.Ports.In;
 
 namespace FitTrack.Adapters.In.Api.Endpoints;
@@ -8,8 +9,9 @@ namespace FitTrack.Adapters.In.Api.Endpoints;
 /// <summary>
 /// Inbound adapter for the athlete's workout. The POST that used to record a session on any date now
 /// means "start today's workout from the workout I picked": the clock is the server's, the session is
-/// unique per workout per day, and the timer lives until the athlete finishes. The tick of each
-/// exercise is kept with the session, so the workout only closes with every exercise done.
+/// unique per workout per day, and the timer lives until the athlete finishes. The screen keeps the
+/// marks of the exercises on its own and sends everything when the athlete finishes, so the workout
+/// closes in one request.
 /// </summary>
 internal static class SessionEndpoints
 {
@@ -21,8 +23,6 @@ internal static class SessionEndpoints
 
         group.MapGet("/", ListAsync);
         group.MapPost("/", StartAsync);
-        group.MapPost("/{sessionId:guid}/sets", LogSetAsync);
-        group.MapPut("/{sessionId:guid}/exercises/{exerciseId:guid}/completion", CompleteExerciseAsync);
         group.MapPost("/{sessionId:guid}/finish", FinishAsync);
         group.MapDelete("/{sessionId:guid}", CancelAsync);
 
@@ -61,38 +61,25 @@ internal static class SessionEndpoints
             : Results.Ok(result.Session);
     }
 
-    private static async Task<IResult> LogSetAsync(
+    private static async Task<IResult> FinishAsync(
         Guid sessionId,
-        LogPerformedSetRequest request,
-        ILogPerformedSet useCase,
+        FinishWorkoutRequest request,
+        IFinishWorkout useCase,
         CancellationToken cancellationToken)
     {
         var session = await useCase.ExecuteAsync(
-            new LogPerformedSetCommand(sessionId, request.ExerciseId, request.LoadKilograms, request.Repetitions),
-            cancellationToken);
-
-        return Results.Created($"/sessions/{sessionId}", session);
-    }
-
-    private static async Task<IResult> CompleteExerciseAsync(
-        Guid sessionId,
-        Guid exerciseId,
-        SetExerciseCompletionRequest request,
-        IMarkExerciseCompleted useCase,
-        CancellationToken cancellationToken)
-    {
-        var session = await useCase.ExecuteAsync(
-            new MarkExerciseCompletedCommand(sessionId, exerciseId, request.Completed),
+            new FinishWorkoutCommand(
+                sessionId,
+                WorkoutIntensityMapping.FromContract(request.Intensity),
+                request.Notes,
+                [.. (request.Exercises ?? []).Select(exercise => new PerformedExerciseInput(
+                    exercise.ExerciseId,
+                    exercise.Repetitions,
+                    exercise.LoadKilograms))]),
             cancellationToken);
 
         return Results.Ok(session);
     }
-
-    private static async Task<IResult> FinishAsync(
-        Guid sessionId,
-        IFinishWorkout useCase,
-        CancellationToken cancellationToken) =>
-        Results.Ok(await useCase.ExecuteAsync(new FinishWorkoutCommand(sessionId), cancellationToken));
 
     private static async Task<IResult> CancelAsync(
         Guid sessionId,

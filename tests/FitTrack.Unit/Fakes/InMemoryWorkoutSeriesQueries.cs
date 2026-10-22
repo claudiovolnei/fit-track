@@ -58,7 +58,12 @@ internal sealed class InMemoryWorkoutSeriesQueries(
                 TrainerName,
                 assignment.ExpiresAt,
                 assignment.DaysRemaining(now),
-                assignment.IsExpiredAt(now)));
+                assignment.IsExpiredAt(now))
+            {
+                // The same rule the SQL adapter applies: the plan is the athlete's own when the
+                // author of the series is the athlete who follows it.
+                IsSelfAuthored = assigned.TrainerId == userId,
+            });
     }
 
     /// <summary>Name the fake reports as the author of the series; the SQL adapter reads it off the account.</summary>

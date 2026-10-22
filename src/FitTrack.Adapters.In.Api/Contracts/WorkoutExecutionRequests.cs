@@ -4,11 +4,17 @@ namespace FitTrack.Adapters.In.Api.Contracts;
 internal sealed record StartWorkoutRequest(Guid WorkoutSeriesWorkoutId);
 
 /// <summary>
-/// HTTP contract for a set the athlete performed in the workout in progress. The load is always the
-/// athlete's; the repetitions are optional — when they are left out, the ones the trainer prescribed
-/// are used.
+/// HTTP contract for closing the workout. The whole workout arrives at once: the exercises the
+/// athlete marked, the repetitions and the load they really used, the level they gave the session
+/// and what they wrote about it.
 /// </summary>
-internal sealed record LogPerformedSetRequest(Guid ExerciseId, decimal LoadKilograms, int? Repetitions = null);
+internal sealed record FinishWorkoutRequest(
+    string? Intensity,
+    string? Notes,
+    IReadOnlyList<PerformedExerciseRequest>? Exercises);
 
-/// <summary>HTTP contract for ticking an exercise of the workout in progress as done.</summary>
-internal sealed record SetExerciseCompletionRequest(bool Completed);
+/// <summary>
+/// HTTP contract for one exercise the athlete did in the workout. The number of sets comes from the
+/// prescription: the athlete adjusts the effort, not the sheet.
+/// </summary>
+internal sealed record PerformedExerciseRequest(Guid ExerciseId, int Repetitions, decimal LoadKilograms);

@@ -4,11 +4,17 @@ namespace FitTrack.Integration.Contracts;
 public sealed record StartWorkoutRequest(Guid WorkoutSeriesWorkoutId);
 
 /// <summary>
-/// Request body for a set the athlete performed. The repetitions are optional: when they are left out,
-/// the ones the trainer prescribed are used; when the athlete fills them in, the set is recorded with
-/// what was really done.
+/// Request body for closing the workout: the whole workout travels at once — the exercises the athlete
+/// marked, the repetitions and the load they really used, the level they gave the session and what
+/// they wrote about it.
 /// </summary>
-public sealed record LogPerformedSetRequest(Guid ExerciseId, decimal LoadKilograms, int? Repetitions = null);
+public sealed record FinishWorkoutRequest(
+    string Intensity,
+    string? Notes = null,
+    IReadOnlyList<PerformedExerciseRequest>? Exercises = null);
 
-/// <summary>Request body for ticking an exercise of the workout in progress as done.</summary>
-public sealed record SetExerciseCompletionRequest(bool Completed);
+/// <summary>
+/// Request body for one exercise the athlete did. The number of sets comes from the prescription —
+/// the athlete adjusts the effort, not the sheet.
+/// </summary>
+public sealed record PerformedExerciseRequest(Guid ExerciseId, int Repetitions, decimal LoadKilograms);

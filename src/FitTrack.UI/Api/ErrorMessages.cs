@@ -45,6 +45,9 @@ public static class ErrorMessages
         ["session.finish.before_start"] = "O treino não pode terminar antes de começar.",
         ["session.finish.exercises.pending"] =
             "Marque todos os exercícios do treino antes de finalizar.",
+        ["session.finish.intensity.invalid"] =
+            "Escolha o nível do treino: leve, médio, moderado, intenso ou muito intenso.",
+        ["workout_session.notes.too_long"] = "A observação sobre o treino pode ter no máximo 500 caracteres.",
         ["session.start.already_started_today"] =
             "Você já fez um treino hoje. Só dá para fazer um treino por dia.",
         ["session.user.required"] = "O treino precisa pertencer a um atleta.",

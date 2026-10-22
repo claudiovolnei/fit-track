@@ -20,6 +20,15 @@ public sealed class WorkoutSessionRecord
     /// <summary>Null while the workout is still running.</summary>
     public DateTimeOffset? FinishedAt { get; set; }
 
+    /// <summary>
+    /// How intense the athlete said the workout was, as the numeric value of the domain enum. Null
+    /// for the sessions finished before the athlete started answering it.
+    /// </summary>
+    public int? Intensity { get; set; }
+
+    /// <summary>What the athlete wrote about the workout. Null when they wrote nothing.</summary>
+    public string? Notes { get; set; }
+
     public List<PerformedSetRecord> Sets { get; set; } = [];
 
     /// <summary>The exercises the athlete ticked as done.</summary>

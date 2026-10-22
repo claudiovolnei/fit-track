@@ -23,5 +23,7 @@ internal static class WorkoutSessionMapping
                 set.Repetitions.Value))])
         {
             CompletedExerciseIds = [.. session.CompletedExercises.Select(exercise => exercise.Value)],
+            Intensity = WorkoutIntensityMapping.ToContract(session.Intensity),
+            Notes = session.Notes?.Value,
         };
 }

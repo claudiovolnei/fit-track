@@ -56,7 +56,7 @@ internal sealed class UserQueries(FitTrackDbContext dbContext) : IQueryUsers
             : ordered;
 
         var accounts = await page
-            .Select(account => new { account.Id, account.Name, account.Email, account.AvatarBytes })
+            .Select(account => new { account.Id, account.Name, account.Email, account.AvatarBytes, account.CanAuthorOwnWorkout })
             .ToListAsync(cancellationToken);
 
         var ids = accounts.Select(account => account.Id).ToList();
@@ -83,7 +83,8 @@ internal sealed class UserQueries(FitTrackDbContext dbContext) : IQueryUsers
                 DisplayName(account.Name, account.Email),
                 account.Email ?? string.Empty,
                 byUser.TryGetValue(account.Id, out var assigned) ? assigned : [],
-                account.AvatarBytes is { Length: > 0 }))
+                account.AvatarBytes is { Length: > 0 },
+                account.CanAuthorOwnWorkout))
             .ToList();
 
         return new PagedResult<UserAccountDto>(items, query.Page, query.PageSize, total);

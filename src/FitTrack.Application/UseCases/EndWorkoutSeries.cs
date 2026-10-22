@@ -10,6 +10,10 @@ namespace FitTrack.Application.UseCases;
 /// Ends the cycle the athlete is in. The link stays, marked closed, so the athlete follows nothing
 /// from now on and the series they were doing stays reachable: the next cycle can start from the
 /// same sheet. The workouts already done are never rewritten.
+/// <para>
+/// The personal trainer ends the cycle of an athlete on their own roster; an athlete released by the
+/// administrator ends their own cycle.
+/// </para>
 /// </summary>
 public sealed class EndWorkoutSeries : IEndWorkoutSeries
 {
@@ -18,33 +22,50 @@ public sealed class EndWorkoutSeries : IEndWorkoutSeries
     private readonly IWorkoutSeriesAssignmentRepository _assignments;
     private readonly IQueryUserSessions _sessions;
     private readonly IClock _clock;
+    private readonly IAccountPermissions _permissions;
 
     public EndWorkoutSeries(
         ICurrentUser currentUser,
         ITrainerAthleteAssignmentRepository links,
         IWorkoutSeriesAssignmentRepository assignments,
         IQueryUserSessions sessions,
-        IClock clock)
+        IClock clock,
+        IAccountPermissions permissions)
     {
         _currentUser = currentUser;
         _links = links;
         _assignments = assignments;
         _sessions = sessions;
         _clock = clock;
+        _permissions = permissions;
     }
 
     public async Task ExecuteAsync(EndWorkoutSeriesCommand command, CancellationToken cancellationToken)
     {
-        _currentUser.RequirePersonalTrainer("end the series of their athletes");
-
         var athleteId = new UserId(command.AthleteId);
 
-        // The roster is the gate: the trainer only acts on the athletes linked to them.
-        var roster = await _links.GetByAthleteIdAsync(athleteId, cancellationToken);
-
-        if (roster is null || roster.TrainerId != _currentUser.Id)
+        if (_currentUser.IsPersonalTrainer)
         {
-            throw new ForbiddenException("A personal trainer only ends the series of their own athletes.");
+            // The roster is the gate: the trainer only acts on the athletes linked to them.
+            var roster = await _links.GetByAthleteIdAsync(athleteId, cancellationToken);
+
+            if (roster is null || roster.TrainerId != _currentUser.Id)
+            {
+                throw new ForbiddenException("A personal trainer only ends the series of their own athletes.");
+            }
+        }
+        else
+        {
+            await WorkoutSeriesAccess.RequireAuthorAsync(
+                _currentUser,
+                _permissions,
+                "end the series cycle of their own plan",
+                cancellationToken);
+
+            if (athleteId != _currentUser.Id)
+            {
+                throw new ForbiddenException("Only the athlete themselves can end their own series cycle.");
+            }
         }
 
         var assignment = await _assignments.GetByUserIdAsync(athleteId, cancellationToken)

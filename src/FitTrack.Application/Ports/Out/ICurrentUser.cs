@@ -15,4 +15,7 @@ public interface ICurrentUser
 
     /// <summary>Managing the accounts belongs to the administrator.</summary>
     bool IsAdmin { get; }
+
+    /// <summary>Following and doing the training belongs to the athlete.</summary>
+    bool IsAthlete { get; }
 }

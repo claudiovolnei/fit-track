@@ -37,6 +37,11 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.Property<string>("AvatarContentType")
                         .HasColumnType("text");
 
+                    b.Property<bool>("CanAuthorOwnWorkout")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text");
@@ -330,6 +335,12 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("timestamptz");
+
+                    b.Property<int?>("Intensity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("timestamptz");

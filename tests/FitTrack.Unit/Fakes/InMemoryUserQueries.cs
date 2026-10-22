@@ -13,6 +13,10 @@ internal sealed class InMemoryUserQueries : IQueryUsers
     public void Seed(Guid userId, string name, string email, params string[] roles) =>
         _accounts.Add(new UserAccountDto(userId, name, email, roles));
 
+    /// <summary>Seeds an account the administrator released to build its own training plan.</summary>
+    public void SeedReleased(Guid userId, string name, string email, params string[] roles) =>
+        _accounts.Add(new UserAccountDto(userId, name, email, roles) { CanAuthorOwnWorkout = true });
+
     public Task<IReadOnlyList<UserAccountDto>> ListAsync(CancellationToken cancellationToken)
     {
         WasQueried = true;

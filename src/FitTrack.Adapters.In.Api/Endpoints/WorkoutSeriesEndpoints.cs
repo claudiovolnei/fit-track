@@ -24,18 +24,20 @@ internal static class WorkoutSeriesEndpoints
         athletes.MapPost("/{userId:guid}/trainer", LinkTrainerAsync);
         athletes.MapDelete("/{userId:guid}/trainer", UnlinkTrainerAsync);
 
-        // The cycle of a series belongs to the personal trainer: the administrator links people, the
-        // trainer decides the plan. Its own group, so the policy says that without touching the
-        // roster's.
+        // The cycle of a series belongs to the personal trainer — and to the athlete the
+        // administrator released to build their own plan. The group is open to any authenticated
+        // account and each use case states who may act, the same way the roster does.
         var cycles = app.MapGroup("/athletes/{athleteId:guid}/series")
             .WithTags("Workout series")
-            .RequireAuthorization(Policies.PersonalTrainerOnly);
+            .RequireAuthorization();
 
         cycles.MapPost("/end", EndSeriesAsync);
 
+        // The series side is the personal trainer's — and the released athlete's. Who may act is
+        // stated by the use cases, which read the release from the account.
         var series = app.MapGroup("/workout-series")
             .WithTags("Workout series")
-            .RequireAuthorization(Policies.PersonalTrainerOnly);
+            .RequireAuthorization();
 
         series.MapGet("/", ListSeriesAsync);
         series.MapPost("/", CreateSeriesAsync);

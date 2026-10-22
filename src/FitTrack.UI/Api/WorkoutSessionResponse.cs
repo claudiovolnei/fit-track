@@ -17,4 +17,13 @@ public sealed record WorkoutSessionResponse(
 
     /// <summary>The exercises the athlete ticked as done in this workout.</summary>
     public IReadOnlyList<Guid> CompletedExerciseIds { get; init; } = [];
+
+    /// <summary>
+    /// How intense the athlete said the workout was. Null for the sessions finished before the
+    /// athlete started answering it.
+    /// </summary>
+    public string? Intensity { get; init; }
+
+    /// <summary>What the athlete wrote about the workout. Null when they wrote nothing.</summary>
+    public string? Notes { get; init; }
 }

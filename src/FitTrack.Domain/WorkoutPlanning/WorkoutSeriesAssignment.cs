@@ -36,7 +36,10 @@ public sealed class WorkoutSeriesAssignment
     /// <summary>The athlete the series is assigned to.</summary>
     public UserId UserId { get; }
 
-    /// <summary>The trainer who assigned it.</summary>
+    /// <summary>
+    /// Who put the series on the athlete's sheet: the personal trainer who prescribed it, or the
+    /// athlete themselves when they built their own plan.
+    /// </summary>
     public UserId TrainerId { get; private set; }
 
     public DateTimeOffset AssignedAt { get; private set; }

@@ -1,7 +1,9 @@
 using FitTrack.Adapters.Out.Persistence.Records;
 using FitTrack.Application.Dtos;
+using FitTrack.Application.Mapping;
 using FitTrack.Application.Ports.Out;
 using FitTrack.Domain.Identity;
+using FitTrack.Domain.WorkoutExecution;
 using FitTrack.Domain.WorkoutPlanning;
 using Microsoft.EntityFrameworkCore;
 
@@ -112,7 +114,12 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
             TrainerDisplayName(trainer?.Name, trainer?.Email),
             assignment.ExpiresAt,
             WorkoutSeriesAssignment.DaysRemainingUntil(assignment.ExpiresAt, now),
-            WorkoutSeriesAssignment.IsExpired(assignment.ExpiresAt, now));
+            WorkoutSeriesAssignment.IsExpired(assignment.ExpiresAt, now))
+        {
+            // The athlete built the plan themselves: the author is the athlete, and the screen says
+            // "montado por você" instead of naming a personal trainer.
+            IsSelfAuthored = series.TrainerId == userId.Value,
+        };
     }
 
     /// <summary>
@@ -254,6 +261,10 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
                 ])
             {
                 CompletedExerciseIds = [.. session.CompletedExercises.Select(completed => completed.ExerciseId)],
+                Intensity = session.Intensity is { } stored
+                    ? WorkoutIntensityMapping.ToContract((WorkoutIntensity)stored)
+                    : null,
+                Notes = session.Notes,
             });
     }
 

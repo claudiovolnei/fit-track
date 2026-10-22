@@ -23,4 +23,11 @@ public sealed class AppUser : IdentityUser<Guid>
 
     /// <summary>MIME type of <see cref="AvatarBytes"/> (e.g. image/jpeg), or null when there is no photo.</summary>
     public string? AvatarContentType { get; set; }
+
+    /// <summary>
+    /// Whether the administrator released this account to build its own training plan, without a
+    /// personal trainer. The release lives in the account and not in the token, so a revocation
+    /// takes effect at once.
+    /// </summary>
+    public bool CanAuthorOwnWorkout { get; set; }
 }

@@ -82,6 +82,9 @@ public static class NavOptions
         new("today", "/today", "Hoje", "dumbbell", NavGroup.Athlete, "Treino", NavAuth.Roles, [RoleUser]),
         new("workouts", "/workouts", "Histórico", "history", NavGroup.Athlete, "Treino", NavAuth.Roles, [RoleUser]),
         new(
+            "meu-plano", "/meu-plano", "Meu plano", "layers",
+            NavGroup.Athlete, "Treino", NavAuth.Roles, [RoleUser]),
+        new(
             "series", "/series", "Séries", "layers",
             NavGroup.Trainer, "Gestão", NavAuth.Roles, [RolePersonalTrainer]),
         new(

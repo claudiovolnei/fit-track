@@ -86,30 +86,15 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         CancellationToken cancellationToken = default) =>
         PostAsync<WorkoutSessionResponse>("sessions", request, cancellationToken);
 
-    public Task<WorkoutSessionResponse> LogPerformedSetAsync(
-        Guid sessionId,
-        LogPerformedSetRequest request,
-        CancellationToken cancellationToken = default) =>
-        PostAsync<WorkoutSessionResponse>($"sessions/{sessionId}/sets", request, cancellationToken);
-
     /// <summary>
-    /// Ticks (or unticks) one exercise of the workout in progress as done. The tick is what lets the
-    /// athlete close the workout with every prescribed exercise done.
+    /// Closes the workout: the exercises the athlete marked, the level they gave the session and what
+    /// they wrote about it, all in one request.
     /// </summary>
-    public Task<WorkoutSessionResponse> SetExerciseCompletionAsync(
-        Guid sessionId,
-        Guid exerciseId,
-        bool completed,
-        CancellationToken cancellationToken = default) =>
-        PutAsync<WorkoutSessionResponse>(
-            $"sessions/{sessionId}/exercises/{exerciseId}/completion",
-            new SetExerciseCompletionRequest(completed),
-            cancellationToken);
-
     public Task<WorkoutSessionResponse> FinishWorkoutAsync(
         Guid sessionId,
+        FinishWorkoutRequest request,
         CancellationToken cancellationToken = default) =>
-        PostAsync<WorkoutSessionResponse>($"sessions/{sessionId}/finish", new { }, cancellationToken);
+        PostAsync<WorkoutSessionResponse>($"sessions/{sessionId}/finish", request, cancellationToken);
 
     public Task CancelWorkoutAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
         DeleteAsync($"sessions/{sessionId}", cancellationToken);
@@ -249,6 +234,17 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
 
     public Task ResetPasswordAsync(Guid userId, ResetPasswordRequest request, CancellationToken cancellationToken = default) =>
         PostAsync($"admin/users/{userId}/password", request, cancellationToken);
+
+    /// <summary>
+    /// Releases the account to build its own training plan, without a personal trainer. The release
+    /// takes effect at once: it lives in the account and not in the token.
+    /// </summary>
+    public Task GrantSelfAuthoringAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        PostAsync($"admin/users/{userId}/self-authoring", new { }, cancellationToken);
+
+    /// <summary>Takes the release back: the athlete needs a personal trainer again.</summary>
+    public Task RevokeSelfAuthoringAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"admin/users/{userId}/self-authoring", cancellationToken);
 
     public async Task UploadAvatarAsync(Stream content, string fileName, string contentType, CancellationToken cancellationToken = default)
     {

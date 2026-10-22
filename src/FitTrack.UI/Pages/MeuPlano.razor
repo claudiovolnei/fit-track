@@ -1,0 +1,197 @@
+@page "/meu-plano"
+@attribute [Authorize]
+@inject FitTrackApiClient Api
+@inject ToastService Toasts
+@inject NavigationManager NavManager
+
+<PageTitle>Meu plano — FitTrack</PageTitle>
+
+<PageHeader Eyebrow="Treino"
+            Title="Meu plano"
+            Subtitle="As séries que você mesmo monta. Sem precisar de um personal vinculado." />
+
+@if (_loading)
+{
+    <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Carregando seus planos…</span>
+    </div>
+}
+else if (_blocked)
+{
+    <div class="empty-state">
+        <AppIcon Name="lock" Size="28" />
+        <h2>Montar o próprio treino ainda não está liberado</h2>
+        <p>
+            Para montar a sua série você precisa de um personal vinculado ou da liberação do
+            administrador. Peça a liberação e o caminho aparece aqui.
+        </p>
+    </div>
+}
+else
+{
+    <section class="card card--accent" style="margin-bottom: 26px;">
+        <div class="section-head">
+            <h2>Nova série</h2>
+            <span class="chip">Você é o autor</span>
+        </div>
+
+        <div class="field">
+            <label for="new-plan-name">Nome da série</label>
+            <input id="new-plan-name" maxlength="80" placeholder="Ex.: Hipertrofia A/B/C"
+                   @bind="_newName" @bind:event="oninput" />
+        </div>
+
+        @if (_mine is not null)
+        {
+            <label class="role-option" style="margin-top: 12px;">
+                <input type="checkbox" @bind="_copyPreviousWorkouts" />
+                <span>Reaproveitar os treinos de @_mine.Series.Name</span>
+            </label>
+        }
+
+        <div class="actions" style="margin-top: 16px;">
+            <button class="btn btn-primary btn-sm" type="button"
+                    disabled="@(_busy || string.IsNullOrWhiteSpace(_newName))"
+                    @onclick="CreateAsync">
+                <AppIcon Name="plus" Size="16" />
+                Criar série
+            </button>
+        </div>
+
+        @if (_mine is not null)
+        {
+            <p class="muted" style="margin: 14px 0 0; font-size: 0.8rem;">
+                A série nova passa a ser o seu plano atual: a série de <strong>@_mine.TrainerName</strong>
+                continua guardada, mas o treino de hoje passa a ser o da sua série.
+            </p>
+        }
+    </section>
+
+    @if (_rows.Count == 0)
+    {
+        <div class="empty-state">
+            <AppIcon Name="layers" Size="28" />
+            <h2>Nenhuma série sua ainda</h2>
+            <p>Crie a primeira série no formulário acima e monte os treinos A–E.</p>
+        </div>
+    }
+    else
+    {
+        <div class="section-head" style="margin-bottom: 14px;">
+            <h2>Suas séries</h2>
+            <span class="muted" style="font-size: 0.84rem;">@_rows.Count @(_rows.Count == 1 ? "série" : "séries")</span>
+        </div>
+
+        <div class="card-grid">
+            @foreach (var row in _rows)
+            {
+                <article class="card series-card" @key="row.Id">
+                    <div class="series-head">
+                        <span class="icon-tile"><AppIcon Name="layers" /></span>
+                        <div style="min-width: 0;">
+                            <h2>@row.Name</h2>
+                            <p>@row.WorkoutCount @(row.WorkoutCount == 1 ? "treino" : "treinos")</p>
+                        </div>
+                    </div>
+
+                    <div class="actions" style="margin-top: 14px;">
+                        <a class="btn btn-primary btn-block" href="/series/@row.Id">
+                            Abrir série
+                            <AppIcon Name="chevron-right" Size="18" />
+                        </a>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+}
+
+@code {
+    private IReadOnlyList<PlanRow> _rows = [];
+    private MyWorkoutSeriesResponse? _mine;
+    private string _newName = string.Empty;
+    private bool _copyPreviousWorkouts;
+    private bool _loading = true;
+    private bool _busy;
+
+    /// <summary>True when the API refuses: the athlete has no release to build their own plan.</summary>
+    private bool _blocked;
+
+    protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
+
+    private async Task CreateAsync() =>
+        await RunAsync(async () =>
+        {
+            var created = await Api.CreateWorkoutSeriesAsync(
+                new CreateWorkoutSeriesRequest(_newName, AthleteId: null, _copyPreviousWorkouts));
+
+            _newName = string.Empty;
+            _copyPreviousWorkouts = false;
+
+            await ReloadAsync();
+
+            NavManager.NavigateTo($"/series/{created.Id}");
+        });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+
+        try
+        {
+            await action();
+        }
+        catch (ApiException exception)
+        {
+            Toasts.Error(ErrorMessages.Describe(exception));
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _mine = await Api.GetMyWorkoutSeriesAsync();
+
+            var result = await Api.GetWorkoutSeriesAsync();
+
+            _rows =
+            [
+                .. result.Select(series => new PlanRow
+                {
+                    Id = series.Id,
+                    Name = series.Name,
+                    WorkoutCount = series.Workouts.Count,
+                }),
+            ];
+
+            _blocked = false;
+        }
+        catch (ApiException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            // The athlete has no release: the screen says what is missing instead of failing.
+            _rows = [];
+            _blocked = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private sealed class PlanRow
+    {
+        public Guid Id { get; init; }
+
+        public string Name { get; init; } = string.Empty;
+
+        public int WorkoutCount { get; init; }
+    }
+}

@@ -8,14 +8,6 @@ namespace FitTrack.Application.Ports.Out;
 /// </summary>
 public static class CurrentUserExtensions
 {
-    public static void RequirePersonalTrainer(this ICurrentUser currentUser, string action)
-    {
-        if (!currentUser.IsPersonalTrainer)
-        {
-            throw new ForbiddenException($"Only personal trainers can {action}.");
-        }
-    }
-
     public static void RequireAdmin(this ICurrentUser currentUser, string action)
     {
         if (!currentUser.IsAdmin)

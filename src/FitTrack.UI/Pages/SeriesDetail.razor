@@ -1,5 +1,5 @@
 @page "/series/{SeriesId:guid}"
-@attribute [Authorize(Roles = "PersonalTrainer")]
+@attribute [Authorize]
 @inject FitTrackApiClient Api
 @inject ToastService Toasts
 
@@ -26,7 +26,7 @@ else if (_series is null)
     <div class="empty-state">
         <AppIcon Name="layers" Size="28" />
         <h2>Série não encontrada</h2>
-        <p>Ela pode ter sido removida ou pertence a outro personal.</p>
+        <p>Ela pode ter sido removida ou pertence a outro autor.</p>
         <a class="btn btn-secondary" href="/series">Voltar para as séries</a>
     </div>
 }
@@ -230,7 +230,14 @@ else
         }
         catch (ApiException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
         {
-            // Another trainer's series answers the same as one that does not exist: there is nothing to show.
+            // Another author's series answers the same as one that does not exist: there is nothing to show.
+            _series = null;
+            _loading = false;
+            return;
+        }
+        catch (ApiException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            // The caller may not author a series: there is nothing of theirs to show either.
             _series = null;
             _loading = false;
             return;

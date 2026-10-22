@@ -28,6 +28,8 @@ internal static class AdminEndpoints
         group.MapPost("/users/{userId:guid}/roles", GrantAsync);
         group.MapDelete("/users/{userId:guid}/roles/{role}", RevokeAsync);
         group.MapPost("/users/{userId:guid}/password", ResetPasswordAsync);
+        group.MapPost("/users/{userId:guid}/self-authoring", GrantSelfAuthoringAsync);
+        group.MapDelete("/users/{userId:guid}/self-authoring", RevokeSelfAuthoringAsync);
 
         return app;
     }
@@ -167,6 +169,40 @@ internal static class AdminEndpoints
         }
 
         return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Releases the account to build its own training plan, without a personal trainer. The release
+    /// lives in the account, so it takes effect at once — a revocation does not wait for the next
+    /// sign-in.
+    /// </summary>
+    private static async Task<IResult> GrantSelfAuthoringAsync(Guid userId, UserManager<AppUser> users)
+    {
+        var account = await FindAsync(users, userId);
+
+        if (account.CanAuthorOwnWorkout)
+        {
+            return Results.NoContent();
+        }
+
+        account.CanAuthorOwnWorkout = true;
+
+        return AccountProblems.Store(await users.UpdateAsync(account));
+    }
+
+    /// <summary>Takes the release back: the athlete needs a personal trainer again.</summary>
+    private static async Task<IResult> RevokeSelfAuthoringAsync(Guid userId, UserManager<AppUser> users)
+    {
+        var account = await FindAsync(users, userId);
+
+        if (!account.CanAuthorOwnWorkout)
+        {
+            return Results.NoContent();
+        }
+
+        account.CanAuthorOwnWorkout = false;
+
+        return AccountProblems.Store(await users.UpdateAsync(account));
     }
 
     private static async Task<AppUser> FindAsync(UserManager<AppUser> users, Guid userId) =>

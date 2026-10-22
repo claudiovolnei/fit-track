@@ -10,7 +10,8 @@ namespace FitTrack.Domain.WorkoutExecution;
 /// started and finished it. Sets are registered through <see cref="RegisterSet"/> so no invalid set
 /// can enter the aggregate — and none can enter once the workout is finished. The exercises the
 /// athlete ticked are kept here too, so the screen can show what is still missing before the workout
-/// is closed.
+/// is closed. A finished workout also carries the level the athlete gave it and the note they wrote
+/// about it: the effort of a session is part of the session, not of the prescription.
 /// </summary>
 public sealed class WorkoutSession
 {
@@ -57,6 +58,17 @@ public sealed class WorkoutSession
     /// ticks its exercise: performing a series of an exercise means the exercise was done.
     /// </summary>
     public IReadOnlyList<ExerciseId> CompletedExercises => _completedExercises;
+
+    /// <summary>
+    /// How intense the athlete says the workout was. Null while the workout runs and for the
+    /// sessions finished before the athlete started answering it.
+    /// </summary>
+    public WorkoutIntensity? Intensity { get; private set; }
+
+    /// <summary>
+    /// What the athlete wrote about the workout. Null when they wrote nothing.
+    /// </summary>
+    public WorkoutNotes? Notes { get; private set; }
 
     /// <summary>True until the athlete finishes the workout.</summary>
     public bool IsRunning => FinishedAt is null;
@@ -114,17 +126,6 @@ public sealed class WorkoutSession
         Tick(exerciseId);
     }
 
-    /// <summary>
-    /// Unticks an exercise. The sets already registered stay: what the athlete did is a fact, and the
-    /// tick only says the exercise of the prescription is done.
-    /// </summary>
-    public void UnmarkExerciseCompleted(ExerciseId exerciseId)
-    {
-        RequireRunning();
-
-        _completedExercises.Remove(exerciseId);
-    }
-
     private void Tick(ExerciseId exerciseId)
     {
         if (exerciseId.Value == Guid.Empty)
@@ -148,7 +149,43 @@ public sealed class WorkoutSession
         }
     }
 
-    public void Finish(DateTimeOffset finishedAt)
+    /// <summary>
+    /// Closes the workout with what the athlete did. The whole workout arrives at once: the screen
+    /// keeps the marks of the exercises on its own and sends them when the athlete finishes, so the
+    /// aggregate receives the exercises, the sets of each one and the account of the effort together.
+    /// The level is part of the closing: a workout the athlete did always has one.
+    /// </summary>
+    public void Complete(
+        IReadOnlyList<PerformedExercise> exercises,
+        WorkoutIntensity intensity,
+        WorkoutNotes? notes,
+        DateTimeOffset finishedAt)
+    {
+        if (!IsRunning)
+        {
+            throw new DomainException("session.finish.already_finished", "This workout is already finished.");
+        }
+
+        foreach (var exercise in exercises)
+        {
+            for (var set = 0; set < exercise.Sets; set++)
+            {
+                RegisterSet(exercise.ExerciseId, exercise.Load, exercise.Repetitions);
+            }
+        }
+
+        Finish(finishedAt, intensity, notes);
+    }
+
+    /// <summary>
+    /// Stops the timer and closes the workout. The level and the note are the athlete's own account
+    /// of the effort; a session rebuilt from storage may carry neither — the ones finished before the
+    /// athlete started answering it have no level to show.
+    /// </summary>
+    public void Finish(
+        DateTimeOffset finishedAt,
+        WorkoutIntensity? intensity = null,
+        WorkoutNotes? notes = null)
     {
         if (!IsRunning)
         {
@@ -160,6 +197,8 @@ public sealed class WorkoutSession
             throw new DomainException("session.finish.before_start", "A workout cannot finish before it started.");
         }
 
+        Intensity = intensity;
+        Notes = notes;
         FinishedAt = finishedAt;
     }
 

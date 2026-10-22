@@ -26,6 +26,23 @@
         </span>
     </div>
 
+    @if (!string.IsNullOrWhiteSpace(Session.Intensity))
+    {
+        <div class="user-status" style="margin-top: 12px;">
+            <span class="chip chip--accent">
+                <AppIcon Name="sparkles" Size="14" />
+                @DisplayText.IntensityLabel(Session.Intensity)
+            </span>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Session.Notes))
+    {
+        <p class="muted" style="margin: 12px 0 0; font-size: 0.84rem;">
+            <strong>Sobre o treino:</strong> @Session.Notes
+        </p>
+    }
+
     @if (Session.Sets.Count == 0)
     {
         <p class="muted" style="margin-top: 14px; font-size: 0.86rem;">Nenhuma série registrada.</p>

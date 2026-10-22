@@ -6,13 +6,14 @@ namespace FitTrack.Integration;
 
 /// <summary>
 /// The athlete's workout end to end: the workout comes from the series the trainer assigned, the timer
-/// starts on the server, the athlete registers the sets with the load and the repetitions they really
-/// did, ticks the exercises and finishing freezes the duration the history then shows.
+/// starts on the server, and the athlete closes the workout in one request — the exercises they marked,
+/// the level they gave the session and what they wrote about it — which freezes the duration the
+/// history then shows.
 /// </summary>
 public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture<FitTrackApiFactory>
 {
     [RequiresPostgresFact]
-    public async Task Athlete_StartsLogsAndFinishesTheWorkoutOfTheSeries()
+    public async Task Athlete_StartsAndFinishesTheWorkoutOfTheSeries()
     {
         var trainer = await factory.TrainerAsync();
         var athlete = await factory.CreateAthleteAsync();
@@ -47,22 +48,13 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         Assert.True(today.IsRunning);
         Assert.True((today.StartedAt - session.StartedAt).Duration() < TimeSpan.FromMilliseconds(1));
 
-        // The athlete only fills in the load: the ten repetitions come from the prescription.
-        var logged = await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 65m));
-
-        Assert.Equal(HttpStatusCode.Created, logged.StatusCode);
-
-        var recorded = (await logged.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
-        var set = Assert.Single(recorded.Sets);
-
-        Assert.Equal((exercise.Id, 65m, 10), (set.ExerciseId, set.LoadKilograms, set.Repetitions));
-
-        // Registering a set ticks the exercise: the workout is only closed with every exercise done.
-        Assert.Equal([exercise.Id], recorded.CompletedExerciseIds);
-
-        var finished = await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        // The workout closes in one request: the marks, the effort, the level and the note.
+        var finished = await athlete.Client.PostAsJsonAsync(
+            $"/sessions/{session.Id}/finish",
+            new FinishWorkoutRequest(
+                "intenso",
+                "Senti o ombro.",
+                [new PerformedExerciseRequest(exercise.Id, 10, 65m)]));
 
         Assert.Equal(HttpStatusCode.OK, finished.StatusCode);
 
@@ -70,15 +62,26 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
 
         Assert.NotNull(closed.FinishedAt);
         Assert.True(closed.DurationSeconds >= 0);
-        Assert.Single(closed.Sets);
+        Assert.Equal("intenso", closed.Intensity);
+        Assert.Equal("Senti o ombro.", closed.Notes);
 
-        // A finished workout takes no more sets and cannot be finished twice.
-        var lateSet = await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 70m));
-        var lateFinish = await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        // The four sets come from the prescription; the repetitions and the load are the athlete's.
+        Assert.Equal(4, closed.Sets.Count);
+        Assert.All(closed.Sets, set =>
+        {
+            Assert.Equal(exercise.Id, set.ExerciseId);
+            Assert.Equal(65m, set.LoadKilograms);
+            Assert.Equal(10, set.Repetitions);
+        });
 
-        Assert.Equal(HttpStatusCode.BadRequest, lateSet.StatusCode);
+        // The marked exercise is the one that was ticked.
+        Assert.Equal([exercise.Id], closed.CompletedExerciseIds);
+
+        // A finished workout cannot be finished twice.
+        var lateFinish = await athlete.Client.PostAsJsonAsync(
+            $"/sessions/{session.Id}/finish",
+            new FinishWorkoutRequest("moderado", null, [new PerformedExerciseRequest(exercise.Id, 10, 65m)]));
+
         Assert.Equal(HttpStatusCode.BadRequest, lateFinish.StatusCode);
 
         var history = await athlete.Client.GetFromJsonAsync<IReadOnlyList<WorkoutSessionResponse>>("/sessions");
@@ -88,13 +91,14 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         Assert.Equal(closed.DurationSeconds, only.DurationSeconds);
         Assert.Equal(10, only.Sets[0].Repetitions);
         Assert.Equal(65m, only.Sets[0].LoadKilograms);
+        Assert.Equal("intenso", only.Intensity);
         Assert.NotNull(only.Volume);
-        Assert.Equal(650m, only.Volume!.PerformedKilograms);
+        Assert.Equal(2600m, only.Volume!.PerformedKilograms);
         Assert.Equal(2000m, only.Volume.PrescribedKilograms);
     }
 
     [RequiresPostgresFact]
-    public async Task Athlete_RegistersASetWithTheRepetitionsTheyReallyDid()
+    public async Task Athlete_FinishesWithTheRepetitionsTheyReallyDid()
     {
         var trainer = await factory.TrainerAsync();
         var athlete = await factory.CreateAthleteAsync();
@@ -105,24 +109,17 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
 
-        var first = await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 50m, 2));
-        var second = await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 45m, 2));
+        var closed = await athlete.Client.FinishWorkoutAsync(
+            session.Id,
+            "moderado",
+            null,
+            new PerformedExerciseRequest(exercise.Id, 2, 50m));
 
-        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
-
-        var logged = (await second.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
-
-        Assert.Equal(new[] { 50m, 45m }, logged.Sets.Select(set => set.LoadKilograms));
-        Assert.All(logged.Sets, set => Assert.Equal(2, set.Repetitions));
+        Assert.All(closed.Sets, set => Assert.Equal(2, set.Repetitions));
     }
 
     [RequiresPostgresFact]
-    public async Task Athlete_TicksTheExercisesAndTheWorkoutCloses()
+    public async Task Athlete_WithoutEveryExerciseMarked_CannotCloseTheWorkout()
     {
         var trainer = await factory.TrainerAsync();
         var athlete = await factory.CreateAthleteAsync();
@@ -137,23 +134,27 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
 
-        // With one exercise still waiting for its tick, the workout does not close.
-        var ticked = await athlete.Client.PutAsJsonAsync(
-            $"/sessions/{session.Id}/exercises/{first.Id}/completion",
-            new SetExerciseCompletionRequest(true));
-        var early = await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        // With one exercise still waiting for its mark, the workout does not close.
+        var early = await athlete.Client.PostAsJsonAsync(
+            $"/sessions/{session.Id}/finish",
+            new FinishWorkoutRequest(
+                "moderado",
+                null,
+                [new PerformedExerciseRequest(first.Id, 10, 40m)]));
 
-        Assert.Equal(HttpStatusCode.OK, ticked.StatusCode);
-        Assert.Equal([first.Id], (await ticked.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!.CompletedExerciseIds);
         Assert.Equal(HttpStatusCode.Conflict, early.StatusCode);
         Assert.Equal("session.finish.exercises.pending", await early.ReadProblemTitleAsync());
 
-        // With every exercise ticked, the workout closes.
-        await athlete.Client.PutAsJsonAsync(
-            $"/sessions/{session.Id}/exercises/{second.Id}/completion",
-            new SetExerciseCompletionRequest(true));
-
-        var finished = await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        // With every exercise marked, the workout closes.
+        var finished = await athlete.Client.PostAsJsonAsync(
+            $"/sessions/{session.Id}/finish",
+            new FinishWorkoutRequest(
+                "moderado",
+                null,
+                [
+                    new PerformedExerciseRequest(first.Id, 10, 40m),
+                    new PerformedExerciseRequest(second.Id, 10, 40m),
+                ]));
 
         Assert.Equal(HttpStatusCode.OK, finished.StatusCode);
 
@@ -166,27 +167,26 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
     }
 
     [RequiresPostgresFact]
-    public async Task Athlete_UnticksAnExercise()
+    public async Task Athlete_ClosingWithAnUnknownLevel_IsRefused()
     {
         var trainer = await factory.TrainerAsync();
         var athlete = await factory.CreateAthleteAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Destique");
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Nível");
         var workoutId = await SeriesArrange.AssignSeriesAsync(
-            trainer, athlete.UserId, Prescriptions.For(exercise.Id, 3, 10, 40m));
+            trainer, athlete.UserId, Prescriptions.For(exercise.Id));
 
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
 
-        await athlete.Client.PutAsJsonAsync(
-            $"/sessions/{session.Id}/exercises/{exercise.Id}/completion",
-            new SetExerciseCompletionRequest(true));
+        var refused = await athlete.Client.PostAsJsonAsync(
+            $"/sessions/{session.Id}/finish",
+            new FinishWorkoutRequest(
+                "impossível",
+                null,
+                [new PerformedExerciseRequest(exercise.Id, 12, 40m)]));
 
-        var unticked = await athlete.Client.PutAsJsonAsync(
-            $"/sessions/{session.Id}/exercises/{exercise.Id}/completion",
-            new SetExerciseCompletionRequest(false));
-
-        Assert.Equal(HttpStatusCode.OK, unticked.StatusCode);
-        Assert.Empty((await unticked.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!.CompletedExerciseIds);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal("session.finish.intensity.invalid", await refused.ReadProblemTitleAsync());
     }
 
     [RequiresPostgresFact]
@@ -229,43 +229,16 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(first.Id));
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
 
-        await athlete.Client.PutAsJsonAsync(
-            $"/sessions/{session.Id}/exercises/{exercise.Id}/completion",
-            new SetExerciseCompletionRequest(true));
-        await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        await athlete.Client.FinishWorkoutAsync(
+            session.Id,
+            "moderado",
+            null,
+            new PerformedExerciseRequest(exercise.Id, 12, 40m));
 
         var blocked = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(second.Id));
 
         Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
         Assert.Equal("session.start.already_started_today", await blocked.ReadProblemTitleAsync());
-    }
-
-    [RequiresPostgresFact]
-    public async Task Athlete_LogsTheSameExerciseTwice_KeepingBothSets()
-    {
-        var trainer = await factory.TrainerAsync();
-        var athlete = await factory.CreateAthleteAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Duas Séries");
-        var workoutId = await SeriesArrange.AssignSeriesAsync(
-            trainer, athlete.UserId, Prescriptions.For(exercise.Id, 4, 8, 40m));
-
-        var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
-        var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
-
-        var first = await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 40m));
-        var second = await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 45m));
-
-        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
-
-        var logged = (await second.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
-
-        Assert.Equal(new[] { 40m, 45m }, logged.Sets.Select(set => set.LoadKilograms));
-        Assert.All(logged.Sets, set => Assert.Equal(8, set.Repetitions));
     }
 
     [RequiresPostgresFact]
@@ -284,26 +257,6 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
 
         Assert.Equal(HttpStatusCode.NoContent, cancelled.StatusCode);
         Assert.Empty(history!);
-    }
-
-    [RequiresPostgresFact]
-    public async Task Athlete_CannotCancelAWorkoutThatAlreadyHasSets()
-    {
-        var trainer = await factory.TrainerAsync();
-        var athlete = await factory.CreateAthleteAsync();
-        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Não Cancelada");
-        var workoutId = await SeriesArrange.AssignSeriesAsync(trainer, athlete.UserId, Prescriptions.For(exercise.Id));
-
-        var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
-        var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
-
-        await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 60m));
-
-        var cancelled = await athlete.Client.DeleteAsync($"/sessions/{session.Id}");
-
-        Assert.Equal(HttpStatusCode.BadRequest, cancelled.StatusCode);
     }
 
     [RequiresPostgresFact]
@@ -355,14 +308,18 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
 
         await factory.ExpireSeriesAsync(athlete.UserId);
 
-        // The workout already in progress still resumes and still takes sets: only a new start is blocked.
+        // The workout already in progress still resumes and still closes: only a new start is blocked.
         var resumed = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(first.Id));
-        var logged = await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 60m));
 
         Assert.Equal(HttpStatusCode.OK, resumed.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, logged.StatusCode);
+
+        var closed = await athlete.Client.FinishWorkoutAsync(
+            session.Id,
+            "moderado",
+            null,
+            new PerformedExerciseRequest(exercise.Id, 12, 40m));
+
+        Assert.NotNull(closed.FinishedAt);
 
         var blocked = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(second.Id));
         var mine = (await athlete.Client.ReadMySeriesAsync())!;
@@ -386,14 +343,15 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
 
         // Somebody else's session answers as if it did not exist, and their history stays empty.
-        var logged = await other.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 60m));
-        var finished = await other.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        var finished = await other.Client.PostAsJsonAsync(
+            $"/sessions/{session.Id}/finish",
+            new FinishWorkoutRequest(
+                "moderado",
+                null,
+                [new PerformedExerciseRequest(exercise.Id, 12, 40m)]));
         var cancelled = await other.Client.DeleteAsync($"/sessions/{session.Id}");
         var history = await other.Client.GetFromJsonAsync<IReadOnlyList<WorkoutSessionResponse>>("/sessions");
 
-        Assert.Equal(HttpStatusCode.NotFound, logged.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, finished.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, cancelled.StatusCode);
         Assert.Empty(history!);
@@ -411,10 +369,11 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
         var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
 
-        await athlete.Client.PostAsJsonAsync(
-            $"/sessions/{session.Id}/sets",
-            new LogPerformedSetRequest(exercise.Id, 35m));
-        await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+        await athlete.Client.FinishWorkoutAsync(
+            session.Id,
+            "moderado",
+            null,
+            new PerformedExerciseRequest(exercise.Id, 10, 35m));
 
         var followed = await trainer.GetFromJsonAsync<IReadOnlyList<WorkoutSessionResponse>>(
             $"/athletes/{athlete.UserId}/workouts");

@@ -6,8 +6,9 @@ follow that series, start today's workout and log the sets they actually perform
 to five workouts labelled A–E; each workout prescribes exercises, sets, repetitions, load and a rest
 time per exercise (60 seconds by default, editable), and the
 delivery term is 60 days counted from its creation. One workout per day: the athlete trains once,
-and the workout closes only with every prescribed exercise ticked. The web client UI is in Brazilian
-Portuguese.
+and the workout closes only with every prescribed exercise ticked — the tick lives on the screen and
+the whole workout travels in one request when the athlete finishes it, together with the level they
+gave the session and what they wrote about it. The web client UI is in Brazilian Portuguese.
 
 ## Stack
 
@@ -82,7 +83,7 @@ flowchart LR
 | `WorkoutCatalog` | `MuscleGroup`, `Exercise` | The catalog a trainer reads when prescribing exercises |
 | `WorkoutPlanning` | `WorkoutSeries`, `WorkoutSeriesAssignment` | Series for one athlete, workouts A–E, prescriptions and the 60-day term |
 | `WorkoutExecution` | `WorkoutSession`, `PerformedSet` | A workout started from a prescribed workout, its running clock, sets and finish/cancel state |
-| `Identity` | `UserId`, `Roles`, `TrainerAthleteAssignment` plus the Identity `AppUser` | Accounts, roles, the athlete↔trainer roster link and the current-user boundary |
+| `Identity` | `UserId`, `Roles`, `TrainerAthleteAssignment` plus the Identity `AppUser` | Accounts, roles, the athlete↔trainer roster link, the release to build one's own plan and the current-user boundary |
 
 ### Domain model
 
@@ -107,6 +108,7 @@ erDiagram
         string Name
         string Email
         byte[] Avatar
+        bool CanAuthorOwnWorkout
     }
 
     MUSCLE_GROUP {
@@ -161,6 +163,8 @@ erDiagram
         datetime StartedAt
         datetime FinishedAt
         uuid PlannedWorkoutId
+        int Intensity
+        string Notes
     }
 
     PERFORMED_SET {
@@ -203,12 +207,12 @@ sequenceDiagram
     A->>SPA: Start workout A
     SPA->>API: POST /sessions
     API->>DB: Create the running session
-    A->>SPA: Log the load and the repetitions of a set
-    SPA->>API: POST /sessions/{id}/sets
-    API->>DB: Append performed set and tick the exercise
-    A->>SPA: Finish the workout
+    A->>SPA: Tick the exercises and adjust the effort
+    Note over A,SPA: the marks stay on the screen — no request
+    A->>SPA: Finish the workout (level + note)
     SPA->>API: POST /sessions/{id}/finish
-    API->>DB: Close the session
+    API->>DB: Record the sets, close the session with the level
+    Note over API,DB: the server checks the marks against the prescription
 ```
 
 ### HTTP surface
@@ -217,13 +221,20 @@ sequenceDiagram
 | --- | --- | --- |
 | Authentication | `POST /auth/register`, `POST /auth/login`, `POST /auth/change-password` | Register/login anonymous; password change authenticated |
 | Account | `GET/POST/DELETE /me/avatar`, `GET /users/{userId}/avatar` | Authenticated |
-| Administration | `GET/POST /admin/users`, `POST/DELETE /admin/users/{userId}/roles`, `POST /admin/users/{userId}/password` | `Admin` |
+| Administration | `GET/POST /admin/users`, `POST/DELETE /admin/users/{userId}/roles`, `POST /admin/users/{userId}/password`, `POST/DELETE /admin/users/{userId}/self-authoring` | `Admin`; `self-authoring` grants (or takes back) the release that lets an athlete build their own training plan |
 | Administration | `GET/POST /admin/users?role=`, `POST/DELETE /admin/users/{userId}/roles`, `POST /admin/users/{userId}/password` | `Admin`; the `role` filter is a plain role name, e.g. `PersonalTrainer` |
 | Catalog | `GET /exercises`, `POST /exercises`, `PUT/DELETE /exercises/{id}`, `GET/POST /muscle-groups`, `PUT/DELETE /muscle-groups/{id}` | Reads authenticated; writes `PersonalTrainer`. Deletion is refused (409) while the member is still referenced |
-| Roster & planning | `GET /athletes?candidates=`, `GET /athletes/{userId}/workouts`, `POST/DELETE /athletes/{userId}/trainer`, `GET/POST /workout-series`, `GET/PUT /workout-series/{seriesId}`, `POST /workout-series/{seriesId}/workouts`, `PUT/DELETE /workout-series/{seriesId}/workouts/{workoutId}` | `PersonalTrainer` **or** `Admin`. The personal trainer reads only their own athletes' list and history and prescribes only to them; the admin reads and acts on every roster. `GET /athletes?candidates=true` lists athletes linked to nobody; `POST .../trainer` links (idempotent when the trainer is the same, 409 `roster.busy` otherwise), `DELETE .../trainer` unlinks |
-| Series cycle | `POST /athletes/{athleteId}/series/end` | `PersonalTrainer`, own roster only. Ends the cycle the athlete is in: the athlete follows nothing until the trainer creates the next series (204; 409 `workout_series.assignment.running` while a workout is open) |
+| Roster & planning | `GET /athletes?candidates=`, `GET /athletes/{userId}/workouts`, `POST/DELETE /athletes/{userId}/trainer`, `GET/POST /workout-series`, `GET/PUT /workout-series/{seriesId}`, `POST /workout-series/{seriesId}/workouts`, `PUT/DELETE /workout-series/{seriesId}/workouts/{workoutId}` | `PersonalTrainer` **or** `Admin`, and an athlete the administrator released. The personal trainer reads only their own athletes' list and history and prescribes only to them; the admin reads and acts on every roster. `GET /athletes?candidates=true` lists athletes linked to nobody; `POST .../trainer` links (idempotent when the trainer is the same, 409 `roster.busy` otherwise), `DELETE .../trainer` unlinks |
+| Series cycle | `POST /athletes/{athleteId}/series/end` | The personal trainer ends the cycle of an athlete on their own roster; an athlete released by the administrator ends their own cycle |
 | Athlete series | `GET /workout-series/mine` | Authenticated (no id; always the caller's own series) |
-| Execution | `GET/POST /sessions`, `POST /sessions/{id}/sets`, `PUT /sessions/{id}/exercises/{exerciseId}/completion`, `POST /sessions/{id}/finish`, `DELETE /sessions/{id}` | Authenticated, own sessions only |
+| Execution | `GET/POST /sessions`, `POST /sessions/{id}/finish`, `DELETE /sessions/{id}` | Authenticated, own sessions only |
+
+`POST /sessions/{id}/finish` closes the workout in one request: `{"intensity": "moderado", "notes":
+"…", "exercises": [{"exerciseId": "…", "repetitions": 10, "loadKilograms": 40}]}`. The intensity is
+one of `leve`, `medio`, `moderado`, `intenso` or `muitoIntenso`; the note is optional (500
+characters); the exercises cover the whole prescription (409 `session.finish.exercises.pending`
+otherwise) and nothing outside it (400 `session.set.exercise.not_prescribed`). The number of sets
+comes from the prescription — the athlete adjusts the repetitions and the load, not the sheet.
 
 Collection reads accept `search`, `page` and `pageSize` (`pageSize` 1–100). Without `page` or `pageSize`
 they keep returning the plain array; with either one they return the paginated envelope. In
@@ -237,8 +248,9 @@ Development the OpenAPI document is served at `/openapi/v1.json` and the Scalar 
 - One series per athlete, with up to five workouts A–E, each with sets, repetitions, load and a rest time per prescribed exercise (default 60 s, editable, 0 disables the timer); creating the series also starts its 60-day term.
 - The personal trainer ends a cycle early with "Vencer série atual": the athlete is left without a series until the next one is created, and the new series can start from the sheet of the cycle that just ended (the previous series and everything already trained stay where they are).
 - Each athlete answers to one personal trainer. The roster link gates what a trainer sees and does: only their own athletes on `/Athletes`, only their history, and series can only be prescribed to (or reassigned through) a linked athlete. `Admin` sees and acts on every roster. The same screen doubles as the link screen — a trainer searches athletes linked to nobody to add them, the admin picks the trainer from a searchable combobox (every personal trainer, found by name or e-mail), and either can unlink (the series stays; the next trainer replaces it).
-- Today's workout starts idempotently, runs a server-based timer and takes only prescribed exercises. One workout per day: a second workout of the series is refused (409) while the day already has one — running or finished. The athlete ticks each exercise he did, changes the repetitions and the load only when the real effort was different, and the workout closes only with every prescribed exercise ticked. The athlete opens a countdown modal per exercise from the prescribed rest time, pauses/resumes it and gets an alert when it reaches zero.
-- Finishing closes the session; cancelling removes it. History shows duration, set count, volume and a per-exercise comparison with the current prescription.
+- The administrator can also release an athlete to build their own training plan, without a personal trainer (`POST/DELETE /admin/users/{userId}/self-authoring`, on the account card in `/admin/users`). With the release, the athlete creates and composes a series of their own — "Meu plano" — reusing the sheet of the cycle they are in; the series becomes their active plan and the banner says "Montado por você". Without it, the athlete needs a personal trainer and the API refuses the creation with 403. The release lives in the account and not in the token, so a revocation takes effect at once.
+- Today's workout starts idempotently, runs a server-based timer and takes only prescribed exercises. One workout per day: a second workout of the series is refused (409) while the day already has one — running or finished. The athlete ticks each exercise on the screen — the mark costs no request — and the prescription stays as the value: a click opens the repetitions and the load for the day the real effort was different. The workout closes in a single request that carries the marks, the level the athlete gave the session (leve, médio, moderado, intenso, muito intenso) and what they wrote about it; the server checks the marks against the prescription and only then closes the session. The athlete opens a countdown modal per exercise from the prescribed rest time, pauses/resumes it and gets an alert when it reaches zero.
+- Finishing closes the session; cancelling removes it. History shows duration, set count, volume, the level of the session and the note the athlete wrote, with a per-exercise comparison with the current prescription.
 - Collection screens support search and pagination; the API keeps the original plain-array response unless paging parameters are sent.
 - Errors arrive in one place: every server failure shows as a toast in the corner of the screen, and the screen is blocked by an overlay while a request is on its way to the server.
 - Responsive pt-BR Blazor UI with role-aware navigation, installable PWA assets and an offline app shell. The mobile tab bar caps at four tabs, and one navigation registry (`FitTrack.UI/Layout/NavOptions.cs`) drives both the desktop sidebar and the mobile bottom tabs, ordered by priority: athlete, trainer, admin; anything beyond the cap moves to a "Mais" sheet.

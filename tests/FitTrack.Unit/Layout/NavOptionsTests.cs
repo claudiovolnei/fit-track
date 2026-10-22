@@ -19,12 +19,16 @@ public sealed class NavOptionsTests
     }
 
     [Fact]
-    public void Tabs_AthleteOnly_FitsTheCapWithoutTheSheet()
+    public void Tabs_AthleteOnly_KeepsTheTopAndMovesTheRestToTheSheet()
     {
         var tabs = NavOptions.Tabs([User], authenticated: true);
 
-        Assert.Equal(["home", "today", "workouts", "account"], Keys(tabs.Tabs));
-        Assert.False(tabs.HasMore);
+        // The athlete's own plan joins Hoje and Histórico; what does not fit moves to the "Mais" sheet.
+        Assert.Equal(["home", "today", "workouts"], Keys(tabs.Tabs));
+        Assert.True(tabs.HasMore);
+
+        var sheet = NavOptions.Overflow([User], authenticated: true);
+        Assert.Equal([("Treino", ["meu-plano"])], SheetKeys(sheet));
     }
 
     [Fact]

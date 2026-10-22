@@ -28,6 +28,7 @@ public sealed class SeriesCycleTests
     private readonly InMemoryExerciseRepository _exercises = new();
     private readonly InMemoryMuscleGroupRepository _muscleGroups = new();
     private readonly InMemoryAthleteQueries _athletes = new();
+    private readonly InMemoryAccountPermissions _permissions = new();
     private readonly SequentialIdGenerator _ids = new();
     private readonly FixedClock _clock = new(Now);
     private readonly UserId _trainer = UserId.New();
@@ -103,6 +104,27 @@ public sealed class SeriesCycleTests
 
         await Assert.ThrowsAsync<ForbiddenException>(() =>
             End(Athlete).ExecuteAsync(new EndWorkoutSeriesCommand(_athlete.Value), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EndWorkoutSeries_AsAReleasedAthlete_ClosesTheirOwnCycle()
+    {
+        await SeedSeriesAsync();
+        _permissions.Release(_athlete);
+
+        await End(Athlete).ExecuteAsync(new EndWorkoutSeriesCommand(_athlete.Value), CancellationToken.None);
+
+        Assert.False(Assert.Single(_assignments.All).IsOpen);
+    }
+
+    [Fact]
+    public async Task EndWorkoutSeries_AsAReleasedAthlete_CannotCloseSomebodyElsesCycle()
+    {
+        await SeedSeriesAsync();
+        _permissions.Release(_athlete);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            End(Athlete).ExecuteAsync(new EndWorkoutSeriesCommand(_otherTrainer.Value), CancellationToken.None));
     }
 
     [Fact]
@@ -197,10 +219,10 @@ public sealed class SeriesCycleTests
     private InMemoryWorkoutSeriesQueries Queries => new(_series, _assignments, _exercises, _muscleGroups, _sessions);
 
     private ICreateWorkoutSeries Create(StubCurrentUser user) =>
-        new CreateWorkoutSeries(user, _series, Queries, _athletes, _links, _assignments, _clock, _ids);
+        new CreateWorkoutSeries(user, _series, Queries, _athletes, _links, _assignments, _clock, _ids, _permissions);
 
     private IEndWorkoutSeries End(StubCurrentUser user) =>
-        new EndWorkoutSeries(user, _links, _assignments, _history, _clock);
+        new EndWorkoutSeries(user, _links, _assignments, _history, _clock, _permissions);
 
     private async Task<WorkoutSeries> SeedSeriesAsync()
     {

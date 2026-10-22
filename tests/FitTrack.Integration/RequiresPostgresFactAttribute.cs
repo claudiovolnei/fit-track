@@ -17,3 +17,19 @@ public sealed class RequiresPostgresFactAttribute : FactAttribute
         }
     }
 }
+
+/// <summary>
+/// The same rule for a test driven by a table of cases: the table is walked over PostgreSQL, so
+/// without a database there is nothing to walk it against.
+/// </summary>
+public sealed class RequiresPostgresTheoryAttribute : TheoryAttribute
+{
+    public RequiresPostgresTheoryAttribute()
+    {
+        if (string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable(RequiresPostgresFactAttribute.ConnectionStringVariable)))
+        {
+            Skip = $"Set {RequiresPostgresFactAttribute.ConnectionStringVariable} to a PostgreSQL connection string to run integration tests.";
+        }
+    }
+}

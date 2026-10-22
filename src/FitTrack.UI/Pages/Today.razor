@@ -41,11 +41,21 @@ else
                 @(_mine.IsExpired ? "Série vencida" : "Série ativa")
             </span>
             <h2>@_mine.Series.Name</h2>
-            <p class="trainer-line">
-                <UserAvatar AvatarUrl="@_trainerAvatarUrl" NameOrEmail="@_mine.TrainerName" Size="24" />
-                Personal <strong>@_mine.TrainerName</strong> ·
-                @_mine.Series.Workouts.Count @(_mine.Series.Workouts.Count == 1 ? "treino disponível" : "treinos disponíveis")
-            </p>
+            @if (_mine.IsSelfAuthored)
+            {
+                <p class="trainer-line">
+                    <AppIcon Name="user" Size="16" />
+                    Montado por você
+                </p>
+            }
+            else
+            {
+                <p class="trainer-line">
+                    <UserAvatar AvatarUrl="@_trainerAvatarUrl" NameOrEmail="@_mine.TrainerName" Size="24" />
+                    Personal <strong>@_mine.TrainerName</strong> ·
+                    @_mine.Series.Workouts.Count @(_mine.Series.Workouts.Count == 1 ? "treino disponível" : "treinos disponíveis")
+                </p>
+            }
         </div>
 
         <div class="series-term">
@@ -179,7 +189,21 @@ else
                                 <AppIcon Name="scale" Size="15" />
                                 @DisplayText.Volume(Volume(workout.Today))
                             </span>
+                            @if (!string.IsNullOrWhiteSpace(workout.Today.Intensity))
+                            {
+                                <span class="summary-item">
+                                    <AppIcon Name="sparkles" Size="15" />
+                                    @DisplayText.IntensityLabel(workout.Today.Intensity)
+                                </span>
+                            }
                         </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(workout.Today.Notes))
+                    {
+                        <p class="muted" style="margin: 14px 0 0; font-size: 0.82rem;">
+                            <strong>Sobre o treino:</strong> @workout.Today.Notes
+                        </p>
                     }
 
                     <div class="compare-list">
@@ -192,8 +216,8 @@ else
                                         <label class="exercise-tick" title="Marcar @row.ExerciseName como concluído">
                                             <input type="checkbox"
                                                    aria-label="Concluir @row.ExerciseName"
-                                                   @bind="_ticks[(workout.Id, exerciseId)]"
-                                                   @bind:after="() => ToggleAsync(workout, exerciseId)" />
+                                                   checked="@IsTicked(workout, exerciseId)"
+                                                   @onchange="() => Toggle(workout, exerciseId)" />
                                             <span class="exercise-tick__box">
                                                 <AppIcon Name="check" Size="14" />
                                             </span>
@@ -202,7 +226,18 @@ else
 
                                     <div class="compare-exercise__text">
                                         <strong>@row.ExerciseName</strong>
-                                        <small>@row.Prescribed</small>
+                                        @if (workout.Today.IsRunning && row.ExerciseId is { } editable)
+                                        {
+                                            <button type="button" class="effort-link"
+                                                    aria-label="Ajustar @row.ExerciseName"
+                                                    @onclick="() => StartEditing(workout, editable)">
+                                                @Effort(workout, row)
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <small>@Effort(workout, row)</small>
+                                        }
                                     </div>
 
                                     @if (row.RestSeconds > 0)
@@ -218,7 +253,10 @@ else
                                 <div class="set-pills">
                                     @if (row.Performed.Count == 0)
                                     {
-                                        <span class="muted" style="font-size: 0.78rem;">Ainda não registrado</span>
+                                        @if (!workout.Today.IsRunning)
+                                        {
+                                            <span class="muted" style="font-size: 0.78rem;">Ainda não registrado</span>
+                                        }
                                     }
                                     else
                                     {
@@ -229,9 +267,9 @@ else
                                     }
                                 </div>
 
-                                @* The load and the repetitions start on what the personal prescribed: the
-                                   athlete only changes them when the real effort was different. *@
-                                @if (workout.Today.IsRunning && row.ExerciseId is { } id)
+                                @* The load and the repetitions stay with what the personal prescribed: the
+                                   athlete opens the fields when the real effort was different. *@
+                                @if (workout.Today.IsRunning && row.ExerciseId is { } id && IsEditing(workout, id))
                                 {
                                     <div class="set-log">
                                         <label class="set-log__field">
@@ -252,10 +290,10 @@ else
                                                    @bind:event="oninput"
                                                    @bind:culture="CultureInfo.InvariantCulture" />
                                         </label>
-                                        <button class="btn btn-primary btn-sm" type="button" disabled="@_busy"
-                                                @onclick="() => LogSetAsync(workout, id)">
-                                            <AppIcon Name="plus" Size="16" />
-                                            Registrar
+                                        <button class="btn btn-primary btn-sm" type="button"
+                                                @onclick="() => StopEditing(workout, id)">
+                                            <AppIcon Name="check" Size="16" />
+                                            Pronto
                                         </button>
                                     </div>
                                 }
@@ -267,19 +305,19 @@ else
                     {
                         <section class="set-logger">
                             <div class="section-head">
-                                <h3>Registrar série</h3>
-                                <span class="chip">@(workout.Today.Sets.Count + 1)ª do treino</span>
+                                <h3>Finalizar o treino</h3>
+                                <span class="chip">@PlannedSets(workout) @(PlannedSets(workout) == 1 ? "série prevista" : "séries previstas")</span>
                             </div>
 
                             <p class="muted" style="margin: 0 0 14px; font-size: 0.8rem;">
                                 Marque o <strong>check</strong> de cada exercício que você fez. A carga e as
                                 repetições já vêm da prescrição: só mude quando o que você levantou for
-                                diferente.
+                                diferente. Tudo é enviado quando você finaliza o treino.
                             </p>
 
                             <div class="actions">
                                 <button class="btn btn-secondary" type="button" disabled="@(_busy || !AllTicked(workout))"
-                                        @onclick="() => FinishAsync(workout)">
+                                        @onclick="() => OpenFinishModal(workout)">
                                     Finalizar treino
                                 </button>
                                 <button class="btn btn-danger" type="button" disabled="@_busy"
@@ -299,7 +337,7 @@ else
 
                         <div class="workout-foot">
                             <span>Começou às @workout.Today.StartedAt.ToLocalTime().ToString("HH:mm")</span>
-                            <span>@workout.Today.Sets.Count @(workout.Today.Sets.Count == 1 ? "série registrada" : "séries registradas")</span>
+                            <span>@MarkedSets(workout) @(MarkedSets(workout) == 1 ? "série marcada" : "séries marcadas")</span>
                         </div>
                     }
                 }
@@ -313,6 +351,15 @@ else
     <RestTimerModal Seconds="restSeconds" ExerciseName="@_restExerciseName" OnClose="CloseRestTimer" />
 }
 
+@if (_finishing)
+{
+    <FinishWorkoutModal Busy="_busy"
+                         @bind-Intensity="_finishIntensity"
+                         @bind-Notes="_finishNotes"
+                         OnConfirm="ConfirmFinishAsync"
+                         OnCancel="CloseFinishModal" />
+}
+
 @code {
     private MyWorkoutSeriesResponse? _mine;
     private string? _trainerAvatarUrl;
@@ -324,11 +371,27 @@ else
     /// <summary>Repetitions the athlete typed for each prescribed exercise, per workout.</summary>
     private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), int> _reps = [];
 
-    /// <summary>The tick of each prescribed exercise, per workout. The server has the last word.</summary>
+    /// <summary>
+    /// The tick of each prescribed exercise, per workout. While the workout runs the screen owns it:
+    /// the server only learns the marks when the athlete finishes, so nothing here costs a request.
+    /// </summary>
     private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), bool> _ticks = [];
+
+    /// <summary>
+    /// The session the local ticks belong to, per workout. A new session starts a new sheet of marks,
+    /// and the marks of the previous one never leak into it.
+    /// </summary>
+    private readonly Dictionary<Guid, Guid> _tickSession = [];
+
+    /// <summary>The exercises whose values the athlete is adjusting right now.</summary>
+    private readonly HashSet<(Guid WorkoutId, Guid ExerciseId)> _editing = [];
 
     private int? _restSeconds;
     private string _restExerciseName = string.Empty;
+    private bool _finishing;
+    private Guid? _finishingWorkoutId;
+    private string _finishIntensity = string.Empty;
+    private string _finishNotes = string.Empty;
     private bool _loading = true;
     private bool _busy;
     private System.Timers.Timer? _ticker;
@@ -414,40 +477,101 @@ else
             await ReloadAsync();
         });
 
-    private async Task LogSetAsync(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
-        await RunAsync(async () =>
-        {
-            await Api.LogPerformedSetAsync(
-                workout.Today!.WorkoutSessionId,
-                new LogPerformedSetRequest(
-                    exerciseId,
-                    _loads[(workout.Id, exerciseId)],
-                    _reps[(workout.Id, exerciseId)]));
+    /// <summary>
+    /// Ticks (or unticks) one exercise of the workout in progress. The screen owns the mark: the
+    /// server only learns it when the athlete finishes, so nothing leaves the browser here.
+    /// </summary>
+    private void Toggle(WorkoutSeriesWorkoutResponse workout, Guid exerciseId)
+    {
+        _ticks[(workout.Id, exerciseId)] = !_ticks.GetValueOrDefault((workout.Id, exerciseId));
+    }
 
-            await ReloadAsync();
-        });
+    /// <summary>Whether the athlete marked the exercise as done.</summary>
+    private bool IsTicked(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
+        _ticks.GetValueOrDefault((workout.Id, exerciseId));
+
+    private bool IsEditing(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
+        _editing.Contains((workout.Id, exerciseId));
+
+    private void StartEditing(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
+        _editing.Add((workout.Id, exerciseId));
+
+    private void StopEditing(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
+        _editing.Remove((workout.Id, exerciseId));
 
     /// <summary>
-    /// Ticks (or unticks) one exercise of the workout in progress. The screen shows the tick right
-    /// away; the server has the last word, so the sheet is read again when the request ends.
+    /// Opens the closing modal. The workout stays as it is until the athlete confirms: cancelling
+    /// the modal sends nothing.
     /// </summary>
-    private async Task ToggleAsync(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
-        await RunAsync(async () =>
+    private void OpenFinishModal(WorkoutSeriesWorkoutResponse workout)
+    {
+        _finishing = true;
+        _finishIntensity = string.Empty;
+        _finishNotes = string.Empty;
+        _finishingWorkoutId = workout.Id;
+    }
+
+    private void CloseFinishModal()
+    {
+        _finishing = false;
+        _finishIntensity = string.Empty;
+        _finishNotes = string.Empty;
+        _finishingWorkoutId = null;
+    }
+
+    /// <summary>
+    /// Closes the workout: the exercises the athlete marked, with the repetitions and the load they
+    /// really used, the level they gave the session and what they wrote about it — all in one
+    /// request. The modal only closes when the server accepts.
+    /// </summary>
+    private async Task ConfirmFinishAsync()
+    {
+        var workout = _mine?.Series.Workouts.FirstOrDefault(candidate =>
+            candidate.Id == _finishingWorkoutId && candidate.Today is { IsRunning: true });
+
+        if (workout is null)
         {
-            await Api.SetExerciseCompletionAsync(
+            CloseFinishModal();
+            return;
+        }
+
+        _busy = true;
+
+        try
+        {
+            await Api.FinishWorkoutAsync(
                 workout.Today!.WorkoutSessionId,
-                exerciseId,
-                _ticks[(workout.Id, exerciseId)]);
+                new FinishWorkoutRequest(_finishIntensity, _finishNotes, Payload(workout)));
+
+            CloseFinishModal();
 
             await ReloadAsync();
-        });
-
-    private async Task FinishAsync(WorkoutSeriesWorkoutResponse workout) =>
-        await RunAsync(async () =>
+        }
+        catch (ApiException exception)
         {
-            await Api.FinishWorkoutAsync(workout.Today!.WorkoutSessionId);
-            await ReloadAsync();
-        });
+            Toasts.Error(ErrorMessages.Describe(exception));
+
+            // The screen is read again, but the marks of the athlete stay: they belong to the
+            // session, not to what the server knows about it.
+            await ReloadQuietlyAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>
+    /// What the athlete did, as the server will record it: one entry per marked exercise of the
+    /// current prescription, with the repetitions and the load they used.
+    /// </summary>
+    private IReadOnlyList<PerformedExerciseRequest> Payload(WorkoutSeriesWorkoutResponse workout) =>
+        [.. workout.Exercises
+            .Where(prescribed => IsTicked(workout, prescribed.ExerciseId))
+            .Select(prescribed => new PerformedExerciseRequest(
+                prescribed.ExerciseId,
+                _reps.GetValueOrDefault((workout.Id, prescribed.ExerciseId), prescribed.Repetitions),
+                _loads.GetValueOrDefault((workout.Id, prescribed.ExerciseId), LoadValue(prescribed.LoadKilograms))))];
 
     private async Task CancelAsync(WorkoutSeriesWorkoutResponse workout) =>
         await RunAsync(async () =>
@@ -510,7 +634,10 @@ else
             {
                 try
                 {
-                    _trainerAvatarUrl = await Api.GetUserAvatarAsync(_mine.Series.TrainerId);
+                    // The athlete who built their own plan has no personal trainer to show.
+                    _trainerAvatarUrl = _mine.IsSelfAuthored
+                        ? null
+                        : await Api.GetUserAvatarAsync(_mine.Series.TrainerId);
                 }
                 catch
                 {
@@ -523,24 +650,57 @@ else
 
             foreach (var workout in workouts)
             {
-                var completed = workout.Today?.CompletedExerciseIds ?? [];
-
                 foreach (var prescribed in workout.Exercises)
                 {
                     // Starts at the load and the repetitions the personal trainer prescribed; whatever
                     // the athlete already typed stands.
                     _loads.TryAdd((workout.Id, prescribed.ExerciseId), LoadValue(prescribed.LoadKilograms));
                     _reps.TryAdd((workout.Id, prescribed.ExerciseId), prescribed.Repetitions);
-
-                    // The tick comes from the server: it is the truth about the workout.
-                    _ticks[(workout.Id, prescribed.ExerciseId)] = completed.Contains(prescribed.ExerciseId);
                 }
+
+                SyncTicks(workout);
             }
         }
         finally
         {
             // The sheet is ready (or gave up): the screen stops waiting either way.
             _loading = false;
+        }
+    }
+
+    /// <summary>
+    /// Keeps the marks of the athlete in step with the session they belong to. A running workout
+    /// keeps the marks of the screen — the server only learns them when the athlete finishes — and a
+    /// finished one shows what the server recorded.
+    /// </summary>
+    private void SyncTicks(WorkoutSeriesWorkoutResponse workout)
+    {
+        var today = workout.Today;
+
+        if (today is null)
+        {
+            return;
+        }
+
+        // A new session starts a new sheet of marks: the previous one never leaks into it.
+        if (!_tickSession.TryGetValue(workout.Id, out var sessionId) || sessionId != today.WorkoutSessionId)
+        {
+            _tickSession[workout.Id] = today.WorkoutSessionId;
+
+            foreach (var prescribed in workout.Exercises)
+            {
+                _ticks.Remove((workout.Id, prescribed.ExerciseId));
+            }
+        }
+
+        if (today.IsRunning)
+        {
+            return;
+        }
+
+        foreach (var prescribed in workout.Exercises)
+        {
+            _ticks[(workout.Id, prescribed.ExerciseId)] = today.CompletedExerciseIds.Contains(prescribed.ExerciseId);
         }
     }
 
@@ -557,10 +717,12 @@ else
             .Select(prescribed => new ComparisonRow(
                 prescribed.ExerciseId,
                 prescribed.ExerciseName,
-                Prescribed(prescribed),
+                prescribed.Sets,
+                prescribed.Repetitions,
+                prescribed.LoadKilograms,
                 Performed(today.Sets.Where(set => set.ExerciseId == prescribed.ExerciseId)),
                 prescribed.RestSeconds,
-                today.CompletedExerciseIds.Contains(prescribed.ExerciseId)))
+                IsTicked(workout, prescribed.ExerciseId)))
             .ToList();
 
         var extras = today.Sets
@@ -571,7 +733,9 @@ else
         rows.AddRange(extras.Select(exerciseId => new ComparisonRow(
             null,
             ExerciseName(exerciseId),
-            "—",
+            1,
+            0,
+            null,
             Performed(today.Sets.Where(set => set.ExerciseId == exerciseId)),
             0,
             today.CompletedExerciseIds.Contains(exerciseId))));
@@ -579,18 +743,40 @@ else
         return rows;
     }
 
+    /// <summary>
+    /// The effort of the exercise as the screen shows it: the sets of the prescription with the
+    /// repetitions and the load the athlete used. An exercise without load stays "peso corporal".
+    /// </summary>
+    private string Effort(WorkoutSeriesWorkoutResponse workout, ComparisonRow row)
+    {
+        if (row.ExerciseId is not { } exerciseId)
+        {
+            return "—";
+        }
+
+        var repetitions = _reps.GetValueOrDefault((workout.Id, exerciseId), row.Repetitions);
+        var load = _loads.GetValueOrDefault((workout.Id, exerciseId), 0m);
+
+        return $"{row.Sets} × {repetitions} @ {(row.PrescribedLoad is null ? "peso corporal" : Load(load))}";
+    }
+
     /// <summary>Whether every prescribed exercise of the workout is ticked.</summary>
-    private static bool AllTicked(WorkoutSeriesWorkoutResponse workout) =>
-        workout.Exercises.All(prescribed =>
-            workout.Today!.CompletedExerciseIds.Contains(prescribed.ExerciseId));
+    private bool AllTicked(WorkoutSeriesWorkoutResponse workout) =>
+        workout.Exercises.All(prescribed => IsTicked(workout, prescribed.ExerciseId));
 
     /// <summary>How many prescribed exercises are still waiting for their tick.</summary>
-    private static int Pending(WorkoutSeriesWorkoutResponse workout) =>
-        workout.Exercises.Count(prescribed =>
-            !workout.Today!.CompletedExerciseIds.Contains(prescribed.ExerciseId));
+    private int Pending(WorkoutSeriesWorkoutResponse workout) =>
+        workout.Exercises.Count(prescribed => !IsTicked(workout, prescribed.ExerciseId));
 
-    private static string Prescribed(PrescribedExerciseResponse prescribed) =>
-        $"{prescribed.Sets} × {prescribed.Repetitions} @ {Load(prescribed.LoadKilograms)}";
+    /// <summary>How many sets the prescription of the workout has in total.</summary>
+    private static int PlannedSets(WorkoutSeriesWorkoutResponse workout) =>
+        workout.Exercises.Sum(prescribed => prescribed.Sets);
+
+    /// <summary>How many sets the athlete has marked so far.</summary>
+    private int MarkedSets(WorkoutSeriesWorkoutResponse workout) =>
+        workout.Exercises
+            .Where(prescribed => IsTicked(workout, prescribed.ExerciseId))
+            .Sum(prescribed => prescribed.Sets);
 
     private static string Load(decimal? kilograms) =>
         kilograms is { } load ? $"{load:0.##} kg" : "peso corporal";
@@ -626,7 +812,9 @@ else
     private sealed record ComparisonRow(
         Guid? ExerciseId,
         string ExerciseName,
-        string Prescribed,
+        int Sets,
+        int Repetitions,
+        decimal? PrescribedLoad,
         IReadOnlyList<string> Performed,
         int RestSeconds,
         bool IsCompleted);

@@ -25,6 +25,20 @@ public sealed class ListUsersTests
         Assert.Equal(new[] { Roles.PersonalTrainer }, accounts[1].Roles);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_TellsWhichAccountsWereReleasedToBuildTheirOwnPlan()
+    {
+        _query.Seed(Guid.NewGuid(), "Atleta FitTrack", "athlete@fittrack.local", Roles.User);
+        _query.SeedReleased(Guid.NewGuid(), "Atleta liberated", "liberado@fittrack.local", Roles.User);
+
+        var useCase = new ListUsers(StubCurrentUser.Admin(UserId.New()), _query);
+
+        var accounts = await useCase.ExecuteAsync(CancellationToken.None);
+
+        Assert.False(accounts[0].CanAuthorOwnWorkout);
+        Assert.True(accounts[1].CanAuthorOwnWorkout);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

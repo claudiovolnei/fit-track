@@ -18,7 +18,7 @@ public sealed class SeriesRefusalTests(FitTrackApiFactory factory) : IClassFixtu
     private static readonly Task<IReadOnlyList<PrescribedExerciseRequest>> NoPrescription =
         Task.FromResult<IReadOnlyList<PrescribedExerciseRequest>>([]);
 
-    [Theory]
+    [RequiresPostgresTheory]
     [MemberData(nameof(SeriesRefusals.Refusals), MemberType = typeof(SeriesRefusals))]
     public async Task EveryRefusal_ComesBackWithTheAgreedCodeOverPostgres(string scenario, string code)
     {
@@ -86,8 +86,11 @@ public sealed class SeriesRefusalTests(FitTrackApiFactory factory) : IClassFixtu
             var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
 
             return await athlete.Client.PostAsJsonAsync(
-                $"/sessions/{session.Id}/sets",
-                new LogPerformedSetRequest(Guid.NewGuid(), 40m));
+                $"/sessions/{session.Id}/finish",
+                new FinishWorkoutRequest(
+                    "moderado",
+                    null,
+                    [new PerformedExerciseRequest(Guid.NewGuid(), 12, 40m)]));
         }),
 
         _ => throw new ArgumentOutOfRangeException(nameof(scenario), scenario, "Unknown series refusal."),
