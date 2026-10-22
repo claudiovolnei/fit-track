@@ -20,7 +20,7 @@ public sealed class RosterFlowTests(FitTrackApiFactory factory) : IClassFixture<
         var athleteId = await RegisterAsync(token);
 
         var candidatesBefore = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
-            $"/athletes?search={token}&candidates=true");
+            $"/athletes?search={token}&candidates=true&page=1&pageSize=50");
 
         Assert.NotNull(candidatesBefore);
         Assert.Equal(1, candidatesBefore!.TotalCount);
@@ -31,13 +31,13 @@ public sealed class RosterFlowTests(FitTrackApiFactory factory) : IClassFixture<
         Assert.Equal(HttpStatusCode.NoContent, (await trainer.LinkTrainerAsync(athleteId)).StatusCode);
 
         var candidatesAfter = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
-            $"/athletes?search={token}&candidates=true");
+            $"/athletes?search={token}&candidates=true&page=1&pageSize=50");
 
         Assert.NotNull(candidatesAfter);
         Assert.Equal(0, candidatesAfter!.TotalCount);
 
         var roster = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
-            $"/athletes?search={token}");
+            $"/athletes?search={token}&page=1&pageSize=50");
 
         Assert.NotNull(roster);
         Assert.Equal(1, roster!.TotalCount);
@@ -68,7 +68,7 @@ public sealed class RosterFlowTests(FitTrackApiFactory factory) : IClassFixture<
         var athleteId = await RegisterAsync(token);
 
         var trainers = await admin.GetFromJsonAsync<PagedResultResponse<UserAccountResponse>>(
-            $"admin/users?role=PersonalTrainer&search={Uri.EscapeDataString(SeriesArrange.TrainerEmail)}");
+            $"admin/users?role=PersonalTrainer&search={Uri.EscapeDataString(SeriesArrange.TrainerEmail)}&page=1&pageSize=50");
 
         Assert.NotNull(trainers);
         var trainerId = Assert.Single(trainers!.Items).UserId;
@@ -76,7 +76,7 @@ public sealed class RosterFlowTests(FitTrackApiFactory factory) : IClassFixture<
         await (await admin.LinkTrainerAsync(athleteId, trainerId)).EnsureSuccessWithBodyAsync();
 
         var roster = await admin.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
-            $"/athletes?search={token}");
+            $"/athletes?search={token}&page=1&pageSize=50");
 
         Assert.NotNull(roster);
         Assert.Equal(SeriesArrange.TrainerEmail, Assert.Single(roster!.Items).PersonalTrainerEmail);
@@ -168,7 +168,7 @@ public sealed class RosterFlowTests(FitTrackApiFactory factory) : IClassFixture<
         await (await admin.UnlinkTrainerAsync(athleteId)).EnsureSuccessWithBodyAsync();
 
         var roster = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
-            $"/athletes?search={token}");
+            $"/athletes?search={token}&page=1&pageSize=50");
 
         Assert.NotNull(roster);
         Assert.Equal(0, roster!.TotalCount);
@@ -180,9 +180,15 @@ public sealed class RosterFlowTests(FitTrackApiFactory factory) : IClassFixture<
             $"athlete-{token}@fittrack.local",
             "Athlete123$");
 
+    /// <summary>
+    /// How many athletes the read finds. The envelope only comes with <c>page</c>/<c>pageSize</c> — the
+    /// plain read answers the array — so the count asks for a page.
+    /// </summary>
     private async Task<int> CountAsync(HttpClient client, string path)
     {
-        var page = await client.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(path);
+        var separator = path.Contains('?') ? '&' : '?';
+        var page = await client.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
+            $"{path}{separator}page=1&pageSize=50");
 
         return page!.TotalCount;
     }

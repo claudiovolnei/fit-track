@@ -85,7 +85,7 @@ public sealed class ListEndpointsTests(FitTrackApiFactory factory) : IClassFixtu
 
         // A fresh athlete is on nobody's roster, so the plain read hides them from the trainer.
         var roster = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
-            $"/athletes?search={token}");
+            $"/athletes?search={token}&page=1&pageSize=50");
 
         Assert.NotNull(roster);
         Assert.Equal(0, roster!.TotalCount);
@@ -118,7 +118,7 @@ public sealed class ListEndpointsTests(FitTrackApiFactory factory) : IClassFixtu
         Assert.Equal(2, compat!.Count);
 
         var candidatesAfter = await trainer.GetFromJsonAsync<PagedResultResponse<AthleteResponse>>(
-            $"/athletes?search={token}&candidates=true");
+            $"/athletes?search={token}&candidates=true&page=1&pageSize=50");
 
         Assert.NotNull(candidatesAfter);
         Assert.Equal(0, candidatesAfter!.TotalCount);
