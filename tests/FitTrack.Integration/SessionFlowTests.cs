@@ -382,7 +382,14 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
 
         Assert.Equal(session.Id, only.Id);
         Assert.NotNull(only.FinishedAt);
-        Assert.Equal(10, Assert.Single(only.Sets).Repetitions);
+
+        // The three sets come from the prescription; the repetitions and the load are the athlete's.
+        Assert.Equal(3, only.Sets.Count);
+        Assert.All(only.Sets, set =>
+        {
+            Assert.Equal(10, set.Repetitions);
+            Assert.Equal(35m, set.LoadKilograms);
+        });
     }
 
     [RequiresPostgresFact]

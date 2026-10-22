@@ -11,6 +11,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/FitTrack.Integration/FitTrack.Integration.csproj" />
+    <Project Path="tests/FitTrack.UITests/FitTrack.UITests.csproj" />
     <Project Path="tests/FitTrack.Unit/FitTrack.Unit.csproj" />
   </Folder>
 </Solution>

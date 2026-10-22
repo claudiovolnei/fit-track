@@ -668,11 +668,14 @@ Coberto por teste:
   `SeriesCycleTests`, `ListUsersTests`);
 - o vocabulário do nível nos dois sentidos (`WorkoutIntensityMappingTests`).
 
-**Sem cobertura automática** (o repositório não tem projeto de teste de UI): o check não custar
-requisição, o valor continuar o da prescrição até o atleta clicar, a edição inline, o botão
-"Finalizar" desabilitado enquanto falta exercício, o modal com as cinco opções e a nota no cartão do
-histórico, e o estado local sobreviver a um reload. São os critérios 1, 2, 3, 5, 9, 10, 13 e 19 da
-seção 11 — todos de tela, todos da **validação manual** da seção 13.
+**Cobertura de tela** (novo projeto `tests/FitTrack.UITests`, bUnit sobre uma API falsa): o check
+não custa requisição (critério 1), o valor da prescrição permanece até o atleta clicar (2), a
+edição inline abre com os valores prescritos (3), "Finalizar treino" fica desabilitado enquanto
+falta exercício e a mensagem "Faltam N exercícios" aparece (5), o modal pergunta o nível e a nota
+e só fecha com o nível escolhido (9, 10), o modal oferece as cinco opções (9), a observação
+chega ao servidor (11) e a marca sobrevive a um final recusado (o achado C2b do arquiteto). O
+cartão do histórico mostra o nível e a nota (13, 19) e a tela "Meu plano" tem o estado bloqueado
+quando a API recusa a criação. São 16 testes no projeto novo.
 
 A suíte de integração ganhou um conserto de higiene do ambiente: `SeriesRefusalTests` era a única
 classe que precisa de PostgreSQL e não tinha o atributo que a pula, então ela falhava em vermelho

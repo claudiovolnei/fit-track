@@ -72,6 +72,7 @@ flowchart LR
 | `FitTrack.Adapters.In.Api` | Inbound adapter: endpoints, request contracts, JWT authentication, policies, CORS, development seeding and composition root |
 | `FitTrack.Adapters.Out.Persistence` | Outbound adapter: `FitTrackDbContext`, records, mappers, repositories, query services and migrations |
 | `FitTrack.UI` | Blazor pages, components, typed API client, token storage and authentication state |
+| `FitTrack.UITests` | bUnit screen tests over the Blazor components, with a fake API |
 | `FitTrack.Web` | Blazor WebAssembly host and PWA manifest/service worker |
 | `FitTrack.ServiceDefaults` | Aspire observability and resilience defaults shared by the services |
 | `FitTrack.AppHost` | Aspire orchestration of PostgreSQL, the API and the web client |
@@ -325,4 +326,5 @@ dotnet test
 infrastructure. `FitTrack.Integration` boots the real API through `WebApplicationFactory`; the tests
 that need a database are skipped unless `FITTRACK_TEST_DB` holds a PostgreSQL connection string. Both
 suites compile the shared refusal table from `tests/FitTrack.TestCases`, so the fake and the real
-adapter cannot drift apart.
+adapter cannot drift apart. `FitTrack.UITests` drives the Blazor screens with bUnit over a fake API,
+so the marks that stay on the screen and the requests that never leave it are proved there.

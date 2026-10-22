@@ -14,7 +14,7 @@
 
         <div class="field">
             <label for="finish-intensity">Nível do treino</label>
-            <select id="finish-intensity" @bind="Intensity">
+            <select id="finish-intensity" value="@Intensity" @onchange="OnIntensityChangedAsync">
                 <option value="">Selecione o nível</option>
                 @foreach (var option in DisplayText.Intensities)
                 {
@@ -27,7 +27,7 @@
             <label for="finish-notes">Sobre o treino</label>
             <textarea id="finish-notes" rows="3" maxlength="500"
                       placeholder="Como foi o treino?"
-                      @bind="Notes"></textarea>
+                      value="@Notes" @oninput="OnNotesChangedAsync"></textarea>
         </div>
 
         <div class="actions" style="margin-top: 18px;">
@@ -72,4 +72,23 @@
     private Task ConfirmAsync() => OnConfirm.InvokeAsync();
 
     private Task Cancel() => OnCancel.InvokeAsync();
+
+    /// <summary>
+    /// The level the athlete picked. The screen owns the value: the modal hands it over and waits
+    /// for it to come back, so the clock ticking on the page never wipes what was chosen.
+    /// </summary>
+    private async Task OnIntensityChangedAsync(ChangeEventArgs args)
+    {
+        Intensity = args.Value?.ToString() ?? string.Empty;
+
+        await IntensityChanged.InvokeAsync(Intensity);
+    }
+
+    /// <summary>What the athlete wrote about the workout, handed over the same way.</summary>
+    private async Task OnNotesChangedAsync(ChangeEventArgs args)
+    {
+        Notes = args.Value?.ToString() ?? string.Empty;
+
+        await NotesChanged.InvokeAsync(Notes);
+    }
 }
