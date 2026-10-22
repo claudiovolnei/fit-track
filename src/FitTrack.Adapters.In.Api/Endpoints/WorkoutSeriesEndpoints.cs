@@ -141,7 +141,13 @@ internal static class WorkoutSeriesEndpoints
         CancellationToken cancellationToken)
     {
         var series = await useCase.ExecuteAsync(
-            new CreateWorkoutSeriesCommand(request.Name, request.AthleteId, request.CopyPreviousWorkouts),
+            // The single athlete leads the merged list: with only it the destination order — and so
+            // the sheet a copy starts from — is exactly the one the singular flow had.
+            new CreateWorkoutSeriesCommand(
+                request.Name,
+                request.AthleteId,
+                request.CopyPreviousWorkouts,
+                request.AthleteIds),
             cancellationToken);
 
         return Results.Created($"/workout-series/{series.Id}", series);

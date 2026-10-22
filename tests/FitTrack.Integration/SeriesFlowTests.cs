@@ -57,6 +57,45 @@ public sealed class SeriesFlowTests(FitTrackApiFactory factory) : IClassFixture<
     }
 
     [RequiresPostgresFact]
+    public async Task Trainer_CreatesOneSeriesForSeveralAthletes_EachFollowsTheSameOne()
+    {
+        var trainer = await factory.TrainerAsync();
+        var first = await factory.CreateAthleteAsync();
+        var second = await factory.CreateAthleteAsync();
+
+        var created = await trainer.PostAsJsonAsync(
+            "/workout-series",
+            new CreateWorkoutSeriesRequest($"Compartilhada {Guid.NewGuid():N}", AthleteIds: [first.UserId, second.UserId]));
+
+        await created.EnsureSuccessWithBodyAsync();
+
+        var series = (await created.Content.ReadFromJsonAsync<WorkoutSeriesResponse>())!;
+
+        // The shared plan answers nothing in the single-athlete field: each follower keeps their own
+        // link, and both read the same series as their own.
+        Assert.Null(series.AthleteId);
+        Assert.Equal(series.Id, (await first.Client.ReadMySeriesAsync())!.Series.Id);
+        Assert.Equal(series.Id, (await second.Client.ReadMySeriesAsync())!.Series.Id);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Trainer_ListingAnAthleteOutsideTheirRoster_SavesNothing()
+    {
+        var trainer = await factory.TrainerAsync();
+        var linked = await factory.CreateAthleteAsync();
+        var stranger = await factory.CreateClient().RegisterAccountAsync($"athlete-{Guid.NewGuid():N}@fittrack.local", "Athlete123$");
+
+        var attempted = await trainer.PostAsJsonAsync(
+            "/workout-series",
+            new CreateWorkoutSeriesRequest($"Inválida {Guid.NewGuid():N}", AthleteIds: [linked.UserId, stranger]));
+
+        Assert.Equal(HttpStatusCode.Forbidden, attempted.StatusCode);
+
+        // All-or-nothing: nobody is left following it.
+        Assert.Null(await linked.Client.ReadMySeriesAsync());
+    }
+
+    [RequiresPostgresFact]
     public async Task Trainer_PrescribingTheRest_RoundTripsItAndTheDefaultFillsTheOmission()
     {
         var trainer = await factory.TrainerAsync();

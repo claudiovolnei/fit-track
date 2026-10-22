@@ -8,12 +8,15 @@ internal sealed record SetWorkoutSeriesNameRequest(string Name, Guid? AthleteId 
 
 /// <summary>
 /// HTTP contract for creating a series. It carries more than the name because a series born for an
-/// athlete can start from the sheet of the cycle they are coming from.
+/// athlete can start from the sheet of the cycle they are coming from, and one the trainer prescribes
+/// to several of their roster at once travels with the whole list — the single athlete, when present,
+/// leads the merged list.
 /// </summary>
 internal sealed record CreateWorkoutSeriesRequest(
     string Name,
     Guid? AthleteId = null,
-    bool CopyPreviousWorkouts = false);
+    bool CopyPreviousWorkouts = false,
+    IReadOnlyList<Guid>? AthleteIds = null);
 
 /// <summary>HTTP contract for the name and the prescription of one workout of a series.</summary>
 internal sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<PrescribedExerciseRequest> Exercises);

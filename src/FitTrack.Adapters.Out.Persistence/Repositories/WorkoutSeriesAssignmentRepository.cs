@@ -20,6 +20,25 @@ internal sealed class WorkoutSeriesAssignmentRepository(FitTrackDbContext dbCont
         return record is null ? null : WorkoutSeriesAssignmentMapper.ToDomain(record);
     }
 
+    public async Task<IReadOnlyList<WorkoutSeriesAssignment>> GetByUserIdsAsync(
+        IReadOnlyList<UserId> userIds,
+        CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+        {
+            return [];
+        }
+
+        List<Guid> ids = [.. userIds.Select(userId => userId.Value)];
+
+        var records = await dbContext.WorkoutSeriesAssignments
+            .AsNoTracking()
+            .Where(assignment => ids.Contains(assignment.UserId))
+            .ToListAsync(cancellationToken);
+
+        return [.. records.Select(WorkoutSeriesAssignmentMapper.ToDomain)];
+    }
+
     public async Task SaveAsync(WorkoutSeriesAssignment assignment, CancellationToken cancellationToken)
     {
         var record = await dbContext.WorkoutSeriesAssignments

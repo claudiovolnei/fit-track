@@ -17,6 +17,13 @@ internal sealed class InMemoryWorkoutSeriesAssignmentRepository : IWorkoutSeries
     public Task<WorkoutSeriesAssignment?> GetByUserIdAsync(UserId userId, CancellationToken cancellationToken) =>
         Task.FromResult(_byUser.TryGetValue(userId, out var assignment) ? assignment : null);
 
+    public Task<IReadOnlyList<WorkoutSeriesAssignment>> GetByUserIdsAsync(
+        IReadOnlyList<UserId> userIds,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<WorkoutSeriesAssignment>>(
+            [.. userIds.Select(userId => _byUser.TryGetValue(userId, out var assignment) ? assignment : null)
+                .OfType<WorkoutSeriesAssignment>()]);
+
     public Task SaveAsync(WorkoutSeriesAssignment assignment, CancellationToken cancellationToken)
     {
         _byUser[assignment.UserId] = assignment;

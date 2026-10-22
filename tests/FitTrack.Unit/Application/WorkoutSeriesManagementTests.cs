@@ -636,6 +636,337 @@ public sealed class WorkoutSeriesManagementTests
         Assert.Equal(0, only.DaysRemaining);
     }
 
+    [Fact]
+    public async Task CreateWorkoutSeries_ForSeveralAthletes_GivesEachTheirOwnAssignment()
+    {
+        var otherAthlete = UserId.New();
+        _athletes.Seed(otherAthlete.Value, "other-athlete@fittrack.local");
+        _links.SeedLink(_trainer.Value, otherAthlete.Value);
+
+        var created = await Create(Trainer).ExecuteAsync(
+            new CreateWorkoutSeriesCommand(
+                "Hipertrofia A/B/C",
+                null,
+                CopyPreviousWorkouts: false,
+                [_athlete.Value, otherAthlete.Value]),
+            CancellationToken.None);
+
+        // The series shared by the two answers nothing in the single-athlete field: who follows it
+        // lives on the assignments, one per athlete, all pointing at the same series.
+        var saved = Assert.Single(_series.All);
+        Assert.Equal(created.Id, saved.Id.Value);
+        Assert.Null(saved.AthleteId);
+
+        Assert.Equal(2, _assignments.All.Count);
+        Assert.All(_assignments.All, assignment =>
+        {
+            Assert.Equal(created.Id, assignment.SeriesId.Value);
+            Assert.Equal(_trainer, assignment.TrainerId);
+        });
+        Assert.Equal(
+            new HashSet<Guid>([_athlete.Value, otherAthlete.Value]),
+            _assignments.All.Select(assignment => assignment.UserId.Value).ToHashSet());
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_WithTheSingleIdAlongsideTheList_MergesBothWithoutDuplicates()
+    {
+        var otherAthlete = UserId.New();
+        _athletes.Seed(otherAthlete.Value, "other-athlete@fittrack.local");
+        _links.SeedLink(_trainer.Value, otherAthlete.Value);
+
+        var created = await Create(Trainer).ExecuteAsync(
+            new CreateWorkoutSeriesCommand(
+                "Hipertrofia A/B/C",
+                _athlete.Value,
+                CopyPreviousWorkouts: false,
+                [_athlete.Value, otherAthlete.Value]),
+            CancellationToken.None);
+
+        // The single athlete leads the list and the duplicate gains nothing: two destinations, two
+        // assignments — and with more than one of them the series answers nothing in the
+        // single-athlete field.
+        Assert.Equal(2, _assignments.All.Count);
+        Assert.Null(Assert.Single(_series.All).AthleteId);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_UnknownAthleteInTheList_FailsAndSavesNothing()
+    {
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            Create(Trainer).ExecuteAsync(
+                new CreateWorkoutSeriesCommand(
+                    "Hipertrofia A/B/C",
+                    null,
+                    CopyPreviousWorkouts: false,
+                    [_athlete.Value, Guid.NewGuid()]),
+                CancellationToken.None));
+
+        Assert.Empty(_series.All);
+        Assert.Empty(_assignments.All);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_AthleteOfAnotherRosterInTheList_FailsAndSavesNothing()
+    {
+        var foreign = UserId.New();
+        _athletes.Seed(foreign.Value, "foreign-athlete@fittrack.local");
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            Create(Trainer).ExecuteAsync(
+                new CreateWorkoutSeriesCommand(
+                    "Hipertrofia A/B/C",
+                    null,
+                    CopyPreviousWorkouts: false,
+                    [_athlete.Value, foreign.Value]),
+                CancellationToken.None));
+
+        Assert.Empty(_series.All);
+        Assert.Empty(_assignments.All);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_WithCopy_StartsFromTheFirstSheetTheListCarries()
+    {
+        var otherAthlete = UserId.New();
+        _athletes.Seed(otherAthlete.Value, "other-athlete@fittrack.local");
+        _links.SeedLink(_trainer.Value, otherAthlete.Value);
+
+        // The first destination of the list comes with no cycle of their own; the second one holds
+        // the two workouts of the last one. A shared plan copies its base once — from the first
+        // destination coming from a cycle, in the caller's order.
+        var previousSheet = await SeedSeriesAsync(_trainer, "Ciclo anterior");
+        previousSheet.AddWorkout(
+            new WorkoutSeriesWorkoutId(_ids.NewId()),
+            new WorkoutName("Peito"),
+            [new PrescribedExercise(_bench, 3, 12, 40m, PrescribedExercise.DefaultRestSeconds)]);
+        previousSheet.AddWorkout(
+            new WorkoutSeriesWorkoutId(_ids.NewId()),
+            new WorkoutName("Costas"),
+            [new PrescribedExercise(_row, 3, 12, 50m, PrescribedExercise.DefaultRestSeconds)]);
+        await _series.SaveAsync(previousSheet, CancellationToken.None);
+
+        _assignments.SaveAsync(
+            WorkoutSeriesAssignment.Assign(new WorkoutSeriesAssignmentId(_ids.NewId()), previousSheet.Id, otherAthlete, _trainer, Now),
+            CancellationToken.None).GetAwaiter().GetResult();
+
+        var created = await Create(Trainer).ExecuteAsync(
+            new CreateWorkoutSeriesCommand(
+                "Hipertrofia A/B/C",
+                null,
+                CopyPreviousWorkouts: true,
+                [_athlete.Value, otherAthlete.Value]),
+            CancellationToken.None);
+
+        var saved = Assert.Single(_series.All.Where(series => series.Id.Value == created.Id));
+        Assert.Null(saved.AthleteId);
+
+        Assert.Equal(2, saved.Workouts.Count);
+        Assert.Equal("Peito", saved.Workouts[0].Name.Value);
+        Assert.Equal("Costas", saved.Workouts[1].Name.Value);
+
+        // Both keep their own cycle: one link is opened fresh for the athlete that had none, and the
+        // term of the one who came from the previous series restarts — no second link for anyone.
+        Assert.Equal(2, _assignments.All.Count);
+        Assert.All(_assignments.All, assignment =>
+        {
+            Assert.Equal(created.Id, assignment.SeriesId.Value);
+            Assert.Equal(_trainer, assignment.TrainerId);
+        });
+        Assert.Equal(Now, Assert.Single(_assignments.All.Where(a => a.UserId.Value == otherAthlete.Value)).AssignedAt);
+        Assert.Equal(Now, Assert.Single(_assignments.All.Where(a => a.UserId.Value == _athlete.Value)).AssignedAt);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_WithCopy_FromTheSingularId_CopiesThatAthletesSheet()
+    {
+        var previous = await SeedSeriesAsync(_trainer, "Ciclo anterior");
+        previous.AddWorkout(
+            new WorkoutSeriesWorkoutId(_ids.NewId()),
+            new WorkoutName("Peito"),
+            [new PrescribedExercise(_bench, 3, 12, 40m, PrescribedExercise.DefaultRestSeconds)]);
+        await _series.SaveAsync(previous, CancellationToken.None);
+
+        _assignments.SaveAsync(
+            WorkoutSeriesAssignment.Assign(new WorkoutSeriesAssignmentId(_ids.NewId()), previous.Id, _athlete, _trainer, Now),
+            CancellationToken.None).GetAwaiter().GetResult();
+
+        var created = await Create(Trainer).ExecuteAsync(
+            new CreateWorkoutSeriesCommand("Hipertrofia A/B/C", _athlete.Value, CopyPreviousWorkouts: true),
+            CancellationToken.None);
+
+        var saved = Assert.Single(_series.All.Where(series => series.Id.Value == created.Id));
+
+        // The regression the plural has to keep: with only the single id the copy starts from the
+        // sheet of that athlete, exactly as before the list existed.
+        Assert.Equal(_athlete, saved.AthleteId);
+        var workout = Assert.Single(saved.Workouts);
+        Assert.Equal("Peito", workout.Name.Value);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_AsAReleasedAthlete_IgnoresTheAthletesInTheList()
+    {
+        var created = await Create(ReleasedAthlete).ExecuteAsync(
+            new CreateWorkoutSeriesCommand(
+                "Meu plano",
+                null,
+                CopyPreviousWorkouts: false,
+                [_otherTrainer.Value]),
+            CancellationToken.None);
+
+        Assert.Equal(_athlete.Value, created.AthleteId);
+        var link = await _assignments.GetByUserIdAsync(_athlete, CancellationToken.None);
+
+        Assert.Equal(created.Id, link!.SeriesId.Value);
+        Assert.Empty(_assignments.All.Where(assignment => assignment.UserId.Value == _otherTrainer.Value));
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_AnEmptyIdInTheListCountsAsNone()
+    {
+        var created = await Create(Trainer).ExecuteAsync(
+            new CreateWorkoutSeriesCommand(
+                "Hipertrofia A/B/C",
+                null,
+                CopyPreviousWorkouts: false,
+                [Guid.Empty, _athlete.Value, Guid.Empty]),
+            CancellationToken.None);
+
+        // One destination only: the series stays a single-athlete one.
+        Assert.Equal(_athlete, Assert.Single(_assignments.All).UserId);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_WithCopy_FollowsTheCallerOrderWithTwoPreviousSheets()
+    {
+        var otherAthlete = UserId.New();
+        _athletes.Seed(otherAthlete.Value, "other-athlete@fittrack.local");
+        _links.SeedLink(_trainer.Value, otherAthlete.Value);
+
+        var ownSheet = await SeedSeriesAsync(_trainer, "Sheet do primeiro");
+        ownSheet.AddWorkout(
+            new WorkoutSeriesWorkoutId(_ids.NewId()),
+            new WorkoutName("Peito"),
+            [new PrescribedExercise(_bench, 3, 12, 40m, PrescribedExercise.DefaultRestSeconds)]);
+        await _series.SaveAsync(ownSheet, CancellationToken.None);
+
+        var otherSheet = await SeedSeriesAsync(_trainer, "Sheet do segundo");
+        otherSheet.AddWorkout(
+            new WorkoutSeriesWorkoutId(_ids.NewId()),
+            new WorkoutName("Costas"),
+            [new PrescribedExercise(_row, 3, 12, 50m, PrescribedExercise.DefaultRestSeconds)]);
+        await _series.SaveAsync(otherSheet, CancellationToken.None);
+
+        _assignments.SaveAsync(
+            WorkoutSeriesAssignment.Assign(new WorkoutSeriesAssignmentId(_ids.NewId()), ownSheet.Id, _athlete, _trainer, Now),
+            CancellationToken.None).GetAwaiter().GetResult();
+        _assignments.SaveAsync(
+            WorkoutSeriesAssignment.Assign(new WorkoutSeriesAssignmentId(_ids.NewId()), otherSheet.Id, otherAthlete, _trainer, Now),
+            CancellationToken.None).GetAwaiter().GetResult();
+
+        var created = await Create(Trainer).ExecuteAsync(
+            new CreateWorkoutSeriesCommand(
+                "Hipertrofia A/B/C",
+                null,
+                CopyPreviousWorkouts: true,
+                [otherAthlete.Value, _athlete.Value]),
+            CancellationToken.None);
+
+        // The copied sheet is the first destination's, not whichever the lookup returned: the second
+        // destination on the list donates nothing.
+        var saved = Assert.Single(_series.All.Where(series => series.Id.Value == created.Id));
+        var workout = Assert.Single(saved.Workouts);
+
+        Assert.Equal("Costas", workout.Name.Value);
+
+        // Both links point at the new series with their terms restarted: the one that had none was
+        // opened fresh, the one that already followed was reassigned — no second link for anyone
+        // (the closed link reuses the same path, tested on its own).
+        Assert.Equal(2, _assignments.All.Count);
+        var link = Assert.Single(_assignments.All.Where(assignment => assignment.UserId == otherAthlete));
+
+        Assert.Equal(created.Id, link.SeriesId.Value);
+        Assert.Null(link.ClosedAt);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_RepeatedNameInTheBatch_Fails()
+    {
+        await SeedSeriesAsync(_trainer, "Hipertrofia A/B/C");
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            Create(Trainer).ExecuteAsync(
+                new CreateWorkoutSeriesCommand(
+                    "Hipertrofia A/B/C",
+                    null,
+                    CopyPreviousWorkouts: false,
+                    [_athlete.Value]),
+                CancellationToken.None));
+
+        Assert.Equal("workout_series.name.duplicate", exception.Code);
+        Assert.Single(_series.All);
+        Assert.Empty(_assignments.All);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_FailingAlongsideAPreviousCycle_LeavesTheOldCycleInPlace()
+    {
+        // The athlete already runs a closed cycle of their own; the invalid stranger in the list must
+        // leave it untouched, not silently take the term over.
+        var previous = await SeedSeriesAsync(_trainer, "Ciclo anterior");
+        _assignments.SaveAsync(
+            WorkoutSeriesAssignment.Assign(new WorkoutSeriesAssignmentId(_ids.NewId()), previous.Id, _athlete, _trainer, Now),
+            CancellationToken.None).GetAwaiter().GetResult();
+        _assignments.All.Single().Close(Now.AddDays(1));
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            Create(Trainer).ExecuteAsync(
+                new CreateWorkoutSeriesCommand(
+                    "Hipertrofia A/B/C",
+                    null,
+                    CopyPreviousWorkouts: false,
+                    [_athlete.Value, Guid.NewGuid()]),
+                CancellationToken.None));
+
+        var link = Assert.Single(_assignments.All);
+
+        Assert.Equal(previous.Id.Value, link.SeriesId.Value);
+        Assert.NotNull(link.ClosedAt);
+    }
+
+    [Fact]
+    public async Task CreateWorkoutSeries_WithAClosedLinkInTheBatch_ReassignsItInsteadOfOpeningAnother()
+    {
+        // The athlete left their last cycle: the closed link is the one the new prescription reuses.
+        // Reassign points the same link at the shared series and reopens the term — no destination
+        // gains a second link, even in a batch.
+        var otherAthlete = UserId.New();
+        _athletes.Seed(otherAthlete.Value, "other-athlete@fittrack.local");
+        _links.SeedLink(_trainer.Value, otherAthlete.Value);
+
+        var previous = await SeedSeriesAsync(_trainer, "Ciclo anterior");
+        _assignments.SaveAsync(
+            WorkoutSeriesAssignment.Assign(new WorkoutSeriesAssignmentId(_ids.NewId()), previous.Id, otherAthlete, _trainer, Now),
+            CancellationToken.None).GetAwaiter().GetResult();
+        _assignments.All.Single(assignment => assignment.UserId == otherAthlete).Close(Now.AddDays(-1));
+
+        var created = await Create(Trainer).ExecuteAsync(
+            new CreateWorkoutSeriesCommand(
+                "Hipertrofia A/B/C",
+                null,
+                CopyPreviousWorkouts: false,
+                [_athlete.Value, otherAthlete.Value]),
+            CancellationToken.None);
+
+        Assert.Equal(2, _assignments.All.Count);
+        var link = Assert.Single(_assignments.All.Where(assignment => assignment.UserId == otherAthlete));
+
+        Assert.Equal(created.Id, link.SeriesId.Value);
+        Assert.True(link.IsOpen);
+        Assert.Null(link.ClosedAt);
+    }
+
     private StubCurrentUser Trainer => StubCurrentUser.PersonalTrainer(_trainer);
 
     private StubCurrentUser OtherTrainer => StubCurrentUser.PersonalTrainer(_otherTrainer);

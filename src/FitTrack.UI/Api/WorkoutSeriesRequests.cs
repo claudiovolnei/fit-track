@@ -5,12 +5,15 @@ public sealed record SetWorkoutSeriesNameRequest(string Name, Guid? AthleteId = 
 
 /// <summary>
 /// Wire contract: creating a series. It carries more than the name because a series born for an
-/// athlete can start from the sheet of the cycle they are coming from.
+/// athlete can start from the sheet of the cycle they are coming from, and one the trainer prescribes
+/// to several of their roster at once travels with the whole list — the single athlete, when present,
+/// leads the merged list.
 /// </summary>
 public sealed record CreateWorkoutSeriesRequest(
     string Name,
     Guid? AthleteId = null,
-    bool CopyPreviousWorkouts = false);
+    bool CopyPreviousWorkouts = false,
+    IReadOnlyList<Guid>? AthleteIds = null);
 
 /// <summary>Wire contract: one prescribed exercise of a workout.</summary>
 public sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms, int? RestSeconds = null);

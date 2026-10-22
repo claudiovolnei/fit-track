@@ -34,8 +34,10 @@ public sealed class WorkoutSeries
     public UserId TrainerId { get; }
 
     /// <summary>
-    /// The athlete this series belongs to. Null for legacy series created before the per-athlete
-    /// rule; new series always carry one.
+    /// The single athlete the series was authored for: the series of a shared plan — authored for
+    /// more than one athlete of the roster, each holding their own assignment — carries none, and so
+    /// does a legacy series created before the per-athlete rule. Who actually follows the series
+    /// lives on the assignments, not here.
     /// </summary>
     public UserId? AthleteId { get; }
 
