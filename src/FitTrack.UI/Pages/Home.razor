@@ -165,6 +165,26 @@
 
             <section class="section">
                 <div class="section-head">
+                    <h2>Esta semana</h2>
+                </div>
+
+                <div class="week-strip">
+                    @for (var day = 0; day < 7; day++)
+                    {
+                        var finished = _weekFinished[day];
+                        <div class="week-day @(finished ? "week-day--done is-done filled" : "week-day--empty empty")">
+                            <span class="week-circle day-circle @(finished ? "week-circle--filled filled" : "week-circle--empty empty")"
+                                  title="@(finished ? "Treino concluído" : "Sem treino")"
+                                  aria-label="@DayLetter(day): @(finished ? "treino concluído" : "sem treino")">
+                                @DayLetter(day)
+                            </span>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="section-head">
                     <h2>Últimos treinos</h2>
                     <a href="/workouts">Ver histórico</a>
                 </div>
@@ -266,6 +286,8 @@
     private int _totalSets;
     private decimal _volume;
 
+    private bool[] _weekFinished = new bool[7];
+
     private int _seriesCount;
     private int _workoutCount;
     private int _athleteCount;
@@ -307,6 +329,21 @@
                 var monday = Monday();
                 _weekSessions = sessions.Count(session => session.WorkoutDate >= monday);
 
+                _weekFinished = new bool[7];
+                foreach (var session in sessions)
+                {
+                    if (session.FinishedAt is null)
+                    {
+                        continue;
+                    }
+
+                    var index = session.WorkoutDate.DayNumber - monday.DayNumber;
+                    if (index is >= 0 and < 7)
+                    {
+                        _weekFinished[index] = true;
+                    }
+                }
+
                 _recentSessions.AddRange(sessions
                     .OrderByDescending(session => session.StartedAt)
                     .Take(3));
@@ -339,6 +376,13 @@
 
     private static decimal Volume(WorkoutSessionResponse session) =>
         session.Sets.Sum(set => set.LoadKilograms * set.Repetitions);
+
+    private static string DayLetter(int day)
+    {
+        var culture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+        var date = Monday().AddDays(day);
+        return date.ToDateTime(TimeOnly.MinValue).ToString("ddd", culture)[..1].ToUpper(culture);
+    }
 
     private static DateOnly Monday()
     {

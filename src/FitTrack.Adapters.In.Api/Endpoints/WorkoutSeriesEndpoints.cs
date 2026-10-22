@@ -23,6 +23,7 @@ internal static class WorkoutSeriesEndpoints
         athletes.MapGet("/{userId:guid}/workouts", ListAthleteWorkoutsAsync);
         athletes.MapPost("/{userId:guid}/trainer", LinkTrainerAsync);
         athletes.MapDelete("/{userId:guid}/trainer", UnlinkTrainerAsync);
+         athletes.MapDelete("/{userId:guid}/sessions/{sessionId:guid}", CancelAthleteWorkoutAsync);
 
         // The cycle of a series belongs to the personal trainer — and to the athlete the
         // administrator released to build their own plan. The group is open to any authenticated
@@ -228,4 +229,15 @@ internal static class WorkoutSeriesEndpoints
             exercise.Repetitions,
             exercise.LoadKilograms,
             exercise.RestSeconds))];
+
+     private static async Task<IResult> CancelAthleteWorkoutAsync(
+         Guid userId,
+         Guid sessionId,
+         ICancelAthleteWorkout useCase,
+         CancellationToken cancellationToken)
+     {
+         await useCase.ExecuteAsync(new CancelAthleteWorkoutCommand(userId, sessionId), cancellationToken);
+
+         return Results.NoContent();
+     }
 }

@@ -1,6 +1,7 @@
 using FitTrack.Adapters.In.Api.Authentication;
 using FitTrack.Adapters.In.Api.Composition;
 using FitTrack.Adapters.In.Api.Endpoints;
+using FitTrack.Adapters.In.Api.HostedServices;
 using FitTrack.Adapters.In.Api.Seeding;
 using FitTrack.Adapters.Out.Persistence;
 using FitTrack.Adapters.Out.Persistence.Accounts;
@@ -68,6 +69,9 @@ builder.Services.AddScoped<IGetMyWorkoutSeries, GetMyWorkoutSeries>();
 builder.Services.AddScoped<IStartWorkout, StartWorkout>();
 builder.Services.AddScoped<IFinishWorkout, FinishWorkout>();
 builder.Services.AddScoped<ICancelWorkout, CancelWorkout>();
+builder.Services.AddScoped<ICancelAthleteWorkout, CancelAthleteWorkout>();
+builder.Services.AddScoped<IAutoFinishExpiredWorkouts, AutoFinishExpiredWorkouts>();
+builder.Services.AddHostedService<AutoFinishExpiredWorkoutsHostedService>();
 
 // The current user is an inbound concern: it reads the already validated JWT.
 builder.Services.AddHttpContextAccessor();

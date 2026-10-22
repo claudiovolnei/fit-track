@@ -2783,3 +2783,64 @@ code {
 .set-log .btn {
     flex: 0 0 auto;
 }
+
+/* Weekly strip on Home (athlete) */
+.week-strip {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.week-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 0;
+}
+
+.week-circle {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 0.82rem;
+    transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.week-circle--filled,
+.week-circle.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent, #0a0e14);
+}
+
+/* Unit toggle for load input (kg / barra) */
+.set-log__units {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.unit-toggle {
+    padding: 6px 10px;
+    border: 0;
+    background: var(--surface-2);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.unit-toggle--active {
+    background: var(--accent);
+    color: var(--on-accent, #0a0e14);
+}

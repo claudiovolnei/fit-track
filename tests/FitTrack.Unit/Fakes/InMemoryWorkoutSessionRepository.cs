@@ -33,8 +33,28 @@ internal sealed class InMemoryWorkoutSessionRepository : IWorkoutSessionReposito
             [.. _byId.Values.Where(session =>
                 session.UserId == userId && session.WorkoutDate.Value == workoutDate)]);
 
+    public Task<IReadOnlyList<WorkoutSession>> ListRunningStartedBeforeAsync(
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<WorkoutSession>>(
+            [.. _byId.Values.Where(session =>
+                session.FinishedAt is null && session.StartedAt <= cutoff)]);
+
+    public Task<IReadOnlyList<WorkoutSession>> ListRunningStartedBeforeAsync(
+        UserId userId,
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<WorkoutSession>>(
+            [.. _byId.Values.Where(session =>
+                session.UserId == userId && session.FinishedAt is null && session.StartedAt <= cutoff)]);
+
     public Task SaveAsync(WorkoutSession session, CancellationToken cancellationToken)
     {
+        if (_byId.TryGetValue(session.Id, out var existing) && existing.FinishedAt is not null)
+        {
+            return Task.CompletedTask;
+        }
+
         _byId[session.Id] = session;
 
         return Task.CompletedTask;
@@ -42,6 +62,11 @@ internal sealed class InMemoryWorkoutSessionRepository : IWorkoutSessionReposito
 
     public Task RemoveAsync(WorkoutSession session, CancellationToken cancellationToken)
     {
+        if (_byId.TryGetValue(session.Id, out var existing) && existing.FinishedAt is not null)
+        {
+            return Task.CompletedTask;
+        }
+
         _byId.Remove(session.Id);
 
         return Task.CompletedTask;

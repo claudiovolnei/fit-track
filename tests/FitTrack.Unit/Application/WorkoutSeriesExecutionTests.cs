@@ -492,6 +492,127 @@ public sealed class WorkoutSeriesExecutionTests
     }
 
     [Fact]
+    public async Task CancelAthleteWorkout_TrainerFreesTheDay_AndTheAthleteStartsAnother()
+    {
+        // The athlete started A earlier and cannot start B on the same day...
+        var started = await StartTodayAsync();
+        var workoutB = await SeedSecondWorkoutAsync();
+
+        var blocked = await Assert.ThrowsAsync<ConflictException>(() =>
+            Start(Athlete).ExecuteAsync(new StartWorkoutCommand(workoutB.Id.Value), CancellationToken.None));
+
+        Assert.Equal("session.start.already_started_today", blocked.Code);
+
+        // ...until the trainer cancels the running workout, freeing the day.
+        await CancelAthlete(StubCurrentUser.PersonalTrainer(_trainer)).ExecuteAsync(
+            new CancelAthleteWorkoutCommand(_athlete.Value, started.Session.Id),
+            CancellationToken.None);
+
+        Assert.Empty(_sessions.All);
+
+        var again = await Start(Athlete).ExecuteAsync(
+            new StartWorkoutCommand(workoutB.Id.Value),
+            CancellationToken.None);
+
+        Assert.True(again.Started);
+    }
+
+    [Fact]
+    public async Task CancelAthleteWorkout_AnAthleteCaller_IsForbidden()
+    {
+        var started = await StartTodayAsync();
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            CancelAthlete(Athlete).ExecuteAsync(
+                new CancelAthleteWorkoutCommand(_athlete.Value, started.Session.Id),
+                CancellationToken.None));
+
+        Assert.Single(_sessions.All);
+    }
+
+    [Fact]
+    public async Task CancelAthleteWorkout_AnAthleteOffTheRoster_IsNotFound()
+    {
+        var stranger = UserId.New();
+        var session = WorkoutSession.StartFromPlannedWorkout(
+            WorkoutSessionId.New(),
+            stranger,
+            new WorkoutDate(Today),
+            Now,
+            WorkoutSeriesWorkoutId.New());
+
+        await _sessions.SaveAsync(session, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<NotFoundException>(() =>
+            CancelAthlete(StubCurrentUser.PersonalTrainer(_trainer)).ExecuteAsync(
+                new CancelAthleteWorkoutCommand(stranger.Value, session.Id.Value),
+                CancellationToken.None));
+
+        Assert.Single(_sessions.All);
+    }
+
+    [Fact]
+    public async Task CancelAthleteWorkout_AnAdminCancelsAnyAthletesWorkout()
+    {
+        var stranger = UserId.New();
+        var session = WorkoutSession.StartFromPlannedWorkout(
+            WorkoutSessionId.New(),
+            stranger,
+            new WorkoutDate(Today),
+            Now,
+            WorkoutSeriesWorkoutId.New());
+
+        await _sessions.SaveAsync(session, CancellationToken.None);
+
+        await CancelAthlete(StubCurrentUser.Admin(_trainer)).ExecuteAsync(
+            new CancelAthleteWorkoutCommand(stranger.Value, session.Id.Value),
+            CancellationToken.None);
+
+        Assert.Empty(_sessions.All);
+    }
+
+    [Fact]
+    public async Task CancelAthleteWorkout_AFinishedWorkout_IsRefused()
+    {
+        var started = await StartTodayAsync();
+
+        await Finish(Athlete).ExecuteAsync(
+            new FinishWorkoutCommand(started.Session.Id, WorkoutIntensity.Moderado, null, [Performed(_bench)]),
+            CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() =>
+            CancelAthlete(StubCurrentUser.PersonalTrainer(_trainer)).ExecuteAsync(
+                new CancelAthleteWorkoutCommand(_athlete.Value, started.Session.Id),
+                CancellationToken.None));
+
+        Assert.Equal("session.cancel.not_running", exception.Code);
+        Assert.Single(_sessions.All);
+    }
+
+    [Fact]
+    public async Task CancelAthleteWorkout_AWorkoutWithSets_IsRefused()
+    {
+        var (_, workout) = await SeedAssignedAsync();
+        var session = WorkoutSession.StartFromPlannedWorkout(
+            WorkoutSessionId.New(),
+            _athlete,
+            new WorkoutDate(Today),
+            Now,
+            workout.Id);
+
+        session.RegisterSet(_bench, new Load(80m), new Repetitions(12));
+        await _sessions.SaveAsync(session, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() =>
+            CancelAthlete(StubCurrentUser.PersonalTrainer(_trainer)).ExecuteAsync(
+                new CancelAthleteWorkoutCommand(_athlete.Value, session.Id.Value),
+                CancellationToken.None));
+
+        Assert.Equal("session.cancel.has_sets", exception.Code);
+        Assert.Single(_sessions.All);
+    }
+
+    [Fact]
     public async Task GetMyWorkoutSeries_ShowsTheWorkoutStateForToday()
     {
         var (series, workout) = await SeedAssignedAsync();
@@ -563,6 +684,9 @@ public sealed class WorkoutSeriesExecutionTests
     private IFinishWorkout Finish(StubCurrentUser user) => new FinishWorkout(user, _series, _sessions, _clock);
 
     private ICancelWorkout Cancel(StubCurrentUser user) => new CancelWorkout(user, _sessions);
+
+    private ICancelAthleteWorkout CancelAthlete(StubCurrentUser user) =>
+        new CancelAthleteWorkout(user, _links, _sessions);
 
     private IGetMyWorkoutSeries MySeries(StubCurrentUser user) => new GetMyWorkoutSeries(user, Queries, _clock);
 

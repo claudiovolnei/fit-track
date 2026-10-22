@@ -54,6 +54,35 @@ internal sealed class WorkoutSessionRepository(FitTrackDbContext dbContext) : IW
         return [.. records.Select(WorkoutSessionMapper.ToDomain)];
     }
 
+    public async Task<IReadOnlyList<WorkoutSession>> ListRunningStartedBeforeAsync(
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken)
+    {
+        var records = await dbContext.WorkoutSessions
+            .AsNoTracking()
+            .Include(session => session.Sets)
+            .Include(session => session.CompletedExercises)
+            .Where(session => session.FinishedAt == null && session.StartedAt <= cutoff)
+            .ToListAsync(cancellationToken);
+
+        return [.. records.Select(WorkoutSessionMapper.ToDomain)];
+    }
+
+    public async Task<IReadOnlyList<WorkoutSession>> ListRunningStartedBeforeAsync(
+        UserId userId,
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken)
+    {
+        var records = await dbContext.WorkoutSessions
+            .AsNoTracking()
+            .Include(session => session.Sets)
+            .Include(session => session.CompletedExercises)
+            .Where(session => session.UserId == userId.Value && session.FinishedAt == null && session.StartedAt <= cutoff)
+            .ToListAsync(cancellationToken);
+
+        return [.. records.Select(WorkoutSessionMapper.ToDomain)];
+    }
+
     public async Task SaveAsync(WorkoutSession session, CancellationToken cancellationToken)
     {
         var record = await dbContext.WorkoutSessions
@@ -67,6 +96,12 @@ internal sealed class WorkoutSessionRepository(FitTrackDbContext dbContext) : IW
         }
         else
         {
+            if (record.FinishedAt is not null)
+            {
+                // Already finished in the database (e.g. by auto-finish). Do not overwrite.
+                return;
+            }
+
             WorkoutSessionMapper.CopyInto(session, record);
         }
 
@@ -80,6 +115,12 @@ internal sealed class WorkoutSessionRepository(FitTrackDbContext dbContext) : IW
 
         if (record is null)
         {
+            return;
+        }
+
+        if (record.FinishedAt is not null)
+        {
+            // Never remove an already finished session.
             return;
         }
 

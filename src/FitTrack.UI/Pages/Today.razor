@@ -281,12 +281,23 @@ else
                                                    @bind:event="oninput"
                                                    @bind:culture="CultureInfo.InvariantCulture" />
                                         </label>
+                                        <div class="set-log__units" role="group" aria-label="Unidade de carga de @row.ExerciseName">
+                                            <button type="button" class="unit-toggle @(IsBarra(workout, id) ? "" : "unit-toggle--active")"
+                                                    @onclick='() => SetLoadUnit(workout, id, "kg")'>
+                                                kg
+                                            </button>
+                                            <button type="button" class="unit-toggle @(IsBarra(workout, id) ? "unit-toggle--active" : "")"
+                                                    @onclick='() => SetLoadUnit(workout, id, "barra")'>
+                                                barra
+                                            </button>
+                                        </div>
                                         <label class="set-log__field">
-                                            <span>kg</span>
+                                            <span>@(IsBarra(workout, id) ? "barras" : "kg")</span>
                                             <input id="set-load-@id" type="number" inputmode="decimal"
-                                                   min="0" step="0.5" title="Carga (kg)"
-                                                   aria-label="Carga em quilos de @row.ExerciseName"
-                                                   @bind="_loads[(workout.Id, id)]"
+                                                   min="0" step="any" title="Carga"
+                                                   aria-label="Carga de @row.ExerciseName"
+                                                   @bind:get="LoadDisplay(workout, id)"
+                                                   @bind:set="(decimal value) => SetLoadInput(workout, id, value)"
                                                    @bind:event="oninput"
                                                    @bind:culture="CultureInfo.InvariantCulture" />
                                         </label>
@@ -367,6 +378,11 @@ else
 
     /// <summary>Load the athlete typed for each prescribed exercise, per workout.</summary>
     private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), decimal> _loads = [];
+
+    /// <summary>Unit chosen for the load input of each prescribed exercise (kg or barra).</summary>
+    private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), string> _loadUnits = [];
+
+    private const decimal BarWeightKilograms = 20m;
 
     /// <summary>Repetitions the athlete typed for each prescribed exercise, per workout.</summary>
     private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), int> _reps = [];
@@ -690,6 +706,9 @@ else
             foreach (var prescribed in workout.Exercises)
             {
                 _ticks.Remove((workout.Id, prescribed.ExerciseId));
+                _loads[(workout.Id, prescribed.ExerciseId)] = LoadValue(prescribed.LoadKilograms);
+                _reps[(workout.Id, prescribed.ExerciseId)] = prescribed.Repetitions;
+                _loadUnits.Remove((workout.Id, prescribed.ExerciseId));
             }
         }
 
@@ -777,6 +796,27 @@ else
         workout.Exercises
             .Where(prescribed => IsTicked(workout, prescribed.ExerciseId))
             .Sum(prescribed => prescribed.Sets);
+
+    private bool IsBarra(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
+        _loadUnits.GetValueOrDefault((workout.Id, exerciseId)) == "barra";
+
+    private void SetLoadUnit(WorkoutSeriesWorkoutResponse workout, Guid exerciseId, string unit)
+    {
+        _loadUnits[(workout.Id, exerciseId)] = unit;
+    }
+
+    private decimal LoadDisplay(WorkoutSeriesWorkoutResponse workout, Guid exerciseId)
+    {
+        var kilograms = _loads.GetValueOrDefault((workout.Id, exerciseId), 0m);
+        return IsBarra(workout, exerciseId) ? kilograms / BarWeightKilograms : kilograms;
+    }
+
+    private void SetLoadInput(WorkoutSeriesWorkoutResponse workout, Guid exerciseId, decimal value)
+    {
+        _loads[(workout.Id, exerciseId)] = IsBarra(workout, exerciseId)
+            ? value * BarWeightKilograms
+            : value;
+    }
 
     private static string Load(decimal? kilograms) =>
         kilograms is { } load ? $"{load:0.##} kg" : "peso corporal";

@@ -51,6 +51,24 @@ public sealed class StartWorkout : IStartWorkout
         var workoutId = new WorkoutSeriesWorkoutId(command.WorkoutSeriesWorkoutId);
         var now = _clock.UtcNow;
 
+        // Lazy guard: a workout forgotten for more than 2.5 hours closes itself, so it stops
+        // blocking the athlete's day even when the background job has not run yet.
+        var cutoff = now - TimeSpan.FromHours(2.5);
+        var expired = await _sessions.ListRunningStartedBeforeAsync(_currentUser.Id, cutoff, cancellationToken);
+
+        foreach (var running in expired)
+        {
+            try
+            {
+                running.Finish(running.StartedAt + TimeSpan.FromHours(2.5), null, null);
+                await _sessions.SaveAsync(running, cancellationToken);
+            }
+            catch (DomainException)
+            {
+                // Already finished by a concurrent operation: nothing to do.
+            }
+        }
+
         var assignment = await _assignments.GetByUserIdAsync(_currentUser.Id, cancellationToken);
         var series = assignment is null || !assignment.IsOpen
             ? null

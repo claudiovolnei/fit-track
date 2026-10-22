@@ -29,6 +29,19 @@ public interface IWorkoutSessionRepository
         DateOnly workoutDate,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Every session still running whose start is at or before <paramref name="cutoff"/>. Used by
+    /// the auto-finish job and by the lazy guard in <c>StartWorkout</c>.
+    /// </summary>
+    Task<IReadOnlyList<WorkoutSession>> ListRunningStartedBeforeAsync(
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<WorkoutSession>> ListRunningStartedBeforeAsync(
+        UserId userId,
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken);
+
     Task SaveAsync(WorkoutSession session, CancellationToken cancellationToken);
 
     Task RemoveAsync(WorkoutSession session, CancellationToken cancellationToken);
