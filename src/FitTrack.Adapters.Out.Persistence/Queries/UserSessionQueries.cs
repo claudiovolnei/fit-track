@@ -95,22 +95,30 @@ internal sealed class UserSessionQueries(FitTrackDbContext dbContext, IClock clo
 
         var prescriptions = await LoadPrescriptionsAsync(workoutIds, cancellationToken);
         var existingWorkouts = await LoadExistingWorkoutIdsAsync(workoutIds, cancellationToken);
+        var seriesNames = await LoadSeriesNamesAsync(workoutIds, cancellationToken);
 
         return
         [
             .. rows.Select(row =>
             {
                 // A null reference and an orphan reference are both "no prescription to compare".
-                var prescription = row.WorkoutSeriesWorkoutId is { } workoutId
-                    && existingWorkouts.Contains(workoutId)
-                        ? prescriptions.GetValueOrDefault(workoutId)
-                        : null;
+                var workoutId = row.WorkoutSeriesWorkoutId;
+                var prescribed = workoutId is not null && existingWorkouts.Contains(workoutId.Value);
+
+                var prescription = prescribed
+                    ? prescriptions.GetValueOrDefault(workoutId.Value)
+                    : null;
 
                 var volume = prescription is null
                     ? null
                     : WorkoutVolumeCalculator.Calculate(row.Sets, prescription, exerciseNames);
 
-                return row.ToDto(now, volume);
+                return row.ToDto(now, volume) with
+                {
+                    WorkoutSeriesName = prescribed
+                        ? seriesNames.GetValueOrDefault(workoutId.Value)
+                        : null,
+                };
             }),
         ];
     }
@@ -207,5 +215,32 @@ internal sealed class UserSessionQueries(FitTrackDbContext dbContext, IClock clo
             .ToListAsync(cancellationToken);
 
         return [.. found];
+    }
+
+    /// <summary>
+    /// The name of the series each prescribed workout belongs to, in one join over the page — the
+    /// same batch discipline as the prescriptions. An orphan workout has no series to name; the
+    /// missing id simply falls through as null.
+    /// </summary>
+    private async Task<Dictionary<Guid, string>> LoadSeriesNamesAsync(
+        IReadOnlyList<Guid> workoutIds,
+        CancellationToken cancellationToken)
+    {
+        if (workoutIds.Count == 0)
+        {
+            return [];
+        }
+
+        var names = await dbContext.WorkoutSeriesWorkouts
+            .AsNoTracking()
+            .Where(workout => workoutIds.Contains(workout.Id))
+            .Join(
+                dbContext.WorkoutSeries.AsNoTracking(),
+                workout => workout.WorkoutSeriesId,
+                series => series.Id,
+                (workout, series) => new { workout.Id, series.Name })
+            .ToListAsync(cancellationToken);
+
+        return names.ToDictionary(row => row.Id, row => row.Name);
     }
 }

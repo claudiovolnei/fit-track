@@ -15,6 +15,21 @@ public sealed record CreateWorkoutSeriesRequest(
     bool CopyPreviousWorkouts = false,
     IReadOnlyList<Guid>? AthleteIds = null);
 
+/// <summary>
+/// Wire contract: assigning a series that already exists to one or more athletes. The same merge as
+/// the creation — the single athlete, when present, leads the list.
+/// </summary>
+public sealed record AssignSeriesRequest(Guid? AthleteId = null, IReadOnlyList<Guid>? AthleteIds = null);
+
+/// <summary>Wire contract: one athlete following a series, with the state of their term.</summary>
+public sealed record SeriesFollowerResponse(
+    Guid UserId,
+    string Email,
+    string? Name,
+    bool IsOpen,
+    DateTimeOffset ExpiresAt,
+    int DaysRemaining);
+
 /// <summary>Wire contract: one prescribed exercise of a workout.</summary>
 public sealed record PrescribedExerciseRequest(Guid ExerciseId, int Sets, int Repetitions, decimal? LoadKilograms, int? RestSeconds = null);
 

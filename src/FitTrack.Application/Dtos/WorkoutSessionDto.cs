@@ -24,4 +24,10 @@ public sealed record WorkoutSessionDto(
 
     /// <summary>What the athlete wrote about the workout. Null when they wrote nothing.</summary>
     public string? Notes { get; init; }
+
+    /// <summary>
+    /// The series the workout came from, at the moment of the read. Null for a session logged free
+    /// or whose prescription no longer exists — no snapshot of the name is kept.
+    /// </summary>
+    public string? WorkoutSeriesName { get; init; }
 }

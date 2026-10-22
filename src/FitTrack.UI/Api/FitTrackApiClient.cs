@@ -123,6 +123,22 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         PostAsync<WorkoutSeriesResponse>("workout-series", request, cancellationToken);
 
     /// <summary>
+    /// Points one or more athletes at a series that already exists: the plan the author left
+    /// untouched, each athlete following their own term.
+    /// </summary>
+    public Task AssignSeriesAsync(
+        Guid seriesId,
+        AssignSeriesRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync($"workout-series/{seriesId}/athletes", request, cancellationToken);
+
+    /// <summary>The athletes following the series, empty when nobody does.</summary>
+    public Task<IReadOnlyList<SeriesFollowerResponse>> ListSeriesFollowersAsync(
+        Guid seriesId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SeriesFollowerResponse>>($"workout-series/{seriesId}/athletes", cancellationToken);
+
+    /// <summary>
     /// Ends the cycle the athlete is in: the athlete is left without a series, so the trainer can
     /// create the next one when the time comes.
     /// </summary>

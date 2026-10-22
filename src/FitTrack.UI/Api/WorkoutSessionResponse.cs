@@ -26,4 +26,10 @@ public sealed record WorkoutSessionResponse(
 
     /// <summary>What the athlete wrote about the workout. Null when they wrote nothing.</summary>
     public string? Notes { get; init; }
+
+    /// <summary>
+    /// The series the workout came from. Null for a session logged free or whose prescription no
+    /// longer exists.
+    /// </summary>
+    public string? WorkoutSeriesName { get; init; }
 }

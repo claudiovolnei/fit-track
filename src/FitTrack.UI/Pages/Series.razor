@@ -103,6 +103,45 @@ else
                             <AppIcon Name="chevron-right" Size="18" />
                         </a>
                     </div>
+
+                    <div style="margin-top: 14px;">
+                        <button class="btn btn-secondary btn-sm btn-block" type="button" disabled="@_busy"
+                                @onclick="() => ToggleFollowersAsync(row)">
+                            <AppIcon Name="users" Size="16" />
+                            Atletas seguindo
+                        </button>
+
+                        @if (row.FollowersOpen)
+                        {
+                            <div class="inline-form" style="margin-top: 10px;">
+                                @if (row.LoadingFollowers)
+                                {
+                                    <div class="loading-state" style="padding: 8px 0;">
+                                        <span class="spinner"></span>
+                                        <span>Carregando…</span>
+                                    </div>
+                                }
+                                else if (row.Followers.Count == 0)
+                                {
+                                    <p class="muted" style="margin: 0;">Nenhum atleta está seguindo esta série.</p>
+                                }
+                                else
+                                {
+                                    <ul style="margin: 0; padding-left: 0; list-style: none;">
+                                        @foreach (var follower in row.Followers)
+                                        {
+                                            <li style="display: flex; justify-content: space-between; gap: 8px; padding: 4px 0;">
+                                                <span>@FollowerLabel(follower.Name, follower.Email)</span>
+                                                <span class="chip @(follower.IsOpen && follower.DaysRemaining > 0 ? "chip--success" : "")">
+                                                    @FollowerTerm(follower.IsOpen, follower.DaysRemaining)
+                                                </span>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+                        }
+                    </div>
                 </article>
             }
         </div>
@@ -155,6 +194,64 @@ else
             await Api.RenameWorkoutSeriesAsync(row.Id, new SetWorkoutSeriesNameRequest(row.Name));
             await ReloadAsync();
         });
+
+    /// <summary>
+    /// First tap opens the section and loads the followers — one request per open card, never one
+    /// for the whole page. Tapping again closes it; the names stay for the next open.
+    /// </summary>
+    private async Task ToggleFollowersAsync(SeriesRow row)
+    {
+        row.FollowersOpen = !row.FollowersOpen;
+
+        if (!row.FollowersOpen || row.FollowersLoaded)
+        {
+            return;
+        }
+
+        row.LoadingFollowers = true;
+        StateHasChanged();
+
+        try
+        {
+            row.Followers =
+            [
+                .. await Api.ListSeriesFollowersAsync(row.Id),
+            ];
+            row.FollowersLoaded = true;
+        }
+        catch (ApiException exception)
+        {
+            row.FollowersOpen = false;
+            Toasts.Error(ErrorMessages.Describe(exception));
+        }
+        finally
+        {
+            row.LoadingFollowers = false;
+        }
+    }
+
+    /// <summary>
+    /// Who the athlete trains with rules the label here too: the name carries the read while the
+    /// account has none, and the e-mail stands in so nothing renders empty.
+    /// </summary>
+    private static string FollowerLabel(string? name, string email) =>
+        !string.IsNullOrWhiteSpace(name) ? name : email;
+
+    /// <summary>
+    /// The state of the term: days left while they still run, "último dia" on the last whole day,
+    /// and the closed chip once the trainer ended the cycle or the term ran out (the read answers
+    /// zero days for both — the expiry is in the past even though the link stays open).
+    /// </summary>
+    private static string FollowerTerm(bool isOpen, int daysRemaining)
+    {
+        if (!isOpen || daysRemaining <= 0)
+        {
+            // The trainer already closed it — or the link is open but the term is in the past.
+            return "ciclo encerrado";
+        }
+
+        return daysRemaining == 1 ? "último dia" : $"{daysRemaining} dias restantes";
+    }
 
     private async Task RunAsync(Func<Task> action)
     {
@@ -236,5 +333,13 @@ else
         public string Name { get; set; } = string.Empty;
 
         public int WorkoutCount { get; init; }
+
+        public bool FollowersOpen { get; set; }
+
+        public bool FollowersLoaded { get; set; }
+
+        public bool LoadingFollowers { get; set; }
+
+        public IReadOnlyList<SeriesFollowerResponse> Followers { get; set; } = [];
     }
 }

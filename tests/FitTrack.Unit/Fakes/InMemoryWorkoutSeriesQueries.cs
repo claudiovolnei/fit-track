@@ -69,6 +69,40 @@ internal sealed class InMemoryWorkoutSeriesQueries(
     /// <summary>Name the fake reports as the author of the series; the SQL adapter reads it off the account.</summary>
     public string TrainerName { get; set; } = "Personal trainer";
 
+    /// <summary>
+    /// The identity the fake uses when composing followers, seeded per test because the fake holds
+    /// planning aggregates only — the account lives in another store the same way the SQL adapter
+    /// joins another table.
+    /// </summary>
+    private readonly Dictionary<Guid, (string Email, string? Name)> _accounts = [];
+
+    public void SeedUser(Guid userId, string email, string? name = null) => _accounts[userId] = (email, name);
+
+    public Task<IReadOnlyList<WorkoutSeriesFollowerDto>> ListFollowersAsync(
+        WorkoutSeriesId seriesId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<WorkoutSeriesFollowerDto>>(
+        [
+            .. assignments.All
+                .Where(assignment => assignment.SeriesId == seriesId)
+                .OrderBy(assignment => assignment.UserId.Value)
+                .Select(assignment =>
+                {
+                    var account = _accounts.TryGetValue(assignment.UserId.Value, out var found)
+                        ? found
+                        : (Email: assignment.UserId.Value.ToString(), Name: (string?)null);
+
+                    return new WorkoutSeriesFollowerDto(
+                        assignment.UserId.Value,
+                        account.Email,
+                        account.Name,
+                        assignment.IsOpen,
+                        assignment.ExpiresAt,
+                        assignment.DaysRemaining(now));
+                }),
+        ]);
+
     private WorkoutSeriesDto ToDto(
         WorkoutSeries candidate,
         DateOnly? today = null,

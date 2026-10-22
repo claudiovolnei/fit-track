@@ -48,6 +48,10 @@ internal static class WorkoutSeriesEndpoints
         series.MapPut("/{seriesId:guid}/workouts/{workoutId:guid}", ChangeWorkoutAsync);
         series.MapDelete("/{seriesId:guid}/workouts/{workoutId:guid}", RemoveWorkoutAsync);
 
+        // Assigning an existing series and listing its followers are the author's verbs: the group
+        // is open to any authenticated account and the use cases state who may act.
+        series.MapPost("/{seriesId:guid}/athletes", AssignSeriesAsync);
+        series.MapGet("/{seriesId:guid}/athletes", ListSeriesFollowersAsync);
 
         // The athlete reads their own series through a singular route: no id, no way to ask for a
         // series that is not theirs.
@@ -166,6 +170,35 @@ internal static class WorkoutSeriesEndpoints
 
         return Results.NoContent();
     }
+
+    /// <summary>
+    /// Points one or more athletes at a series that already exists. There is nothing to return — the
+    /// series stays as it is and the assignments speak by themselves, so 204 it is.
+    /// </summary>
+    private static async Task<IResult> AssignSeriesAsync(
+        Guid seriesId,
+        AssignSeriesRequest request,
+        IAssignWorkoutSeries useCase,
+        CancellationToken cancellationToken)
+    {
+        await useCase.ExecuteAsync(
+            // The same merge as the creation: with only the single id the destination order is
+            // exactly the one the flows that predate the plural rely on.
+            new AssignWorkoutSeriesCommand(seriesId, request.AthleteId, request.AthleteIds),
+            cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    /// <summary>
+    /// The athletes following the series, empty list when nobody does: the caller asked the state of
+    /// the roster, and an empty answer is a list, not an absence.
+    /// </summary>
+    private static async Task<IResult> ListSeriesFollowersAsync(
+        Guid seriesId,
+        IListWorkoutSeriesFollowers useCase,
+        CancellationToken cancellationToken) =>
+        Results.Ok(await useCase.ExecuteAsync(seriesId, cancellationToken));
 
     private static async Task<IResult> GetSeriesAsync(
         Guid seriesId,

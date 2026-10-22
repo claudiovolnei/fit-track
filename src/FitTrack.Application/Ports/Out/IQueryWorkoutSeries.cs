@@ -29,4 +29,14 @@ public interface IQueryWorkoutSeries
         DateOnly today,
         DateTimeOffset now,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every athlete with an assignment to the series, open cycle or not, each with their identity
+    /// and the state of their term at <paramref name="now"/>. The read is author-only upstream, so
+    /// this carries no authorization of its own.
+    /// </summary>
+    Task<IReadOnlyList<WorkoutSeriesFollowerDto>> ListFollowersAsync(
+        WorkoutSeriesId seriesId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken);
 }

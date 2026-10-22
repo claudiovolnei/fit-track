@@ -131,6 +131,46 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
             ? name
             : string.IsNullOrWhiteSpace(email) ? "Personal trainer" : email;
 
+    /// <summary>
+    /// Every athlete with an assignment to the series, open cycle or closed. One join carries the
+    /// identity from the account; the days remaining come from the domain, not from arithmetic here,
+    /// and the closed link still shows — that is the "it ended this week" the screen reports.
+    /// </summary>
+    public async Task<IReadOnlyList<WorkoutSeriesFollowerDto>> ListFollowersAsync(
+        WorkoutSeriesId seriesId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var rows = await dbContext.WorkoutSeriesAssignments
+            .AsNoTracking()
+            .Where(assignment => assignment.WorkoutSeriesId == seriesId.Value)
+            .Join(
+                dbContext.Users.AsNoTracking(),
+                assignment => assignment.UserId,
+                user => user.Id,
+                (assignment, user) => new
+                {
+                    assignment.UserId,
+                    assignment.ExpiresAt,
+                    IsOpen = assignment.ClosedAt == null,
+                    user.Email,
+                    user.Name,
+                })
+            .OrderBy(row => row.Email)
+            .ToListAsync(cancellationToken);
+
+        return
+        [
+            .. rows.Select(row => new WorkoutSeriesFollowerDto(
+                row.UserId,
+                row.Email ?? string.Empty,
+                row.Name,
+                row.IsOpen,
+                row.ExpiresAt,
+                WorkoutSeriesAssignment.DaysRemainingUntil(row.ExpiresAt, now))),
+        ];
+    }
+
     private async Task<IReadOnlyList<WorkoutSeriesDto>> ComposeAsync(
         IReadOnlyList<SeriesRow> series,
         UserId? athlete,

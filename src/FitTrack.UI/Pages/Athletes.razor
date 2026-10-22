@@ -139,30 +139,77 @@ else
                 @if (_creatingFor == athlete.UserId)
                 {
                     <div class="inline-form" style="margin-top: 12px;">
-                        <div class="field">
-                            <label for="series-for-@athlete.UserId">Nome da série</label>
-                            <input id="series-for-@athlete.UserId" maxlength="80" placeholder="Ex.: Hipertrofia — 4 dias"
-                                   @bind="_newSeriesName" @bind:event="oninput" />
+                        <div class="actions" style="margin-bottom: 10px;">
+                            <button class="btn btn-sm @(_assignExisting ? "btn-secondary" : "btn-primary")" type="button"
+                                    @onclick="UseNewSeries">
+                                Nova
+                            </button>
+                            <button class="btn btn-sm @(_assignExisting ? "btn-primary" : "btn-secondary")" type="button"
+                                    @onclick="UseExistingSeries">
+                                Usar existente
+                            </button>
                         </div>
-                        @if (athlete.EndedSeriesName is not null)
+
+                        @if (_assignExisting)
                         {
-                            <label class="switch">
-                                <input type="checkbox" @bind="_copyPreviousWorkouts" />
-                                Reaproveitar os treinos de @athlete.EndedSeriesName
-                            </label>
+                            <div class="field">
+                                <label for="series-select-@athlete.UserId">Série existente</label>
+                                @if (_trainerSeries.Count == 0)
+                                {
+                                    <p class="muted" style="margin: 0;">
+                                        Você ainda não tem séries para reaproveitar.
+                                    </p>
+                                }
+                                else
+                                {
+                                    <select id="series-select-@athlete.UserId" @bind="_assignSeriesId">
+                                        @foreach (var option in SeriesOptions)
+                                        {
+                                            <option value="@option.Id">@option.Label</option>
+                                        }
+                                    </select>
+                                }
+                            </div>
+                            <div class="actions">
+                                <button class="btn btn-primary btn-sm" type="button"
+                                        disabled="@(_busy || _assignSeriesId == Guid.Empty)"
+                                        @onclick="() => AssignToAthleteAsync(athlete.UserId)">
+                                    <AppIcon Name="check-circle" Size="16" />
+                                    Vincular série
+                                </button>
+                                <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                                        @onclick="CancelCreateAsync">
+                                    Cancelar
+                                </button>
+                            </div>
                         }
-                        <div class="actions">
-                            <button class="btn btn-primary btn-sm" type="button"
-                                    disabled="@(_busy || string.IsNullOrWhiteSpace(_newSeriesName))"
-                                    @onclick="() => CreateForAthleteAsync(athlete.UserId)">
-                                <AppIcon Name="plus" Size="16" />
-                                Criar série
-                            </button>
-                            <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
-                                    @onclick="CancelCreateAsync">
-                                Cancelar
-                            </button>
-                        </div>
+                        else
+                        {
+                            <div class="field">
+                                <label for="series-for-@athlete.UserId">Nome da série</label>
+                                <input id="series-for-@athlete.UserId" maxlength="80" placeholder="Ex.: Hipertrofia — 4 dias"
+                                       @bind="_newSeriesName" @bind:event="oninput" />
+                            </div>
+                            @if (athlete.EndedSeriesName is not null)
+                            {
+                                <label class="switch">
+                                    <input type="checkbox" @bind="_copyPreviousWorkouts" />
+                                    Reaproveitar os treinos de @athlete.EndedSeriesName
+                                </label>
+                            }
+                            <div class="actions">
+                                <button class="btn btn-primary btn-sm" type="button"
+                                        disabled="@(_busy || string.IsNullOrWhiteSpace(_newSeriesName))"
+                                        @onclick="() => CreateForAthleteAsync(athlete.UserId)">
+                                    <AppIcon Name="plus" Size="16" />
+                                    Criar série
+                                </button>
+                                <button class="btn btn-secondary btn-sm" type="button" disabled="@_busy"
+                                        @onclick="CancelCreateAsync">
+                                    Cancelar
+                                </button>
+                            </div>
+                        }
                     </div>
                 }
 
@@ -252,6 +299,14 @@ else
     private Guid _linkTrainerId;
     private string _newSeriesName = string.Empty;
     private bool _copyPreviousWorkouts;
+
+    // "Usar existente": the trainer's own series, listed once and reused for every athlete of the
+    // roster — the same plan serving several people instead of one born per athlete.
+    private bool _assignExisting;
+    private Guid _assignSeriesId;
+    private IReadOnlyList<WorkoutSeriesResponse> _trainerSeries = [];
+    private IEnumerable<(Guid Id, string Label)> SeriesOptions => [.. _trainerSeries.Select(series => (series.Id, series.Name))];
+
     private string _search = string.Empty;
     private int _page = 1;
     private int _totalCount;
@@ -331,6 +386,8 @@ else
     {
         _creatingFor = userId;
         _newSeriesName = string.Empty;
+        _assignExisting = false;
+        _assignSeriesId = Guid.Empty;
 
         // The sheet of the cycle the trainer closed is the one worth carrying over; a cycle still
         // running is copied only when the trainer asks for it.
@@ -343,7 +400,53 @@ else
         _creatingFor = null;
         _newSeriesName = string.Empty;
         _copyPreviousWorkouts = false;
+        _assignExisting = false;
+        _assignSeriesId = Guid.Empty;
     }
+
+    private void UseNewSeries() => _assignExisting = false;
+
+    private async Task UseExistingSeries()
+    {
+        _assignExisting = true;
+        _assignSeriesId = Guid.Empty;
+
+        // The series the trainer authored, listed once — no second read on reopen so the screen
+        // does not pay one query per athlete.
+        try
+        {
+            if (_trainerSeries.Count == 0)
+            {
+                _trainerSeries = await Api.GetWorkoutSeriesAsync();
+            }
+        }
+        catch (ApiException exception)
+        {
+            // An empty roster and a failed read say different things; only the latter is retryable.
+            Toasts.Error(ErrorMessages.Describe(exception));
+            _assignExisting = false;
+            return;
+        }
+
+        var single = SeriesOptions.FirstOrDefault();
+        _assignSeriesId = single.Id;
+
+        StateHasChanged();
+    }
+
+    private async Task AssignToAthleteAsync(Guid userId) =>
+        await RunAsync(async () =>
+        {
+            var seriesId = _assignSeriesId;
+            await Api.AssignSeriesAsync(seriesId, new AssignSeriesRequest(userId));
+            var name = SeriesOptions.FirstOrDefault(option => option.Id == seriesId).Label;
+
+            CancelCreateAsync();
+            Toasts.Success($"Série '{name}' vinculada");
+
+            // The same destination the "Nova" flow has: the trainer composes the workouts right away.
+            Nav.NavigateTo($"/series/{seriesId}");
+        });
 
     /// <summary>Athlete whose "Vencer série atual" button is armed: the next tap ends the cycle.</summary>
     private bool IsEnding(Guid userId) => _endingFor == userId;

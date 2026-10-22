@@ -18,6 +18,13 @@ internal sealed record CreateWorkoutSeriesRequest(
     bool CopyPreviousWorkouts = false,
     IReadOnlyList<Guid>? AthleteIds = null);
 
+/// <summary>
+/// HTTP contract for assigning a series that already exists. The same merge as the creation: the
+/// single athlete leads the list, duplications keep their first occurrence and the list may be the
+/// whole roster at once.
+/// </summary>
+internal sealed record AssignSeriesRequest(Guid? AthleteId = null, IReadOnlyList<Guid>? AthleteIds = null);
+
 /// <summary>HTTP contract for the name and the prescription of one workout of a series.</summary>
 internal sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<PrescribedExerciseRequest> Exercises);
 

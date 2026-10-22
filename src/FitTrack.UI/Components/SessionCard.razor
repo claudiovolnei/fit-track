@@ -26,6 +26,16 @@
         </span>
     </div>
 
+    @if (!string.IsNullOrWhiteSpace(Session.WorkoutSeriesName))
+    {
+        <div class="user-status" style="margin-top: 12px;">
+            <span class="chip chip--accent">
+                <AppIcon Name="layers" Size="14" />
+                Série: @Session.WorkoutSeriesName
+            </span>
+        </div>
+    }
+
     @if (!string.IsNullOrWhiteSpace(Session.Intensity))
     {
         <div class="user-status" style="margin-top: 12px;">

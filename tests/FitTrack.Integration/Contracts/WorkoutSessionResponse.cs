@@ -24,4 +24,7 @@ public sealed record WorkoutSessionResponse(
 
     /// <summary>What the athlete wrote about the workout. Null when they wrote nothing.</summary>
     public string? Notes { get; init; }
+
+    /// <summary>The series the workout came from; null for a session logged free.</summary>
+    public string? WorkoutSeriesName { get; init; }
 }
