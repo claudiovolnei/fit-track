@@ -20,5 +20,12 @@ public sealed record SetSeriesWorkoutRequest(string Name, IReadOnlyList<Prescrib
 /// <summary>Wire contract: starting today's workout from one workout of the athlete's series.</summary>
 public sealed record StartWorkoutRequest(Guid WorkoutSeriesWorkoutId);
 
-/// <summary>Wire contract: one set performed in the workout in progress. The repetitions come from the prescription.</summary>
-public sealed record LogPerformedSetRequest(Guid ExerciseId, decimal LoadKilograms);
+/// <summary>
+/// Wire contract: one set performed in the workout in progress. The repetitions are optional: when they
+/// are left out, the ones the trainer prescribed are used; when the athlete fills them in, the set
+/// is recorded with what was really done.
+/// </summary>
+public sealed record LogPerformedSetRequest(Guid ExerciseId, decimal LoadKilograms, int? Repetitions = null);
+
+/// <summary>Wire contract: ticking an exercise of the workout in progress as done.</summary>
+public sealed record SetExerciseCompletionRequest(bool Completed);

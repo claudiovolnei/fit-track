@@ -92,6 +92,20 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
         CancellationToken cancellationToken = default) =>
         PostAsync<WorkoutSessionResponse>($"sessions/{sessionId}/sets", request, cancellationToken);
 
+    /// <summary>
+    /// Ticks (or unticks) one exercise of the workout in progress as done. The tick is what lets the
+    /// athlete close the workout with every prescribed exercise done.
+    /// </summary>
+    public Task<WorkoutSessionResponse> SetExerciseCompletionAsync(
+        Guid sessionId,
+        Guid exerciseId,
+        bool completed,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<WorkoutSessionResponse>(
+            $"sessions/{sessionId}/exercises/{exerciseId}/completion",
+            new SetExerciseCompletionRequest(completed),
+            cancellationToken);
+
     public Task<WorkoutSessionResponse> FinishWorkoutAsync(
         Guid sessionId,
         CancellationToken cancellationToken = default) =>

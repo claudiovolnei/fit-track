@@ -1,6 +1,7 @@
 @page "/athletes"
 @attribute [Authorize(Roles = "PersonalTrainer,Admin")]
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 @inject NavigationManager Nav
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthState
 
@@ -18,14 +19,6 @@
         </a>
     </Actions>
 </PageHeader>
-
-@if (_error is not null)
-{
-    <div class="alert alert--error">
-        <AppIcon Name="info" Size="18" />
-        <span>@_error</span>
-    </div>
-}
 
 <SearchField Value="@_search" ValueChanged="SearchAsync"
              Placeholder="@(_isAdmin
@@ -253,7 +246,6 @@ else
     private IReadOnlyList<UserAccountResponse> _trainers = [];
     private bool _loading = true;
     private bool _busy;
-    private string? _error;
     private Guid? _creatingFor;
     private Guid? _linkingFor;
     private Guid? _endingFor;
@@ -365,7 +357,6 @@ else
         if (_endingFor != userId)
         {
             _endingFor = userId;
-            _error = null;
             return false;
         }
 
@@ -421,7 +412,6 @@ else
     private async Task RunAsync(Func<Task> action)
     {
         _busy = true;
-        _error = null;
 
         try
         {
@@ -429,7 +419,7 @@ else
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {
@@ -442,7 +432,6 @@ else
         // The last request made owns the screen; a late answer from a previous search is discarded.
         var version = ++_loadVersion;
         _loading = true;
-        _error = null;
 
         try
         {
@@ -476,7 +465,7 @@ else
                 return;
             }
 
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {

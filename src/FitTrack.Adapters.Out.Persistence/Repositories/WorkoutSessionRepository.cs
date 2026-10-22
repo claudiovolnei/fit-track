@@ -14,6 +14,7 @@ internal sealed class WorkoutSessionRepository(FitTrackDbContext dbContext) : IW
         var record = await dbContext.WorkoutSessions
             .AsNoTracking()
             .Include(session => session.Sets)
+            .Include(session => session.CompletedExercises)
             .FirstOrDefaultAsync(session => session.Id == id.Value, cancellationToken);
 
         return record is null ? null : WorkoutSessionMapper.ToDomain(record);
@@ -28,6 +29,7 @@ internal sealed class WorkoutSessionRepository(FitTrackDbContext dbContext) : IW
         var record = await dbContext.WorkoutSessions
             .AsNoTracking()
             .Include(session => session.Sets)
+            .Include(session => session.CompletedExercises)
             .FirstOrDefaultAsync(
                 session => session.UserId == userId.Value
                     && session.WorkoutDate == workoutDate
@@ -37,10 +39,26 @@ internal sealed class WorkoutSessionRepository(FitTrackDbContext dbContext) : IW
         return record is null ? null : WorkoutSessionMapper.ToDomain(record);
     }
 
+    public async Task<IReadOnlyList<WorkoutSession>> ListByDateAsync(
+        UserId userId,
+        DateOnly workoutDate,
+        CancellationToken cancellationToken)
+    {
+        var records = await dbContext.WorkoutSessions
+            .AsNoTracking()
+            .Include(session => session.Sets)
+            .Include(session => session.CompletedExercises)
+            .Where(session => session.UserId == userId.Value && session.WorkoutDate == workoutDate)
+            .ToListAsync(cancellationToken);
+
+        return [.. records.Select(WorkoutSessionMapper.ToDomain)];
+    }
+
     public async Task SaveAsync(WorkoutSession session, CancellationToken cancellationToken)
     {
         var record = await dbContext.WorkoutSessions
             .Include(candidate => candidate.Sets)
+            .Include(candidate => candidate.CompletedExercises)
             .FirstOrDefaultAsync(candidate => candidate.Id == session.Id.Value, cancellationToken);
 
         if (record is null)

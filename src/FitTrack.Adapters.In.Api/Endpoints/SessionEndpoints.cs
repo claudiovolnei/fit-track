@@ -8,7 +8,8 @@ namespace FitTrack.Adapters.In.Api.Endpoints;
 /// <summary>
 /// Inbound adapter for the athlete's workout. The POST that used to record a session on any date now
 /// means "start today's workout from the workout I picked": the clock is the server's, the session is
-/// unique per workout per day, and the timer lives until the athlete finishes.
+/// unique per workout per day, and the timer lives until the athlete finishes. The tick of each
+/// exercise is kept with the session, so the workout only closes with every exercise done.
 /// </summary>
 internal static class SessionEndpoints
 {
@@ -21,6 +22,7 @@ internal static class SessionEndpoints
         group.MapGet("/", ListAsync);
         group.MapPost("/", StartAsync);
         group.MapPost("/{sessionId:guid}/sets", LogSetAsync);
+        group.MapPut("/{sessionId:guid}/exercises/{exerciseId:guid}/completion", CompleteExerciseAsync);
         group.MapPost("/{sessionId:guid}/finish", FinishAsync);
         group.MapDelete("/{sessionId:guid}", CancelAsync);
 
@@ -66,10 +68,24 @@ internal static class SessionEndpoints
         CancellationToken cancellationToken)
     {
         var session = await useCase.ExecuteAsync(
-            new LogPerformedSetCommand(sessionId, request.ExerciseId, request.LoadKilograms),
+            new LogPerformedSetCommand(sessionId, request.ExerciseId, request.LoadKilograms, request.Repetitions),
             cancellationToken);
 
         return Results.Created($"/sessions/{sessionId}", session);
+    }
+
+    private static async Task<IResult> CompleteExerciseAsync(
+        Guid sessionId,
+        Guid exerciseId,
+        SetExerciseCompletionRequest request,
+        IMarkExerciseCompleted useCase,
+        CancellationToken cancellationToken)
+    {
+        var session = await useCase.ExecuteAsync(
+            new MarkExerciseCompletedCommand(sessionId, exerciseId, request.Completed),
+            cancellationToken);
+
+        return Results.Ok(session);
     }
 
     private static async Task<IResult> FinishAsync(

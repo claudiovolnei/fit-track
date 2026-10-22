@@ -1,6 +1,7 @@
 @page "/series"
 @attribute [Authorize(Roles = "PersonalTrainer")]
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 
 <PageTitle>Séries de treino — FitTrack</PageTitle>
 
@@ -14,14 +15,6 @@
         </a>
     </Actions>
 </PageHeader>
-
-@if (_error is not null)
-{
-    <div class="alert alert--error">
-        <AppIcon Name="info" Size="18" />
-        <span>@_error</span>
-    </div>
-}
 
 <div class="alert alert--info" style="margin-bottom: 26px;">
     <AppIcon Name="info" Size="18" />
@@ -109,7 +102,6 @@ else
     private IReadOnlyList<SeriesRow> _rows = [];
     private bool _loading = true;
     private bool _busy;
-    private string? _error;
     private string _search = string.Empty;
     private int _page = 1;
     private int _totalCount;
@@ -149,7 +141,6 @@ else
     private async Task RunAsync(Func<Task> action)
     {
         _busy = true;
-        _error = null;
 
         try
         {
@@ -157,7 +148,7 @@ else
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {
@@ -170,7 +161,6 @@ else
         // The last request made owns the screen; a late answer from a previous search is discarded.
         var version = ++_loadVersion;
         _loading = true;
-        _error = null;
 
         try
         {
@@ -200,7 +190,7 @@ else
                 return;
             }
 
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {

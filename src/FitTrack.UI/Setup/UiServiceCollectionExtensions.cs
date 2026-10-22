@@ -1,5 +1,6 @@
 using FitTrack.UI.Api;
 using FitTrack.UI.Auth;
+using FitTrack.UI.Notifications;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,9 +22,17 @@ public static class UiServiceCollectionExtensions
         services.AddScoped<UserSession>();
         services.AddScoped<UserAvatarState>();
 
+        // The messages of the screens and the requests in flight: both live for the whole session.
+        // The activity is a singleton on purpose: the handler of the HTTP pipeline resolves it from
+        // its own scope, and only the root instance is the one the overlay watches.
+        services.AddScoped<ToastService>();
+        services.AddSingleton<RequestActivity>();
+
         services.AddTransient<AuthTokenHandler>();
+        services.AddTransient<RequestActivityHandler>();
         services.AddHttpClient<FitTrackApiClient>(client => client.BaseAddress = apiBaseUrl)
-            .AddHttpMessageHandler<AuthTokenHandler>();
+            .AddHttpMessageHandler<AuthTokenHandler>()
+            .AddHttpMessageHandler<RequestActivityHandler>();
 
         return services;
     }

@@ -122,6 +122,69 @@ public sealed class WorkoutSessionTests
         Assert.Equal("session.set.after_finish", exception.Code);
     }
 
+    [Fact]
+    public void RegisterSet_TicksTheExerciseAsDone()
+    {
+        var session = Start();
+        var exercise = ExerciseId.New();
+
+        session.RegisterSet(exercise, new Load(80m), new Repetitions(10));
+
+        Assert.True(session.IsExerciseCompleted(exercise));
+        Assert.Equal([exercise], session.CompletedExercises);
+    }
+
+    [Fact]
+    public void MarkExerciseCompleted_TicksTheExerciseOnce()
+    {
+        var session = Start();
+        var exercise = ExerciseId.New();
+
+        session.MarkExerciseCompleted(exercise);
+        session.MarkExerciseCompleted(exercise);
+
+        Assert.Equal([exercise], session.CompletedExercises);
+    }
+
+    [Fact]
+    public void UnmarkExerciseCompleted_LeavesTheRegisteredSets()
+    {
+        var session = Start();
+        var exercise = ExerciseId.New();
+
+        session.RegisterSet(exercise, new Load(80m), new Repetitions(10));
+        session.UnmarkExerciseCompleted(exercise);
+
+        Assert.False(session.IsExerciseCompleted(exercise));
+        Assert.Single(session.PerformedSets);
+    }
+
+    [Fact]
+    public void MarkExerciseCompleted_AfterFinish_Fails()
+    {
+        var session = Start();
+        session.Finish(AnyStart.AddMinutes(10));
+
+        var exception = Assert.Throws<DomainException>(() =>
+            session.MarkExerciseCompleted(ExerciseId.New()));
+
+        Assert.Equal("session.exercise.after_finish", exception.Code);
+    }
+
+    [Fact]
+    public void UnmarkExerciseCompleted_AfterFinish_Fails()
+    {
+        var session = Start();
+        var exercise = ExerciseId.New();
+        session.MarkExerciseCompleted(exercise);
+        session.Finish(AnyStart.AddMinutes(10));
+
+        var exception = Assert.Throws<DomainException>(() =>
+            session.UnmarkExerciseCompleted(exercise));
+
+        Assert.Equal("session.exercise.after_finish", exception.Code);
+    }
+
     private static WorkoutSession Start() =>
         WorkoutSession.Start(WorkoutSessionId.New(), AnyUser, AnyDate, AnyStart);
 }

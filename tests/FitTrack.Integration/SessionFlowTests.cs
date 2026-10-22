@@ -6,8 +6,8 @@ namespace FitTrack.Integration;
 
 /// <summary>
 /// The athlete's workout end to end: the workout comes from the series the trainer assigned, the timer
-/// starts on the server, the athlete logs only the load — the repetitions come from the prescription —
-/// and finishing freezes the duration the history then shows.
+/// starts on the server, the athlete registers the sets with the load and the repetitions they really
+/// did, ticks the exercises and finishing freezes the duration the history then shows.
 /// </summary>
 public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture<FitTrackApiFactory>
 {
@@ -59,6 +59,9 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
 
         Assert.Equal((exercise.Id, 65m, 10), (set.ExerciseId, set.LoadKilograms, set.Repetitions));
 
+        // Registering a set ticks the exercise: the workout is only closed with every exercise done.
+        Assert.Equal([exercise.Id], recorded.CompletedExerciseIds);
+
         var finished = await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
 
         Assert.Equal(HttpStatusCode.OK, finished.StatusCode);
@@ -88,6 +91,153 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         Assert.NotNull(only.Volume);
         Assert.Equal(650m, only.Volume!.PerformedKilograms);
         Assert.Equal(2000m, only.Volume.PrescribedKilograms);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Athlete_RegistersASetWithTheRepetitionsTheyReallyDid()
+    {
+        var trainer = await factory.TrainerAsync();
+        var athlete = await factory.CreateAthleteAsync();
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Repetições");
+        var workoutId = await SeriesArrange.AssignSeriesAsync(
+            trainer, athlete.UserId, Prescriptions.For(exercise.Id, 4, 10, 50m));
+
+        var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
+        var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
+
+        var first = await athlete.Client.PostAsJsonAsync(
+            $"/sessions/{session.Id}/sets",
+            new LogPerformedSetRequest(exercise.Id, 50m, 2));
+        var second = await athlete.Client.PostAsJsonAsync(
+            $"/sessions/{session.Id}/sets",
+            new LogPerformedSetRequest(exercise.Id, 45m, 2));
+
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+
+        var logged = (await second.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
+
+        Assert.Equal(new[] { 50m, 45m }, logged.Sets.Select(set => set.LoadKilograms));
+        Assert.All(logged.Sets, set => Assert.Equal(2, set.Repetitions));
+    }
+
+    [RequiresPostgresFact]
+    public async Task Athlete_TicksTheExercisesAndTheWorkoutCloses()
+    {
+        var trainer = await factory.TrainerAsync();
+        var athlete = await factory.CreateAthleteAsync();
+        var first = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Tick Um");
+        var second = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Tick Dois");
+        var workoutId = await SeriesArrange.AssignSeriesAsync(
+            trainer,
+            athlete.UserId,
+            Prescriptions.For(first.Id, 3, 10, 40m),
+            Prescriptions.For(second.Id, 3, 10, 40m));
+
+        var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
+        var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
+
+        // With one exercise still waiting for its tick, the workout does not close.
+        var ticked = await athlete.Client.PutAsJsonAsync(
+            $"/sessions/{session.Id}/exercises/{first.Id}/completion",
+            new SetExerciseCompletionRequest(true));
+        var early = await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+
+        Assert.Equal(HttpStatusCode.OK, ticked.StatusCode);
+        Assert.Equal([first.Id], (await ticked.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!.CompletedExerciseIds);
+        Assert.Equal(HttpStatusCode.Conflict, early.StatusCode);
+        Assert.Equal("session.finish.exercises.pending", await early.ReadProblemTitleAsync());
+
+        // With every exercise ticked, the workout closes.
+        await athlete.Client.PutAsJsonAsync(
+            $"/sessions/{session.Id}/exercises/{second.Id}/completion",
+            new SetExerciseCompletionRequest(true));
+
+        var finished = await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+
+        Assert.Equal(HttpStatusCode.OK, finished.StatusCode);
+
+        var closed = (await finished.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
+
+        Assert.NotNull(closed.FinishedAt);
+        Assert.Equal(
+            new[] { first.Id, second.Id }.OrderBy(id => id),
+            closed.CompletedExerciseIds.OrderBy(id => id));
+    }
+
+    [RequiresPostgresFact]
+    public async Task Athlete_UnticksAnExercise()
+    {
+        var trainer = await factory.TrainerAsync();
+        var athlete = await factory.CreateAthleteAsync();
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Destique");
+        var workoutId = await SeriesArrange.AssignSeriesAsync(
+            trainer, athlete.UserId, Prescriptions.For(exercise.Id, 3, 10, 40m));
+
+        var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(workoutId));
+        var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
+
+        await athlete.Client.PutAsJsonAsync(
+            $"/sessions/{session.Id}/exercises/{exercise.Id}/completion",
+            new SetExerciseCompletionRequest(true));
+
+        var unticked = await athlete.Client.PutAsJsonAsync(
+            $"/sessions/{session.Id}/exercises/{exercise.Id}/completion",
+            new SetExerciseCompletionRequest(false));
+
+        Assert.Equal(HttpStatusCode.OK, unticked.StatusCode);
+        Assert.Empty((await unticked.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!.CompletedExerciseIds);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Athlete_CannotStartASecondWorkoutOnTheSameDay()
+    {
+        var trainer = await factory.TrainerAsync();
+        var athlete = await factory.CreateAthleteAsync();
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Um Por Dia");
+
+        var series = await trainer.CreateSeriesAsync($"Um por dia {Guid.NewGuid():N}", athlete.UserId);
+        var first = await trainer.AddWorkoutAsync(series.Id, "Peito", Prescriptions.For(exercise.Id));
+        var second = await trainer.AddWorkoutAsync(series.Id, "Costas", Prescriptions.For(exercise.Id));
+
+        var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(first.Id));
+
+        Assert.Equal(HttpStatusCode.Created, started.StatusCode);
+
+        var blocked = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(second.Id));
+
+        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+        Assert.Equal("session.start.already_started_today", await blocked.ReadProblemTitleAsync());
+
+        // The day already has one workout: the history holds a single session.
+        var history = await athlete.Client.GetFromJsonAsync<IReadOnlyList<WorkoutSessionResponse>>("/sessions");
+
+        Assert.Single(history!);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Athlete_CannotStartAnotherWorkoutAfterFinishingTheDay()
+    {
+        var trainer = await factory.TrainerAsync();
+        var athlete = await factory.CreateAthleteAsync();
+        var exercise = await SeriesArrange.NewExerciseAsync(trainer, "Sessão Dia Cerrado");
+
+        var series = await trainer.CreateSeriesAsync($"Dia fechado {Guid.NewGuid():N}", athlete.UserId);
+        var first = await trainer.AddWorkoutAsync(series.Id, "Peito", Prescriptions.For(exercise.Id));
+        var second = await trainer.AddWorkoutAsync(series.Id, "Costas", Prescriptions.For(exercise.Id));
+
+        var started = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(first.Id));
+        var session = (await started.Content.ReadFromJsonAsync<WorkoutSessionResponse>())!;
+
+        await athlete.Client.PutAsJsonAsync(
+            $"/sessions/{session.Id}/exercises/{exercise.Id}/completion",
+            new SetExerciseCompletionRequest(true));
+        await athlete.Client.PostAsync($"/sessions/{session.Id}/finish", null);
+
+        var blocked = await athlete.Client.PostAsJsonAsync("/sessions", new StartWorkoutRequest(second.Id));
+
+        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+        Assert.Equal("session.start.already_started_today", await blocked.ReadProblemTitleAsync());
     }
 
     [RequiresPostgresFact]

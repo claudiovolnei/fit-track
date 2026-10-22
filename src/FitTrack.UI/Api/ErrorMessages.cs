@@ -40,12 +40,18 @@ public static class ErrorMessages
         ["session.set.workout.not_found"] = "O treino desta sessão não está mais disponível.",
         ["session.set.exercise.not_prescribed"] = "Esse exercício não faz parte da prescrição do treino de hoje.",
         ["session.set.after_finish"] = "O treino já foi finalizado e não aceita mais séries.",
+        ["session.exercise.after_finish"] = "O treino já foi finalizado e não aceita mais marcações.",
         ["session.finish.already_finished"] = "Esse treino já foi finalizado.",
         ["session.finish.before_start"] = "O treino não pode terminar antes de começar.",
+        ["session.finish.exercises.pending"] =
+            "Marque todos os exercícios do treino antes de finalizar.",
+        ["session.start.already_started_today"] =
+            "Você já fez um treino hoje. Só dá para fazer um treino por dia.",
         ["session.user.required"] = "O treino precisa pertencer a um atleta.",
         ["set.exercise.required"] = "Escolha o exercício.",
         ["set.load.negative"] = "A carga não pode ser negativa.",
         ["set.repetitions.not_positive"] = "As repetições precisam ser maiores que zero.",
+        ["set.repetitions.out_of_range"] = "As repetições precisam estar entre 1 e 100.",
 
         // Catalog
         ["exercise.name.empty"] = "Informe o nome do exercício.",

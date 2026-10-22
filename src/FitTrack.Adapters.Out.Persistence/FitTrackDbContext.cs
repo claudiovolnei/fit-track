@@ -20,6 +20,8 @@ public sealed class FitTrackDbContext(DbContextOptions<FitTrackDbContext> option
 
     public DbSet<WorkoutSessionRecord> WorkoutSessions => Set<WorkoutSessionRecord>();
 
+    public DbSet<CompletedExerciseRecord> CompletedExercises => Set<CompletedExerciseRecord>();
+
     public DbSet<WorkoutSeriesRecord> WorkoutSeries => Set<WorkoutSeriesRecord>();
 
     public DbSet<WorkoutSeriesWorkoutRecord> WorkoutSeriesWorkouts => Set<WorkoutSeriesWorkoutRecord>();

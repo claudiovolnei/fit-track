@@ -20,5 +20,8 @@ internal static class WorkoutSessionMapping
             [.. session.PerformedSets.Select(set => new PerformedSetDto(
                 set.ExerciseId.Value,
                 set.Load.Kilograms,
-                set.Repetitions.Value))]);
+                set.Repetitions.Value))])
+        {
+            CompletedExerciseIds = [.. session.CompletedExercises.Select(exercise => exercise.Value)],
+        };
 }

@@ -1,5 +1,6 @@
 @page "/"
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 @inject AuthenticationStateProvider AuthState
 
 <PageTitle>FitTrack — treinos</PageTitle>
@@ -39,14 +40,6 @@
                 }
             </div>
         </section>
-
-        @if (_error is not null)
-        {
-            <div class="alert alert--error" style="margin-top: 18px;">
-                <AppIcon Name="info" Size="18" />
-                <span>@_error</span>
-            </div>
-        }
 
         @if (_loading)
         {
@@ -267,7 +260,6 @@
     private bool _isTrainer;
     private bool _loading = true;
     private string _displayName = string.Empty;
-    private string? _error;
 
     private int _totalSessions;
     private int _weekSessions;
@@ -322,7 +314,7 @@
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {

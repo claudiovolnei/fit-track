@@ -1,6 +1,7 @@
 @page "/series/{SeriesId:guid}"
 @attribute [Authorize(Roles = "PersonalTrainer")]
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 
 <PageTitle>@(_series is null ? "Série de treino — FitTrack" : $"{_series.Name} — FitTrack")</PageTitle>
 
@@ -12,14 +13,6 @@
 <PageHeader Eyebrow="Série de treino"
             Title="@(_series?.Name ?? "Série de treino")"
             Subtitle="Monte até cinco treinos (A–E) com exercícios, séries, repetições e carga." />
-
-@if (_error is not null)
-{
-    <div class="alert alert--error">
-        <AppIcon Name="info" Size="18" />
-        <span>@_error</span>
-    </div>
-}
 
 @if (_loading)
 {
@@ -155,7 +148,6 @@ else
     private string _workoutSearch = string.Empty;
     private bool _loading = true;
     private bool _busy;
-    private string? _error;
 
     private string NextLabel => ((char)('A' + _workouts.Count)).ToString();
 
@@ -208,7 +200,6 @@ else
     private async Task RunAsync(Func<Task> action)
     {
         _busy = true;
-        _error = null;
 
         try
         {
@@ -216,7 +207,7 @@ else
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {
@@ -241,7 +232,6 @@ else
         {
             // Another trainer's series answers the same as one that does not exist: there is nothing to show.
             _series = null;
-            _error = null;
             _loading = false;
             return;
         }

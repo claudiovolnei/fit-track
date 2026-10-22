@@ -1,0 +1,35 @@
+@* Blocks the screen while a request is on its way to the server. It sits above everything, so a double
+   click cannot start two requests, and it says what is happening instead of leaving the person
+   wondering. *@
+@implements IDisposable
+@inject RequestActivity Activity
+
+@if (Activity.IsBusy)
+{
+    <div class="app-loading" role="alert" aria-live="assertive" aria-busy="true">
+        <span class="spinner spinner--large"></span>
+        <span class="app-loading-text">Carregando…</span>
+    </div>
+}
+
+@code {
+    private bool _disposed;
+
+    protected override void OnInitialized() => Activity.Changed += OnChanged;
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Activity.Changed -= OnChanged;
+    }
+
+    private void OnChanged()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+}

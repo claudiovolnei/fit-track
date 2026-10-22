@@ -1,6 +1,7 @@
 @page "/exercises/manage"
 @attribute [Authorize(Roles = "PersonalTrainer")]
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 
 <PageTitle>Gerenciar catálogo — FitTrack</PageTitle>
 
@@ -403,7 +404,7 @@
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {

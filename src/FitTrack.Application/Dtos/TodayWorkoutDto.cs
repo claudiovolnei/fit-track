@@ -11,4 +11,11 @@ public sealed record TodayWorkoutDto(
     DateTimeOffset? FinishedAt,
     int ElapsedSeconds,
     bool IsRunning,
-    IReadOnlyList<PerformedSetDto> Sets);
+    IReadOnlyList<PerformedSetDto> Sets)
+{
+    /// <summary>
+    /// The exercises the athlete ticked as done. The screen shows the tick of each one and holds the
+    /// workout back until every prescribed exercise is ticked.
+    /// </summary>
+    public IReadOnlyList<Guid> CompletedExerciseIds { get; init; } = [];
+}

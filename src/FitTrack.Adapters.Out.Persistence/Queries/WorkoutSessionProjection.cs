@@ -15,7 +15,8 @@ internal sealed record WorkoutSessionRow(
     DateTimeOffset StartedAt,
     DateTimeOffset? FinishedAt,
     Guid? WorkoutSeriesWorkoutId,
-    IReadOnlyList<PerformedSetDto> Sets)
+    IReadOnlyList<PerformedSetDto> Sets,
+    IReadOnlyList<Guid> CompletedExerciseIds)
 {
     /// <summary>Elapsed seconds at <paramref name="now"/>: frozen once finished, running until then.</summary>
     public WorkoutSessionDto ToDto(DateTimeOffset now, WorkoutVolumeDto? volume = null) =>
@@ -27,7 +28,10 @@ internal sealed record WorkoutSessionRow(
             (int)((FinishedAt ?? now) - StartedAt).TotalSeconds,
             WorkoutSeriesWorkoutId,
             Sets,
-            volume);
+            volume)
+        {
+            CompletedExerciseIds = CompletedExerciseIds,
+        };
 }
 
 /// <summary>
@@ -54,6 +58,10 @@ internal static class WorkoutSessionProjection
                         set.ExerciseId,
                         set.LoadKilograms,
                         set.Repetitions))
+                    .ToList(),
+                session.CompletedExercises
+                    .OrderBy(completed => completed.ExerciseId)
+                    .Select(completed => completed.ExerciseId)
                     .ToList()));
 
     public static async Task<IReadOnlyList<WorkoutSessionDto>> ListDtosAsync(

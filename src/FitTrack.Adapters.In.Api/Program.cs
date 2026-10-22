@@ -67,6 +67,7 @@ builder.Services.AddScoped<IListAthleteWorkouts, ListAthleteWorkouts>();
 builder.Services.AddScoped<IGetMyWorkoutSeries, GetMyWorkoutSeries>();
 builder.Services.AddScoped<IStartWorkout, StartWorkout>();
 builder.Services.AddScoped<ILogPerformedSet, LogPerformedSet>();
+builder.Services.AddScoped<IMarkExerciseCompleted, MarkExerciseCompleted>();
 builder.Services.AddScoped<IFinishWorkout, FinishWorkout>();
 builder.Services.AddScoped<ICancelWorkout, CancelWorkout>();
 

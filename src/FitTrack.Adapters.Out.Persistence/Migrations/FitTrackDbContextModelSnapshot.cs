@@ -97,6 +97,19 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.CompletedExerciseRecord", b =>
+                {
+                    b.Property<Guid>("WorkoutSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ExerciseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("WorkoutSessionId", "ExerciseId");
+
+                    b.ToTable("completed_exercises", (string)null);
+                });
+
             modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.ExerciseRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -471,6 +484,15 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.CompletedExerciseRecord", b =>
+                {
+                    b.HasOne("FitTrack.Adapters.Out.Persistence.Records.WorkoutSessionRecord", null)
+                        .WithMany("CompletedExercises")
+                        .HasForeignKey("WorkoutSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.ExerciseRecord", b =>
                 {
                     b.HasOne("FitTrack.Adapters.Out.Persistence.Records.MuscleGroupRecord", null)
@@ -585,6 +607,8 @@ namespace FitTrack.Adapters.Out.Persistence.Migrations
 
             modelBuilder.Entity("FitTrack.Adapters.Out.Persistence.Records.WorkoutSessionRecord", b =>
                 {
+                    b.Navigation("CompletedExercises");
+
                     b.Navigation("Sets");
                 });
 #pragma warning restore 612, 618

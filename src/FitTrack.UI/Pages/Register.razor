@@ -1,5 +1,6 @@
 @page "/register"
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 @inject UserSession Session
 @inject NavigationManager Navigation
 
@@ -40,14 +41,6 @@
                 <ValidationMessage For="() => _model.Password" />
             </div>
 
-            @if (_error is not null)
-            {
-                <div class="alert alert--error">
-                    <AppIcon Name="info" Size="18" />
-                    <span>@_error</span>
-                </div>
-            }
-
             <button class="btn btn-primary btn-block" type="submit" disabled="@_busy">
                 @(_busy ? "Criando conta…" : "Criar conta")
             </button>
@@ -62,12 +55,10 @@
 @code {
     private readonly Model _model = new();
     private bool _busy;
-    private string? _error;
 
     private async Task SubmitAsync()
     {
         _busy = true;
-        _error = null;
 
         try
         {
@@ -80,7 +71,7 @@
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {

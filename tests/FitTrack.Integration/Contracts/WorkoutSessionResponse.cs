@@ -12,4 +12,7 @@ public sealed record WorkoutSessionResponse(
 {
     /// <summary>Null when the session has no workout reference to compare against.</summary>
     public WorkoutVolumeResponse? Volume { get; init; }
+
+    /// <summary>The exercises the athlete ticked as done in this workout.</summary>
+    public IReadOnlyList<Guid> CompletedExerciseIds { get; init; } = [];
 }

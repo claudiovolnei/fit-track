@@ -21,4 +21,7 @@ public sealed class WorkoutSessionRecord
     public DateTimeOffset? FinishedAt { get; set; }
 
     public List<PerformedSetRecord> Sets { get; set; } = [];
+
+    /// <summary>The exercises the athlete ticked as done.</summary>
+    public List<CompletedExerciseRecord> CompletedExercises { get; set; } = [];
 }

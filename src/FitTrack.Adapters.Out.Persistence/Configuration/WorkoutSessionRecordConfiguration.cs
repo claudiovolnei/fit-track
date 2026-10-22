@@ -35,5 +35,10 @@ internal sealed class WorkoutSessionRecordConfiguration : IEntityTypeConfigurati
             .WithOne()
             .HasForeignKey(set => set.WorkoutSessionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(session => session.CompletedExercises)
+            .WithOne()
+            .HasForeignKey(completed => completed.WorkoutSessionId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

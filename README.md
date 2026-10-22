@@ -5,7 +5,9 @@ the muscle-group/exercise catalog and build a workout series for a specific athl
 follow that series, start today's workout and log the sets they actually performed. A series holds up
 to five workouts labelled A–E; each workout prescribes exercises, sets, repetitions, load and a rest
 time per exercise (60 seconds by default, editable), and the
-delivery term is 60 days counted from its creation. The web client UI is in Brazilian Portuguese.
+delivery term is 60 days counted from its creation. One workout per day: the athlete trains once,
+and the workout closes only with every prescribed exercise ticked. The web client UI is in Brazilian
+Portuguese.
 
 ## Stack
 
@@ -97,6 +99,7 @@ erDiagram
     WORKOUT_SERIES ||--o{ WORKOUT_SERIES_ASSIGNMENT : "delivered through"
     WORKOUT_SERIES_WORKOUT ||--o{ WORKOUT_SESSION : "planned workout"
     WORKOUT_SESSION ||--o{ PERFORMED_SET : records
+    WORKOUT_SESSION ||--o{ COMPLETED_EXERCISE : ticks
     EXERCISE ||--o{ PERFORMED_SET : "performed as"
 
     APP_USER {
@@ -167,6 +170,11 @@ erDiagram
         decimal LoadKilograms
         int Repetitions
     }
+
+    COMPLETED_EXERCISE {
+        uuid WorkoutSessionId PK
+        uuid ExerciseId PK
+    }
 ```
 
 The session keeps the chosen workout by id without a foreign key: editing or removing a workout later
@@ -195,9 +203,9 @@ sequenceDiagram
     A->>SPA: Start workout A
     SPA->>API: POST /sessions
     API->>DB: Create the running session
-    A->>SPA: Log the load of a set
+    A->>SPA: Log the load and the repetitions of a set
     SPA->>API: POST /sessions/{id}/sets
-    API->>DB: Append performed set
+    API->>DB: Append performed set and tick the exercise
     A->>SPA: Finish the workout
     SPA->>API: POST /sessions/{id}/finish
     API->>DB: Close the session
@@ -215,7 +223,7 @@ sequenceDiagram
 | Roster & planning | `GET /athletes?candidates=`, `GET /athletes/{userId}/workouts`, `POST/DELETE /athletes/{userId}/trainer`, `GET/POST /workout-series`, `GET/PUT /workout-series/{seriesId}`, `POST /workout-series/{seriesId}/workouts`, `PUT/DELETE /workout-series/{seriesId}/workouts/{workoutId}` | `PersonalTrainer` **or** `Admin`. The personal trainer reads only their own athletes' list and history and prescribes only to them; the admin reads and acts on every roster. `GET /athletes?candidates=true` lists athletes linked to nobody; `POST .../trainer` links (idempotent when the trainer is the same, 409 `roster.busy` otherwise), `DELETE .../trainer` unlinks |
 | Series cycle | `POST /athletes/{athleteId}/series/end` | `PersonalTrainer`, own roster only. Ends the cycle the athlete is in: the athlete follows nothing until the trainer creates the next series (204; 409 `workout_series.assignment.running` while a workout is open) |
 | Athlete series | `GET /workout-series/mine` | Authenticated (no id; always the caller's own series) |
-| Execution | `GET/POST /sessions`, `POST /sessions/{id}/sets`, `POST /sessions/{id}/finish`, `DELETE /sessions/{id}` | Authenticated, own sessions only |
+| Execution | `GET/POST /sessions`, `POST /sessions/{id}/sets`, `PUT /sessions/{id}/exercises/{exerciseId}/completion`, `POST /sessions/{id}/finish`, `DELETE /sessions/{id}` | Authenticated, own sessions only |
 
 Collection reads accept `search`, `page` and `pageSize` (`pageSize` 1–100). Without `page` or `pageSize`
 they keep returning the plain array; with either one they return the paginated envelope. In
@@ -229,9 +237,10 @@ Development the OpenAPI document is served at `/openapi/v1.json` and the Scalar 
 - One series per athlete, with up to five workouts A–E, each with sets, repetitions, load and a rest time per prescribed exercise (default 60 s, editable, 0 disables the timer); creating the series also starts its 60-day term.
 - The personal trainer ends a cycle early with "Vencer série atual": the athlete is left without a series until the next one is created, and the new series can start from the sheet of the cycle that just ended (the previous series and everything already trained stay where they are).
 - Each athlete answers to one personal trainer. The roster link gates what a trainer sees and does: only their own athletes on `/Athletes`, only their history, and series can only be prescribed to (or reassigned through) a linked athlete. `Admin` sees and acts on every roster. The same screen doubles as the link screen — a trainer searches athletes linked to nobody to add them, the admin picks the trainer from a searchable combobox (every personal trainer, found by name or e-mail), and either can unlink (the series stays; the next trainer replaces it).
-- Today's workout starts idempotently, runs a server-based timer, accepts only prescribed exercises and takes repetitions from the prescription. The athlete opens a countdown modal per exercise from the prescribed rest time, pauses/resumes it and gets an alert when it reaches zero.
+- Today's workout starts idempotently, runs a server-based timer and takes only prescribed exercises. One workout per day: a second workout of the series is refused (409) while the day already has one — running or finished. The athlete ticks each exercise he did, changes the repetitions and the load only when the real effort was different, and the workout closes only with every prescribed exercise ticked. The athlete opens a countdown modal per exercise from the prescribed rest time, pauses/resumes it and gets an alert when it reaches zero.
 - Finishing closes the session; cancelling removes it. History shows duration, set count, volume and a per-exercise comparison with the current prescription.
 - Collection screens support search and pagination; the API keeps the original plain-array response unless paging parameters are sent.
+- Errors arrive in one place: every server failure shows as a toast in the corner of the screen, and the screen is blocked by an overlay while a request is on its way to the server.
 - Responsive pt-BR Blazor UI with role-aware navigation, installable PWA assets and an offline app shell. The mobile tab bar caps at four tabs, and one navigation registry (`FitTrack.UI/Layout/NavOptions.cs`) drives both the desktop sidebar and the mobile bottom tabs, ordered by priority: athlete, trainer, admin; anything beyond the cap moves to a "Mais" sheet.
 
 ### Screens
@@ -245,8 +254,8 @@ Captured from the local Aspire AppHost with the development seed.
 
 | Trainer: workout editor | Athlete: today's workout |
 | --- | --- |
-| <img src="docs/images/series-detail.png" width="380" alt="Workout series editor with workouts A and B"> | <img src="docs/images/today-active.png" width="380" alt="Running workout with timer and load fields"> |
-| Workouts A–E with the prescription editor (exercise, sets, repetitions, load and rest time). | Workout A in progress: running timer, prescribed loads and one log button per exercise, with a rest countdown per exercise. |
+| <img src="docs/images/series-detail.png" width="380" alt="Workout series editor with workouts A and B"> | <img src="docs/images/today-active.png" width="380" alt="Running workout with timer, exercise ticks and set fields"> |
+| Workouts A–E with the prescription editor (exercise, sets, repetitions, load and rest time). | Workout A in progress: running timer, a tick per exercise, the repetitions and the load of each set, and a rest countdown per exercise. |
 
 | Athlete: history |
 | --- |

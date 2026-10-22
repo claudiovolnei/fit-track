@@ -79,6 +79,76 @@ public sealed class WorkoutSeriesExecutionTests
     }
 
     [Fact]
+    public async Task StartWorkout_AnotherWorkoutOfTheSameDay_Fails()
+    {
+        var (_, workout) = await SeedAssignedAsync();
+        var second = await SeedSecondWorkoutAsync();
+
+        await Start(Athlete).ExecuteAsync(
+            new StartWorkoutCommand(workout.Id.Value),
+            CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() =>
+            Start(Athlete).ExecuteAsync(
+                new StartWorkoutCommand(second.Id.Value),
+                CancellationToken.None));
+
+        Assert.Equal("session.start.already_started_today", exception.Code);
+        Assert.Single(_sessions.All);
+    }
+
+    [Fact]
+    public async Task StartWorkout_AnotherWorkoutAfterFinishingTheDay_Fails()
+    {
+        var (_, workout) = await SeedAssignedAsync();
+        var second = await SeedSecondWorkoutAsync();
+
+        var started = await Start(Athlete).ExecuteAsync(
+            new StartWorkoutCommand(workout.Id.Value),
+            CancellationToken.None);
+
+        await Mark(Athlete).ExecuteAsync(
+            new MarkExerciseCompletedCommand(started.Session.Id, _bench.Value, Completed: true),
+            CancellationToken.None);
+
+        await Finish(Athlete).ExecuteAsync(
+            new FinishWorkoutCommand(started.Session.Id),
+            CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() =>
+            Start(Athlete).ExecuteAsync(
+                new StartWorkoutCommand(second.Id.Value),
+                CancellationToken.None));
+
+        Assert.Equal("session.start.already_started_today", exception.Code);
+    }
+
+    [Fact]
+    public async Task StartWorkout_TheSameWorkoutAfterFinishingTheDay_ResumesTheSession()
+    {
+        var (_, workout) = await SeedAssignedAsync();
+
+        var started = await Start(Athlete).ExecuteAsync(
+            new StartWorkoutCommand(workout.Id.Value),
+            CancellationToken.None);
+
+        await Mark(Athlete).ExecuteAsync(
+            new MarkExerciseCompletedCommand(started.Session.Id, _bench.Value, Completed: true),
+            CancellationToken.None);
+
+        await Finish(Athlete).ExecuteAsync(
+            new FinishWorkoutCommand(started.Session.Id),
+            CancellationToken.None);
+
+        var again = await Start(Athlete).ExecuteAsync(
+            new StartWorkoutCommand(workout.Id.Value),
+            CancellationToken.None);
+
+        Assert.False(again.Started);
+        Assert.Equal(started.Session.Id, again.Session.Id);
+    }
+
+    [Fact]
     public async Task StartWorkout_WorkoutOfAnotherSeries_Fails()
     {
         await SeedAssignedAsync();
@@ -182,6 +252,10 @@ public sealed class WorkoutSeriesExecutionTests
     {
         var started = await StartTodayAsync();
 
+        await Mark(Athlete).ExecuteAsync(
+            new MarkExerciseCompletedCommand(started.Session.Id, _bench.Value, Completed: true),
+            CancellationToken.None);
+
         await Finish(Athlete).ExecuteAsync(
             new FinishWorkoutCommand(started.Session.Id),
             CancellationToken.None);
@@ -210,6 +284,10 @@ public sealed class WorkoutSeriesExecutionTests
     {
         var started = await StartTodayAsync();
 
+        await Mark(Athlete).ExecuteAsync(
+            new MarkExerciseCompletedCommand(started.Session.Id, _bench.Value, Completed: true),
+            CancellationToken.None);
+
         var finished = await Finish(Athlete).ExecuteAsync(
             new FinishWorkoutCommand(started.Session.Id),
             CancellationToken.None);
@@ -219,9 +297,115 @@ public sealed class WorkoutSeriesExecutionTests
     }
 
     [Fact]
+    public async Task FinishWorkout_WithAnExerciseStillPending_Fails()
+    {
+        var started = await StartTodayAsync();
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() =>
+            Finish(Athlete).ExecuteAsync(
+                new FinishWorkoutCommand(started.Session.Id),
+                CancellationToken.None));
+
+        Assert.Equal("session.finish.exercises.pending", exception.Code);
+        Assert.Null(
+            (await _sessions.GetByIdAsync(new WorkoutSessionId(started.Session.Id), CancellationToken.None))!.FinishedAt);
+    }
+
+    [Fact]
+    public async Task FinishWorkout_WithEveryExerciseTicked_Closes()
+    {
+        var started = await StartTodayAsync();
+
+        await Mark(Athlete).ExecuteAsync(
+            new MarkExerciseCompletedCommand(started.Session.Id, _bench.Value, Completed: true),
+            CancellationToken.None);
+
+        var finished = await Finish(Athlete).ExecuteAsync(
+            new FinishWorkoutCommand(started.Session.Id),
+            CancellationToken.None);
+
+        Assert.NotNull(finished.FinishedAt);
+        Assert.Equal([_bench.Value], finished.CompletedExerciseIds);
+    }
+
+    [Fact]
+    public async Task MarkExerciseCompleted_TicksAndUnticksTheExercise()
+    {
+        var started = await StartTodayAsync();
+
+        var ticked = await Mark(Athlete).ExecuteAsync(
+            new MarkExerciseCompletedCommand(started.Session.Id, _bench.Value, Completed: true),
+            CancellationToken.None);
+
+        Assert.Equal([_bench.Value], ticked.CompletedExerciseIds);
+
+        var unticked = await Mark(Athlete).ExecuteAsync(
+            new MarkExerciseCompletedCommand(started.Session.Id, _bench.Value, Completed: false),
+            CancellationToken.None);
+
+        Assert.Empty(unticked.CompletedExerciseIds);
+    }
+
+    [Fact]
+    public async Task MarkExerciseCompleted_WithAnExerciseOutsideThePrescription_Fails()
+    {
+        var started = await StartTodayAsync();
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            Mark(Athlete).ExecuteAsync(
+                new MarkExerciseCompletedCommand(started.Session.Id, ExerciseId.New().Value, Completed: true),
+                CancellationToken.None));
+
+        Assert.Equal("session.set.exercise.not_prescribed", exception.Code);
+    }
+
+    [Fact]
+    public async Task LogPerformedSet_TicksTheExerciseAsDone()
+    {
+        var started = await StartTodayAsync();
+
+        var session = await Log(Athlete).ExecuteAsync(
+            new LogPerformedSetCommand(started.Session.Id, _bench.Value, 80m),
+            CancellationToken.None);
+
+        Assert.Equal([_bench.Value], session.CompletedExerciseIds);
+    }
+
+    [Fact]
+    public async Task LogPerformedSet_WithTheRepetitionsOfTheAthlete_UsesThem()
+    {
+        var started = await StartTodayAsync();
+
+        var session = await Log(Athlete).ExecuteAsync(
+            new LogPerformedSetCommand(started.Session.Id, _bench.Value, 80m, 2),
+            CancellationToken.None);
+
+        var set = Assert.Single(session.Sets);
+        Assert.Equal(2, set.Repetitions);
+        Assert.Equal(80m, set.LoadKilograms);
+    }
+
+    [Fact]
+    public async Task LogPerformedSet_WithImpossibleRepetitions_Fails()
+    {
+        var started = await StartTodayAsync();
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            Log(Athlete).ExecuteAsync(
+                new LogPerformedSetCommand(started.Session.Id, _bench.Value, 80m, 0),
+                CancellationToken.None));
+
+        Assert.Equal("set.repetitions.out_of_range", exception.Code);
+    }
+
+    [Fact]
     public async Task FinishWorkout_Twice_Fails()
     {
         var started = await StartTodayAsync();
+
+        await Mark(Athlete).ExecuteAsync(
+            new MarkExerciseCompletedCommand(started.Session.Id, _bench.Value, Completed: true),
+            CancellationToken.None);
 
         await Finish(Athlete).ExecuteAsync(new FinishWorkoutCommand(started.Session.Id), CancellationToken.None);
 
@@ -327,7 +511,9 @@ public sealed class WorkoutSeriesExecutionTests
 
     private ILogPerformedSet Log(StubCurrentUser user) => new LogPerformedSet(user, _series, _sessions, _clock);
 
-    private IFinishWorkout Finish(StubCurrentUser user) => new FinishWorkout(user, _sessions, _clock);
+    private IMarkExerciseCompleted Mark(StubCurrentUser user) => new MarkExerciseCompleted(user, _series, _sessions, _clock);
+
+    private IFinishWorkout Finish(StubCurrentUser user) => new FinishWorkout(user, _series, _sessions, _clock);
 
     private ICancelWorkout Cancel(StubCurrentUser user) => new CancelWorkout(user, _sessions);
 
@@ -360,6 +546,22 @@ public sealed class WorkoutSeriesExecutionTests
         await _assignments.SaveAsync(assignment, CancellationToken.None);
 
         return (series, workout);
+    }
+
+    /// <summary>A second workout (B) on the series the athlete follows, so the day can hold two.</summary>
+    private async Task<WorkoutSeriesWorkout> SeedSecondWorkoutAsync()
+    {
+        var assignment = _assignments.All.Single(candidate => candidate.UserId == _athlete);
+        var series = _series.All.Single(candidate => candidate.Id == assignment.SeriesId);
+
+        var workout = series.AddWorkout(
+            new WorkoutSeriesWorkoutId(_ids.NewId()),
+            new WorkoutName("Costas"),
+            [new PrescribedExercise(_bench, 3, 12, 40m, PrescribedExercise.DefaultRestSeconds)]);
+
+        await _series.SaveAsync(series, CancellationToken.None);
+
+        return workout;
     }
 
     private async Task<WorkoutSeries> SeedSeriesAsync(UserId trainer, string name)

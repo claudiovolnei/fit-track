@@ -1,6 +1,7 @@
 @page "/athletes/{UserId:guid}/workouts"
 @attribute [Authorize(Roles = "PersonalTrainer,Admin")]
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 
 <PageTitle>Treinos do atleta — FitTrack</PageTitle>
 
@@ -12,14 +13,6 @@
 <PageHeader Eyebrow="Histórico do atleta"
             Title="@($"Treinos de {DisplayText.NameFromEmail(_email)}")"
             Subtitle="@(_email ?? UserId.ToString())" />
-
-@if (_error is not null)
-{
-    <div class="alert alert--error">
-        <AppIcon Name="info" Size="18" />
-        <span>@_error</span>
-    </div>
-}
 
 <SearchField Value="@_search" ValueChanged="SearchAsync"
              Placeholder="Buscar treino por nome"
@@ -98,7 +91,6 @@ else
     private WorkoutVolumeSummaryResponse? _summary;
     private string? _email;
     private bool _loading = true;
-    private string? _error;
     private string _search = string.Empty;
     private int _page = 1;
     private int _totalCount;
@@ -118,7 +110,7 @@ else
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
 
         await LoadAsync();
@@ -129,7 +121,6 @@ else
         // The latest request wins; an older answer arriving late must not replace the page on screen.
         var version = ++_loadVersion;
         _loading = true;
-        _error = null;
 
         try
         {
@@ -151,7 +142,7 @@ else
                 return;
             }
 
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {

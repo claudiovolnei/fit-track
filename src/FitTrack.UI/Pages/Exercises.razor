@@ -1,20 +1,13 @@
 @page "/exercises"
 @attribute [Authorize(Roles = "PersonalTrainer,Admin")]
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 
 <PageTitle>Exercícios — FitTrack</PageTitle>
 
 <PageHeader Eyebrow="Catálogo"
             Title="Exercícios"
             Subtitle="Consulte os exercícios disponíveis e o grupo muscular de cada um." />
-
-@if (_error is not null)
-{
-    <div class="alert alert--error">
-        <AppIcon Name="info" Size="18" />
-        <span>@_error</span>
-    </div>
-}
 
 <SearchField Value="@_search" ValueChanged="SearchAsync"
              Placeholder="Buscar por exercício ou grupo muscular"
@@ -90,7 +83,6 @@ else
     private IReadOnlyList<ExerciseResponse> _exercises = [];
     private IReadOnlyList<MuscleGroupResponse> _groups = [];
     private bool _loading = true;
-    private string? _error;
     private string _search = string.Empty;
     private Guid? _group;
     private int _page = 1;
@@ -107,7 +99,7 @@ else
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
 
         await LoadAsync();
@@ -119,7 +111,6 @@ else
         // response win: the last request made is the one the screen shows.
         var version = ++_loadVersion;
         _loading = true;
-        _error = null;
 
         try
         {
@@ -140,7 +131,7 @@ else
                 return;
             }
 
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {

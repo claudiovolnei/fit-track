@@ -33,6 +33,13 @@ internal static class WorkoutSessionMapper
                 new Repetitions(set.Repetitions));
         }
 
+        // The ticks the rows carry are the truth: a session rebuilt from the database has to show the
+        // same exercises ticked, whatever the sets say.
+        foreach (var completed in record.CompletedExercises)
+        {
+            session.MarkExerciseCompleted(new ExerciseId(completed.ExerciseId));
+        }
+
         if (record.FinishedAt is { } finishedAt)
         {
             session.Finish(finishedAt);
@@ -50,6 +57,7 @@ internal static class WorkoutSessionMapper
         StartedAt = session.StartedAt,
         FinishedAt = session.FinishedAt,
         Sets = [.. ToSetRecords(session)],
+        CompletedExercises = [.. ToCompletedExerciseRecords(session)],
     };
 
     public static void CopyInto(WorkoutSession session, WorkoutSessionRecord record)
@@ -58,6 +66,9 @@ internal static class WorkoutSessionMapper
 
         record.Sets.Clear();
         record.Sets.AddRange(ToSetRecords(session));
+
+        record.CompletedExercises.Clear();
+        record.CompletedExercises.AddRange(ToCompletedExerciseRecords(session));
     }
 
     /// <summary>
@@ -74,4 +85,11 @@ internal static class WorkoutSessionMapper
         LoadKilograms = set.Load.Kilograms,
         Repetitions = set.Repetitions.Value,
     };
+
+    /// <summary>The ticks of the session, one row per exercise the athlete marked as done.</summary>
+    private static IReadOnlyList<CompletedExerciseRecord> ToCompletedExerciseRecords(WorkoutSession session) =>
+        [.. session.CompletedExercises.Select(exercise => new CompletedExerciseRecord
+        {
+            ExerciseId = exercise.Value,
+        })];
 }

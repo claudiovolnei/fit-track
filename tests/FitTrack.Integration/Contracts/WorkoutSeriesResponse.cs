@@ -10,14 +10,20 @@ public sealed record PrescribedExerciseResponse(
     decimal? LoadKilograms,
     int RestSeconds);
 
-/// <summary>State of the workout the athlete already started today from one workout of the series.</summary>
+/// <summary>
+/// State of the workout the athlete already started today from one workout of the series.
+/// </summary>
 public sealed record TodayWorkoutResponse(
     Guid WorkoutSessionId,
     DateTimeOffset StartedAt,
     DateTimeOffset? FinishedAt,
     int ElapsedSeconds,
     bool IsRunning,
-    IReadOnlyList<PerformedSetResponse> Sets);
+    IReadOnlyList<PerformedSetResponse> Sets)
+{
+    /// <summary>The exercises the athlete ticked as done in this workout.</summary>
+    public IReadOnlyList<Guid> CompletedExerciseIds { get; init; } = [];
+}
 
 /// <summary>One workout of a series, with its label (A..E) and the state of today.</summary>
 public sealed record WorkoutSeriesWorkoutResponse(

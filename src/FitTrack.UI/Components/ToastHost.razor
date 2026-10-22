@@ -1,0 +1,83 @@
+@* The corner where the messages of the app appear. Every screen reports what happened here, so the
+   person training always finds the answer in the same place — and the message leaves on its own
+   after a while. *@
+@implements IDisposable
+@inject ToastService Toasts
+
+<div class="toast-stack" role="status" aria-live="polite">
+    @foreach (var message in Toasts.Messages)
+    {
+        <div class="toast toast--@Level(message.Level)" @key="message.Id">
+            <AppIcon Name="@Icon(message.Level)" Size="18" />
+            <span class="toast-text">@message.Text</span>
+            <button type="button" class="toast-close" aria-label="Fechar aviso"
+                    @onclick="() => Toasts.Dismiss(message.Id)">
+                <AppIcon Name="x" Size="14" />
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private System.Timers.Timer? _ticker;
+    private bool _disposed;
+
+    protected override void OnInitialized()
+    {
+        Toasts.Changed += OnChanged;
+
+        // The tick takes the messages whose time is up. It fires outside the Blazor dispatcher, so it
+        // only schedules the render where it belongs.
+        _ticker = new System.Timers.Timer(1000);
+        _ticker.Elapsed += OnTick;
+        _ticker.AutoReset = true;
+        _ticker.Start();
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Toasts.Changed -= OnChanged;
+        _ticker?.Dispose();
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    private async void OnTick(object? sender, System.Timers.ElapsedEventArgs args)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                if (!_disposed)
+                {
+                    Toasts.RemoveExpired();
+                    StateHasChanged();
+                }
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // The host left the scene while this tick was still on its way to the dispatcher.
+        }
+        catch (InvalidOperationException)
+        {
+            // The render handle is no longer valid because the component was disposed.
+        }
+    }
+
+    private static string Level(ToastLevel level) => level.ToString().ToLowerInvariant();
+
+    private static string Icon(ToastLevel level) => level switch
+    {
+        ToastLevel.Success => "check-circle",
+        ToastLevel.Warning => "info",
+        ToastLevel.Error => "info",
+        _ => "info",
+    };
+}

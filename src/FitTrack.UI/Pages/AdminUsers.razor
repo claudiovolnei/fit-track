@@ -1,6 +1,7 @@
 @page "/admin/users"
 @attribute [Authorize(Roles = "Admin")]
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 
 <PageTitle>Usuários — FitTrack</PageTitle>
 
@@ -14,14 +15,6 @@
         </a>
     </Actions>
 </PageHeader>
-
-@if (_error is not null)
-{
-    <div class="alert alert--error">
-        <AppIcon Name="info" Size="18" />
-        <span>@_error</span>
-    </div>
-}
 
 <section class="card card--accent" style="margin-bottom: 26px;">
     <div class="section-head">
@@ -198,7 +191,6 @@ else
     private readonly NewUser _new = new();
     private bool _loading = true;
     private bool _busy;
-    private string? _error;
     private Guid? _resettingUserId;
     private string _resetPassword = string.Empty;
     private string? _resetError;
@@ -298,7 +290,6 @@ else
     private async Task RunAsync(Func<Task> action)
     {
         _busy = true;
-        _error = null;
 
         try
         {
@@ -306,7 +297,7 @@ else
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
         finally
         {

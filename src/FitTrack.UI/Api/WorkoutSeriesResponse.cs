@@ -17,7 +17,11 @@ public sealed record TodayWorkoutResponse(
     DateTimeOffset? FinishedAt,
     int ElapsedSeconds,
     bool IsRunning,
-    IReadOnlyList<PerformedSetResponse> Sets);
+    IReadOnlyList<PerformedSetResponse> Sets)
+{
+    /// <summary>The exercises the athlete ticked as done in this workout.</summary>
+    public IReadOnlyList<Guid> CompletedExerciseIds { get; init; } = [];
+}
 
 /// <summary>Wire contract: one specific workout of a series, labelled A..E by its position.</summary>
 public sealed record WorkoutSeriesWorkoutResponse(

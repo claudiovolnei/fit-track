@@ -19,6 +19,16 @@ public interface IWorkoutSessionRepository
         WorkoutSeriesWorkoutId workoutId,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Every session the athlete has on that date, running or finished. It is what the rule of one
+    /// workout per day is checked against: the rule belongs to the use case, because the database may
+    /// still hold more than one workout on a day from before the rule existed.
+    /// </summary>
+    Task<IReadOnlyList<WorkoutSession>> ListByDateAsync(
+        UserId userId,
+        DateOnly workoutDate,
+        CancellationToken cancellationToken);
+
     Task SaveAsync(WorkoutSession session, CancellationToken cancellationToken);
 
     Task RemoveAsync(WorkoutSession session, CancellationToken cancellationToken);

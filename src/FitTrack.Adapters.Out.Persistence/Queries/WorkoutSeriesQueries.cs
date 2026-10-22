@@ -228,6 +228,7 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
         var sessions = await dbContext.WorkoutSessions
             .AsNoTracking()
             .Include(session => session.Sets)
+            .Include(session => session.CompletedExercises)
             .Where(session =>
                 session.UserId == userId.Value
                 && session.WorkoutDate == today
@@ -250,7 +251,10 @@ internal sealed class WorkoutSeriesQueries(FitTrackDbContext dbContext) : IQuery
                             set.ExerciseId,
                             set.LoadKilograms,
                             set.Repetitions)),
-                ]));
+                ])
+            {
+                CompletedExerciseIds = [.. session.CompletedExercises.Select(completed => completed.ExerciseId)],
+            });
     }
 
     private sealed record SeriesRow(Guid Id, string Name, Guid TrainerId, Guid? AthleteId);

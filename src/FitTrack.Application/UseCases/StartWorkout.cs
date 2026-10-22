@@ -15,7 +15,9 @@ namespace FitTrack.Application.UseCases;
 /// the workout was already started today, the existing one comes back instead of a second session.
 /// A workout that is not part of the athlete's series answers as if it did not exist; once the
 /// 60-day term is over, or the trainer closed the cycle early, starting a new workout is
-/// refused while one already running still resumes.
+/// refused while one already running still resumes. One workout per day: the athlete trains once a
+/// day, so a second workout of the series is refused while the day already has one — running or
+/// finished.
 /// </summary>
 public sealed class StartWorkout : IStartWorkout
 {
@@ -73,6 +75,17 @@ public sealed class StartWorkout : IStartWorkout
             throw new DomainException(
                 "workout_series.assignment.expired",
                 "The assigned workout series has expired.");
+        }
+
+        // One workout per day. The day already has a session — running or finished — so another
+        // workout of the series waits for tomorrow.
+        var todays = await _sessions.ListByDateAsync(_currentUser.Id, today, cancellationToken);
+
+        if (todays.Count > 0)
+        {
+            throw new ConflictException(
+                "session.start.already_started_today",
+                "A workout was already started today.");
         }
 
         var session = WorkoutSession.StartFromPlannedWorkout(

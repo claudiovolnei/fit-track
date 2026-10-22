@@ -9,4 +9,8 @@ public sealed record WorkoutSessionDto(
     int DurationSeconds,
     Guid? WorkoutSeriesWorkoutId,
     IReadOnlyList<PerformedSetDto> Sets,
-    WorkoutVolumeDto? Volume = null);
+    WorkoutVolumeDto? Volume = null)
+{
+    /// <summary>The exercises the athlete ticked as done in this workout.</summary>
+    public IReadOnlyList<Guid> CompletedExerciseIds { get; init; } = [];
+}

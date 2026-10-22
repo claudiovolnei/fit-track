@@ -2,20 +2,13 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject FitTrackApiClient Api
+@inject ToastService Toasts
 
 <PageTitle>Hoje — FitTrack</PageTitle>
 
 <PageHeader Eyebrow="@DisplayText.Today"
             Title="Hoje"
             Subtitle="Escolha o treino do dia e registre cada série." />
-
-@if (_error is not null)
-{
-    <div class="alert alert--error">
-        <AppIcon Name="info" Size="18" />
-        <span>@_error</span>
-    </div>
-}
 
 @if (_loading)
 {
@@ -137,6 +130,16 @@ else
                             </span>
                         </div>
                     }
+                    else if (HasWorkoutToday)
+                    {
+                        <div class="alert alert--info" style="margin: 16px 0 0;">
+                            <AppIcon Name="info" Size="18" />
+                            <span>
+                                Você já treinou hoje. Só dá para fazer um treino por dia — o próximo fica
+                                para amanhã.
+                            </span>
+                        </div>
+                    }
                     else
                     {
                         <div class="actions" style="margin-top: 16px;">
@@ -182,10 +185,26 @@ else
                     <div class="compare-list">
                         @foreach (var row in Compare(workout))
                         {
-                            <div class="compare-row">
+                            <div class="compare-row @(row.IsCompleted ? "compare-row--done" : "")">
                                 <div class="compare-exercise">
-                                    <strong>@row.ExerciseName</strong>
-                                    <small>@row.Prescribed</small>
+                                    @if (workout.Today.IsRunning && row.ExerciseId is { } exerciseId)
+                                    {
+                                        <label class="exercise-tick" title="Marcar @row.ExerciseName como concluído">
+                                            <input type="checkbox"
+                                                   aria-label="Concluir @row.ExerciseName"
+                                                   @bind="_ticks[(workout.Id, exerciseId)]"
+                                                   @bind:after="() => ToggleAsync(workout, exerciseId)" />
+                                            <span class="exercise-tick__box">
+                                                <AppIcon Name="check" Size="14" />
+                                            </span>
+                                        </label>
+                                    }
+
+                                    <div class="compare-exercise__text">
+                                        <strong>@row.ExerciseName</strong>
+                                        <small>@row.Prescribed</small>
+                                    </div>
+
                                     @if (row.RestSeconds > 0)
                                     {
                                         <button type="button" class="chip chip--accent rest-chip"
@@ -195,6 +214,7 @@ else
                                         </button>
                                     }
                                 </div>
+
                                 <div class="set-pills">
                                     @if (row.Performed.Count == 0)
                                     {
@@ -209,17 +229,31 @@ else
                                     }
                                 </div>
 
-                                @* The athlete only enters the load: the prescription (and the repetitions) come from the personal trainer. *@
-                                @if (workout.Today.IsRunning && row.ExerciseId is { } exerciseId)
+                                @* The load and the repetitions start on what the personal prescribed: the
+                                   athlete only changes them when the real effort was different. *@
+                                @if (workout.Today.IsRunning && row.ExerciseId is { } id)
                                 {
                                     <div class="set-log">
-                                        <input id="set-load-@exerciseId" type="number" inputmode="decimal"
-                                               min="0" step="0.5" title="Carga (kg)"
-                                               aria-label="Carga em quilos de @row.ExerciseName"
-                                               @bind="_loads[(workout.Id, exerciseId)]"
-                                               @bind:culture="CultureInfo.InvariantCulture" />
+                                        <label class="set-log__field">
+                                            <span>reps</span>
+                                            <input id="set-reps-@id" type="number" inputmode="numeric"
+                                                   min="1" max="100" step="1" title="Repetições"
+                                                   aria-label="Repetições de @row.ExerciseName"
+                                                   @bind="_reps[(workout.Id, id)]"
+                                                   @bind:event="oninput"
+                                                   @bind:culture="CultureInfo.InvariantCulture" />
+                                        </label>
+                                        <label class="set-log__field">
+                                            <span>kg</span>
+                                            <input id="set-load-@id" type="number" inputmode="decimal"
+                                                   min="0" step="0.5" title="Carga (kg)"
+                                                   aria-label="Carga em quilos de @row.ExerciseName"
+                                                   @bind="_loads[(workout.Id, id)]"
+                                                   @bind:event="oninput"
+                                                   @bind:culture="CultureInfo.InvariantCulture" />
+                                        </label>
                                         <button class="btn btn-primary btn-sm" type="button" disabled="@_busy"
-                                                @onclick="() => LogSetAsync(workout, exerciseId)">
+                                                @onclick="() => LogSetAsync(workout, id)">
                                             <AppIcon Name="plus" Size="16" />
                                             Registrar
                                         </button>
@@ -238,12 +272,13 @@ else
                             </div>
 
                             <p class="muted" style="margin: 0 0 14px; font-size: 0.8rem;">
-                                Informe a carga e toque em <strong>Registrar</strong> no exercício que você fez. As
-                                repetições vêm da prescrição do seu personal.
+                                Marque o <strong>check</strong> de cada exercício que você fez. A carga e as
+                                repetições já vêm da prescrição: só mude quando o que você levantou for
+                                diferente.
                             </p>
 
                             <div class="actions">
-                                <button class="btn btn-secondary" type="button" disabled="@_busy"
+                                <button class="btn btn-secondary" type="button" disabled="@(_busy || !AllTicked(workout))"
                                         @onclick="() => FinishAsync(workout)">
                                     Finalizar treino
                                 </button>
@@ -252,6 +287,14 @@ else
                                     Cancelar
                                 </button>
                             </div>
+
+                            @if (!AllTicked(workout))
+                            {
+                                <p class="muted" style="margin: 10px 0 0; font-size: 0.78rem;">
+                                    Faltam @Pending(workout) @(Pending(workout) == 1 ? "exercício" : "exercícios")
+                                    para marcar antes de finalizar.
+                                </p>
+                            }
                         </section>
 
                         <div class="workout-foot">
@@ -277,17 +320,27 @@ else
 
     /// <summary>Load the athlete typed for each prescribed exercise, per workout.</summary>
     private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), decimal> _loads = [];
+
+    /// <summary>Repetitions the athlete typed for each prescribed exercise, per workout.</summary>
+    private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), int> _reps = [];
+
+    /// <summary>The tick of each prescribed exercise, per workout. The server has the last word.</summary>
+    private readonly Dictionary<(Guid WorkoutId, Guid ExerciseId), bool> _ticks = [];
+
     private int? _restSeconds;
     private string _restExerciseName = string.Empty;
     private bool _loading = true;
     private bool _busy;
-    private string? _error;
     private System.Timers.Timer? _ticker;
     private volatile bool _disposed;
     private DateTimeOffset _loadedAt = DateTimeOffset.UtcNow;
 
     private int TermPercent =>
         _mine is null ? 0 : Math.Clamp((int)Math.Round(_mine.DaysRemaining / 60d * 100), 0, 100);
+
+    /// <summary>Whether the day already has a workout — running or finished.</summary>
+    private bool HasWorkoutToday =>
+        _mine?.Series.Workouts.Any(workout => workout.Today is not null) == true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -366,7 +419,25 @@ else
         {
             await Api.LogPerformedSetAsync(
                 workout.Today!.WorkoutSessionId,
-                new LogPerformedSetRequest(exerciseId, _loads[(workout.Id, exerciseId)]));
+                new LogPerformedSetRequest(
+                    exerciseId,
+                    _loads[(workout.Id, exerciseId)],
+                    _reps[(workout.Id, exerciseId)]));
+
+            await ReloadAsync();
+        });
+
+    /// <summary>
+    /// Ticks (or unticks) one exercise of the workout in progress. The screen shows the tick right
+    /// away; the server has the last word, so the sheet is read again when the request ends.
+    /// </summary>
+    private async Task ToggleAsync(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
+        await RunAsync(async () =>
+        {
+            await Api.SetExerciseCompletionAsync(
+                workout.Today!.WorkoutSessionId,
+                exerciseId,
+                _ticks[(workout.Id, exerciseId)]);
 
             await ReloadAsync();
         });
@@ -385,10 +456,13 @@ else
             await ReloadAsync();
         });
 
+    /// <summary>
+    /// Runs an action against the server. The error goes to the toast in the corner and the sheet is
+    /// read again, so the screen never keeps a state the server refused.
+    /// </summary>
     private async Task RunAsync(Func<Task> action)
     {
         _busy = true;
-        _error = null;
 
         try
         {
@@ -396,7 +470,9 @@ else
         }
         catch (ApiException exception)
         {
-            _error = ErrorMessages.Describe(exception);
+            Toasts.Error(ErrorMessages.Describe(exception));
+
+            await ReloadQuietlyAsync();
         }
         finally
         {
@@ -404,39 +480,68 @@ else
         }
     }
 
+    /// <summary>
+    /// Reads the sheet again after a refusal. A second failure is swallowed: the first toast already
+    /// said what happened, and an error escaping here would take the screen down with it.
+    /// </summary>
+    private async Task ReloadQuietlyAsync()
+    {
+        try
+        {
+            await ReloadAsync();
+        }
+        catch (ApiException)
+        {
+            // The sheet stays as it was; the toast carries the reason.
+        }
+    }
+
     private async Task ReloadAsync()
     {
-        _catalog = await Api.GetExercisesAsync();
-        _mine = await Api.GetMyWorkoutSeriesAsync();
-        if (_mine is null)
+        try
         {
-            _trainerAvatarUrl = null;
-        }
-        else
-        {
-            try
-            {
-                _trainerAvatarUrl = await Api.GetUserAvatarAsync(_mine.Series.TrainerId);
-            }
-            catch
+            _catalog = await Api.GetExercisesAsync();
+            _mine = await Api.GetMyWorkoutSeriesAsync();
+            if (_mine is null)
             {
                 _trainerAvatarUrl = null;
             }
-        }
-        _loadedAt = DateTimeOffset.UtcNow;
-
-        var workouts = _mine?.Series.Workouts ?? Enumerable.Empty<WorkoutSeriesWorkoutResponse>();
-
-        foreach (var workout in workouts)
-        {
-            foreach (var prescribed in workout.Exercises)
+            else
             {
-                // Starts at the load the personal trainer prescribed; whatever the athlete already typed stands.
-                _loads.TryAdd((workout.Id, prescribed.ExerciseId), prescribed.LoadKilograms ?? 0m);
+                try
+                {
+                    _trainerAvatarUrl = await Api.GetUserAvatarAsync(_mine.Series.TrainerId);
+                }
+                catch
+                {
+                    _trainerAvatarUrl = null;
+                }
+            }
+            _loadedAt = DateTimeOffset.UtcNow;
+
+            var workouts = _mine?.Series.Workouts ?? Enumerable.Empty<WorkoutSeriesWorkoutResponse>();
+
+            foreach (var workout in workouts)
+            {
+                var completed = workout.Today?.CompletedExerciseIds ?? [];
+
+                foreach (var prescribed in workout.Exercises)
+                {
+                    // Starts at the load and the repetitions the personal trainer prescribed; whatever
+                    // the athlete already typed stands.
+                    _loads.TryAdd((workout.Id, prescribed.ExerciseId), LoadValue(prescribed.LoadKilograms));
+                    _reps.TryAdd((workout.Id, prescribed.ExerciseId), prescribed.Repetitions);
+
+                    // The tick comes from the server: it is the truth about the workout.
+                    _ticks[(workout.Id, prescribed.ExerciseId)] = completed.Contains(prescribed.ExerciseId);
+                }
             }
         }
-
-        _loading = false;
+        finally
+        {
+            // The sheet is ready (or gave up): the screen stops waiting either way.
+            _loading = false;
+        }
     }
 
     /// <summary>
@@ -454,7 +559,8 @@ else
                 prescribed.ExerciseName,
                 Prescribed(prescribed),
                 Performed(today.Sets.Where(set => set.ExerciseId == prescribed.ExerciseId)),
-                prescribed.RestSeconds))
+                prescribed.RestSeconds,
+                today.CompletedExerciseIds.Contains(prescribed.ExerciseId)))
             .ToList();
 
         var extras = today.Sets
@@ -467,10 +573,21 @@ else
             ExerciseName(exerciseId),
             "—",
             Performed(today.Sets.Where(set => set.ExerciseId == exerciseId)),
-            0)));
+            0,
+            today.CompletedExerciseIds.Contains(exerciseId))));
 
         return rows;
     }
+
+    /// <summary>Whether every prescribed exercise of the workout is ticked.</summary>
+    private static bool AllTicked(WorkoutSeriesWorkoutResponse workout) =>
+        workout.Exercises.All(prescribed =>
+            workout.Today!.CompletedExerciseIds.Contains(prescribed.ExerciseId));
+
+    /// <summary>How many prescribed exercises are still waiting for their tick.</summary>
+    private static int Pending(WorkoutSeriesWorkoutResponse workout) =>
+        workout.Exercises.Count(prescribed =>
+            !workout.Today!.CompletedExerciseIds.Contains(prescribed.ExerciseId));
 
     private static string Prescribed(PrescribedExerciseResponse prescribed) =>
         $"{prescribed.Sets} × {prescribed.Repetitions} @ {Load(prescribed.LoadKilograms)}";
@@ -478,8 +595,20 @@ else
     private static string Load(decimal? kilograms) =>
         kilograms is { } load ? $"{load:0.##} kg" : "peso corporal";
 
+    /// <summary>
+    /// The load the field starts with, without the zeros the scale of the database leaves behind:
+    /// eighty kilos are eighty, not eighty point zero zero.
+    /// </summary>
+    private static decimal LoadValue(decimal? kilograms) =>
+        kilograms is { } load
+            ? decimal.Parse(load.ToString("0.####", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
+            : 0m;
+
+    /// <summary>How the performed set reads: the repetitions and the load, as the sheet shows it.</summary>
     private static IReadOnlyList<string> Performed(IEnumerable<PerformedSetResponse> sets) =>
-        [.. sets.Select(set => $"{set.LoadKilograms:0.##} kg × {set.Repetitions}")];
+        [.. sets.Select(set => set.LoadKilograms > 0m
+            ? $"{set.Repetitions}x {set.LoadKilograms:0.##}kg"
+            : $"{set.Repetitions}x peso corporal")];
 
     private static decimal Volume(TodayWorkoutResponse today) =>
         today.Sets.Sum(set => set.LoadKilograms * set.Repetitions);
@@ -499,5 +628,6 @@ else
         string ExerciseName,
         string Prescribed,
         IReadOnlyList<string> Performed,
-        int RestSeconds);
+        int RestSeconds,
+        bool IsCompleted);
 }

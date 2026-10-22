@@ -25,6 +25,14 @@ internal sealed class InMemoryWorkoutSessionRepository : IWorkoutSessionReposito
             && session.WorkoutDate.Value == workoutDate
             && session.PlannedWorkoutId == workoutId));
 
+    public Task<IReadOnlyList<WorkoutSession>> ListByDateAsync(
+        UserId userId,
+        DateOnly workoutDate,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<WorkoutSession>>(
+            [.. _byId.Values.Where(session =>
+                session.UserId == userId && session.WorkoutDate.Value == workoutDate)]);
+
     public Task SaveAsync(WorkoutSession session, CancellationToken cancellationToken)
     {
         _byId[session.Id] = session;

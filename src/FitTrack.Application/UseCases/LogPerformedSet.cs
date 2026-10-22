@@ -13,8 +13,8 @@ namespace FitTrack.Application.UseCases;
 /// <summary>
 /// Registers a set the athlete performed in the workout in progress. The aggregate refuses the set
 /// once the workout is finished, so a stale screen cannot add to a closed workout. The exercise has to
-/// be one the trainer prescribed and the repetitions come from that prescription: the athlete only
-/// fills in the load.
+/// be one the trainer prescribed. The repetitions come from the prescription, unless the athlete
+/// typed how many they really did; the load is always the athlete's.
 /// </summary>
 public sealed class LogPerformedSet : ILogPerformedSet
 {
@@ -50,10 +50,19 @@ public sealed class LogPerformedSet : ILogPerformedSet
             new ExerciseId(command.ExerciseId),
             cancellationToken);
 
+        var repetitions = command.Repetitions ?? prescribed.Repetitions;
+
+        if (repetitions is < 1 or > 100)
+        {
+            throw new DomainException(
+                "set.repetitions.out_of_range",
+                "The repetitions of a set have to be between 1 and 100.");
+        }
+
         session.RegisterSet(
             prescribed.ExerciseId,
             new Load(command.LoadKilograms),
-            new Repetitions(prescribed.Repetitions));
+            new Repetitions(repetitions));
 
         await _sessions.SaveAsync(session, cancellationToken);
 

@@ -8,11 +8,15 @@ namespace FitTrack.Domain.WorkoutExecution;
 /// <summary>
 /// Execution aggregate root: one user's workout session on one date, holding the clock the athlete
 /// started and finished it. Sets are registered through <see cref="RegisterSet"/> so no invalid set
-/// can enter the aggregate — and none can enter once the workout is finished.
+/// can enter the aggregate — and none can enter once the workout is finished. The exercises the
+/// athlete ticked are kept here too, so the screen can show what is still missing before the workout
+/// is closed.
 /// </summary>
 public sealed class WorkoutSession
 {
     private readonly List<PerformedSet> _performedSets = [];
+
+    private readonly List<ExerciseId> _completedExercises = [];
 
     private WorkoutSession(
         WorkoutSessionId id,
@@ -48,10 +52,19 @@ public sealed class WorkoutSession
 
     public IReadOnlyList<PerformedSet> PerformedSets => _performedSets;
 
+    /// <summary>
+    /// The exercises the athlete ticked as done, in the order they were ticked. Registering a set
+    /// ticks its exercise: performing a series of an exercise means the exercise was done.
+    /// </summary>
+    public IReadOnlyList<ExerciseId> CompletedExercises => _completedExercises;
+
     /// <summary>True until the athlete finishes the workout.</summary>
     public bool IsRunning => FinishedAt is null;
 
     public bool HasSets => _performedSets.Count > 0;
+
+    /// <summary>Whether the athlete already ticked this exercise as done.</summary>
+    public bool IsExerciseCompleted(ExerciseId exerciseId) => _completedExercises.Contains(exerciseId);
 
     public static WorkoutSession Start(
         WorkoutSessionId id,
@@ -84,7 +97,55 @@ public sealed class WorkoutSession
         var set = new PerformedSet(exerciseId, load, repetitions);
         _performedSets.Add(set);
 
+        // Performing a set of an exercise means the exercise was done: the tick follows the effort.
+        Tick(exerciseId);
+
         return set;
+    }
+
+    /// <summary>
+    /// Ticks an exercise as done. The athlete may do an exercise without registering its load, so the
+    /// tick stands on its own.
+    /// </summary>
+    public void MarkExerciseCompleted(ExerciseId exerciseId)
+    {
+        RequireRunning();
+
+        Tick(exerciseId);
+    }
+
+    /// <summary>
+    /// Unticks an exercise. The sets already registered stay: what the athlete did is a fact, and the
+    /// tick only says the exercise of the prescription is done.
+    /// </summary>
+    public void UnmarkExerciseCompleted(ExerciseId exerciseId)
+    {
+        RequireRunning();
+
+        _completedExercises.Remove(exerciseId);
+    }
+
+    private void Tick(ExerciseId exerciseId)
+    {
+        if (exerciseId.Value == Guid.Empty)
+        {
+            throw new DomainException("set.exercise.required", "A performed set must reference an exercise.");
+        }
+
+        if (!_completedExercises.Contains(exerciseId))
+        {
+            _completedExercises.Add(exerciseId);
+        }
+    }
+
+    private void RequireRunning()
+    {
+        if (!IsRunning)
+        {
+            throw new DomainException(
+                "session.exercise.after_finish",
+                "A finished workout cannot change which exercises are done.");
+        }
     }
 
     public void Finish(DateTimeOffset finishedAt)
