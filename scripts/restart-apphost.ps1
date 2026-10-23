@@ -8,7 +8,7 @@
 # e o processo antigo continua servindo a versao velha (404 em _framework/... e o app
 # nao abre). Matar e subir de novo garante que a nova versao seja a servida.
 #
-# Sempre use este script (ou equivalente) apos implementar algo novo.
+# deixou de ser usado automaticamente; rode-o apenas manualmente, quando quiser.
 
 param(
     [switch] $Build
