@@ -282,7 +282,9 @@
         }
 
         _isTrainer = state.User.IsInRole("PersonalTrainer");
-        _displayName = DisplayText.NameFromEmail(state.User.Identity.Name);
+        _displayName = state.User.Identity.Name is { Length: > 0 } name && !name.Contains('@')
+            ? name
+            : DisplayText.NameFromEmail(state.User.Identity.Name);
 
         try
         {

@@ -10,7 +10,7 @@ namespace FitTrack.Adapters.In.Api.Authentication;
 /// <summary>Issues short-lived access tokens for authenticated accounts.</summary>
 internal sealed class JwtTokenIssuer(IOptions<JwtOptions> options)
 {
-    public LoginResponse Issue(Guid userId, string email, IEnumerable<string> roles)
+    public LoginResponse Issue(Guid userId, string name, string email, IEnumerable<string> roles)
     {
         var jwt = options.Value;
         var now = DateTimeOffset.UtcNow;
@@ -22,6 +22,12 @@ internal sealed class JwtTokenIssuer(IOptions<JwtOptions> options)
             new(JwtRegisteredClaimNames.Email, email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
+
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Name, name));
+        }
+
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var descriptor = new SecurityTokenDescriptor

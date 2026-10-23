@@ -77,7 +77,11 @@ internal static class AuthEndpoints
 
         var roles = await users.GetRolesAsync(account);
 
-        return Results.Ok(tokenIssuer.Issue(account.Id, account.Email ?? account.UserName ?? string.Empty, roles));
+        return Results.Ok(tokenIssuer.Issue(
+            account.Id,
+            account.Name,
+            account.Email ?? account.UserName ?? string.Empty,
+            roles));
     }
 
     private static async Task<IResult> ChangePasswordAsync(

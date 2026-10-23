@@ -31,7 +31,17 @@ internal static class JwtReader
             var claims = new List<Claim>();
 
             AddIfPresent(claims, root, "sub", ClaimTypes.NameIdentifier);
-            AddIfPresent(claims, root, "email", ClaimTypes.Name);
+
+            // The name is the account name the API issues; older tokens only carry the e-mail.
+            if (TryGetClaimValue(root, "name") is { ValueKind: JsonValueKind.String } name
+                && name.GetString()!.Length > 0)
+            {
+                claims.Add(new Claim(ClaimTypes.Name, name.GetString()!));
+            }
+            else
+            {
+                AddIfPresent(claims, root, "email", ClaimTypes.Name);
+            }
 
             if (TryGetRoles(root, out var roles))
             {
@@ -71,10 +81,15 @@ internal static class JwtReader
 
     private static void AddIfPresent(List<Claim> claims, JsonElement root, string name, string claimType)
     {
-        if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+        if (TryGetClaimValue(root, name) is { ValueKind: JsonValueKind.String } value)
         {
             claims.Add(new Claim(claimType, value.GetString()!));
         }
+    }
+
+    private static JsonElement TryGetClaimValue(JsonElement root, string name)
+    {
+        return root.TryGetProperty(name, out var value) ? value : default;
     }
 
     private static byte[] DecodeBase64Url(string segment)
