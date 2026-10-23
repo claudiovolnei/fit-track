@@ -12,8 +12,20 @@ DOTNET_VERSION="${DOTNET_VERSION:-10.0}"
 # build variable in Cloudflare Workers if the host assigns another URL or a custom domain.
 API_BASE_URL="${API_BASE_URL:-https://fittrack-api-claudiovolnei.onrender.com}"
 
-curl -sSL https://dot.net/v1/dotnet-install.sh \
-  | bash -s -- --channel "$DOTNET_VERSION" --install-dir "$HOME/.dotnet"
+# The build runner occasionally drops the connection to Microsoft's CDN mid-download
+# (curl 56 killed a deploy on 2026-10-23), so both fetch steps retry before failing.
+curl -sS --fail --retry 5 --retry-delay 2 --retry-all-errors \
+  https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+
+for attempt in 1 2 3; do
+  if bash /tmp/dotnet-install.sh --channel "$DOTNET_VERSION" --install-dir "$HOME/.dotnet"; then
+    break
+  fi
+
+  [ "$attempt" -eq 3 ] && exit 1
+  echo "SDK download attempt $attempt failed; retrying..." >&2
+  sleep 5
+done
 export PATH="$HOME/.dotnet:$PATH"
 export DOTNET_ROOT="$HOME/.dotnet"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
