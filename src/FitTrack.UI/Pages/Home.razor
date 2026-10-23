@@ -106,6 +106,27 @@
         }
         else
         {
+            <section class="section">
+                <div class="section-head">
+                    <h2>Esta semana</h2>
+                    <span class="section-meta">@_weekSessions @(_weekSessions == 1 ? "treino feito" : "treinos feitos")</span>
+                </div>
+
+                <div class="week-strip">
+                    @for (var day = 0; day < 7; day++)
+                    {
+                        var finished = _weekFinished[day];
+                        <div class="week-day @(finished ? "week-day--done is-done filled" : "week-day--empty empty")">
+                            <span class="week-circle day-circle @(finished ? "week-circle--filled filled" : "week-circle--empty empty")"
+                                  title="@(finished ? "Treino concluído" : "Sem treino")"
+                                  aria-label="@DayLetter(day): @(finished ? "treino concluído" : "sem treino")">
+                                @DayLetter(day)
+                            </span>
+                        </div>
+                    }
+                </div>
+            </section>
+
             @if (_mine is not null)
             {
                 <section class="series-banner">
@@ -138,50 +159,11 @@
             }
             else
             {
-                <div class="alert alert--info" style="margin-top: 18px;">
+                <div class="alert alert--info" style="margin-top: 28px;">
                     <AppIcon Name="info" Size="18" />
                     <span>Seu personal ainda não vinculou uma série. Fale com ele para receber seus treinos.</span>
                 </div>
             }
-
-            <div class="stat-grid">
-                <article class="stat">
-                    <span class="stat-label">Treinos</span>
-                    <span class="stat-value">@_totalSessions</span>
-                </article>
-                <article class="stat">
-                    <span class="stat-label">Esta semana</span>
-                    <span class="stat-value">@_weekSessions</span>
-                </article>
-                <article class="stat">
-                    <span class="stat-label">Séries feitas</span>
-                    <span class="stat-value">@_totalSets</span>
-                </article>
-                <article class="stat">
-                    <span class="stat-label">Volume total</span>
-                    <span class="stat-value">@DisplayText.Volume(_volume)</span>
-                </article>
-            </div>
-
-            <section class="section">
-                <div class="section-head">
-                    <h2>Esta semana</h2>
-                </div>
-
-                <div class="week-strip">
-                    @for (var day = 0; day < 7; day++)
-                    {
-                        var finished = _weekFinished[day];
-                        <div class="week-day @(finished ? "week-day--done is-done filled" : "week-day--empty empty")">
-                            <span class="week-circle day-circle @(finished ? "week-circle--filled filled" : "week-circle--empty empty")"
-                                  title="@(finished ? "Treino concluído" : "Sem treino")"
-                                  aria-label="@DayLetter(day): @(finished ? "treino concluído" : "sem treino")">
-                                @DayLetter(day)
-                            </span>
-                        </div>
-                    }
-                </div>
-            </section>
 
             <section class="section">
                 <div class="section-head">
@@ -281,10 +263,7 @@
     private bool _loading = true;
     private string _displayName = string.Empty;
 
-    private int _totalSessions;
     private int _weekSessions;
-    private int _totalSets;
-    private decimal _volume;
 
     private bool[] _weekFinished = new bool[7];
 
@@ -321,10 +300,6 @@
             {
                 var sessions = await Api.GetSessionsAsync();
                 _mine = await Api.GetMyWorkoutSeriesAsync();
-
-                _totalSessions = sessions.Count;
-                _totalSets = sessions.Sum(session => session.Sets.Count);
-                _volume = sessions.SelectMany(session => session.Sets).Sum(set => set.LoadKilograms * set.Repetitions);
 
                 var monday = Monday();
                 _weekSessions = sessions.Count(session => session.WorkoutDate >= monday);

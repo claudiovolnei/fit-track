@@ -746,6 +746,12 @@ button {
     color: var(--accent);
 }
 
+.section-meta {
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
 .divider {
     height: 1px;
     margin: 18px 0;
@@ -1307,7 +1313,7 @@ input[type="checkbox"] {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    margin-bottom: 18px;
+    margin-top: 28px;
     padding: 18px;
     border: 1px solid rgba(201, 249, 74, 0.22);
     border-radius: var(--radius);
@@ -1358,6 +1364,7 @@ input[type="checkbox"] {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    margin-top: 28px;
 }
 
 .workout-card {
