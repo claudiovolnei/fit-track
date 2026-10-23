@@ -93,8 +93,8 @@ public sealed class SessionFlowTests(FitTrackApiFactory factory) : IClassFixture
         Assert.Equal(65m, only.Sets[0].LoadKilograms);
         Assert.Equal("intenso", only.Intensity);
         Assert.NotNull(only.Volume);
-        Assert.Equal(2600m, only.Volume!.PerformedKilograms);
-        Assert.Equal(2000m, only.Volume.PrescribedKilograms);
+        Assert.Equal(65m, only.Volume!.PerformedKilograms);
+        Assert.Equal(50m, only.Volume.PrescribedKilograms);
     }
 
     [RequiresPostgresFact]

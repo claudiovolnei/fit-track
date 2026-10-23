@@ -1,9 +1,10 @@
 namespace FitTrack.Application.Dtos;
 
 /// <summary>
-/// One exercise of a session, with what the trainer prescribed and what the athlete actually moved.
-/// <see cref="Status"/> is a stable code the UI translates: matched, bodyweight, notPerformed or
-/// notPrescribed.
+/// One exercise of a session, with a representative load on each side: what the trainer prescribed
+/// per set (set-weighted average over the loaded prescription rows) and what the athlete actually
+/// used (the average over the sets that carried load). <see cref="Status"/> is a stable code the UI
+/// translates: matched, bodyweight, notPerformed or notPrescribed.
 /// </summary>
 public sealed record ExerciseVolumeDto(
     Guid ExerciseId,
@@ -15,8 +16,9 @@ public sealed record ExerciseVolumeDto(
     string Status);
 
 /// <summary>
-/// The session's load compared against the current prescription of its workout. Null when the
-/// session has no workout reference (legacy data or a workout removed from the series).
+/// The session's load compared against the current prescription of its workout: one load difference
+/// per comparable exercise, summed in kilograms of load. Null when the session has no workout
+/// reference (legacy data or a workout removed from the series).
 /// </summary>
 public sealed record WorkoutVolumeDto(
     decimal PerformedKilograms,

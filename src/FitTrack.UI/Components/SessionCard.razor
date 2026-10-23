@@ -88,10 +88,10 @@
     @if (Session.Volume is { } volume)
     {
         <div class="volume-comparison">
-            <span>Volume feito <strong>@DisplayText.Volume(volume.PerformedKilograms)</strong></span>
-            <span>Prescrito <strong>@DisplayText.Volume(volume.PrescribedKilograms)</strong></span>
+            <span>Feito (média) <strong>@DisplayText.Load(volume.PerformedKilograms)</strong></span>
+            <span>Prescrito <strong>@DisplayText.Load(volume.PrescribedKilograms)</strong></span>
             <span class="@DeltaClass(volume.DeltaKilograms)">
-                Aumento <strong>@DisplayText.SignedVolume(volume.DeltaKilograms)</strong>
+                Aumento <strong>@DisplayText.SignedLoad(volume.DeltaKilograms)</strong>
                 @if (volume.DeltaPercent is { } percent)
                 {
                     <text> (@DisplayText.SignedPercent(percent))</text>
@@ -147,14 +147,14 @@
 
     private static string ExerciseVolumeText(ExerciseVolumeResponse exercise) => exercise.Status switch
     {
-        "notPerformed" => $"não executado · prescrito {DisplayText.Volume(exercise.PrescribedKilograms)}",
-        "notPrescribed" => $"não prescrito · feito {DisplayText.Volume(exercise.PerformedKilograms)}",
-        "bodyweight" => $"prescrição sem carga · feito {DisplayText.Volume(exercise.PerformedKilograms)}",
-        _ => $"feito {DisplayText.Volume(exercise.PerformedKilograms)} · prescrito {DisplayText.Volume(exercise.PrescribedKilograms)} · {DeltaText(exercise)}",
+        "notPerformed" => $"não executado · prescrito {DisplayText.Load(exercise.PrescribedKilograms)}",
+        "notPrescribed" => $"não prescrito · feito {DisplayText.Load(exercise.PerformedKilograms)}",
+        "bodyweight" => $"prescrição sem carga · feito {DisplayText.Load(exercise.PerformedKilograms)}",
+        _ => $"prescrito {DisplayText.Load(exercise.PrescribedKilograms)} · feito {DisplayText.Load(exercise.PerformedKilograms)} (média) · {DeltaText(exercise)}",
     };
 
     private static string DeltaText(ExerciseVolumeResponse exercise) =>
         exercise.DeltaPercent is { } percent
-            ? $"{DisplayText.SignedVolume(exercise.DeltaKilograms)} ({DisplayText.SignedPercent(percent)})"
-            : DisplayText.SignedVolume(exercise.DeltaKilograms);
+            ? $"{DisplayText.SignedLoad(exercise.DeltaKilograms)} ({DisplayText.SignedPercent(percent)})"
+            : DisplayText.SignedLoad(exercise.DeltaKilograms);
 }

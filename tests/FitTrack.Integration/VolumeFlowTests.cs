@@ -7,9 +7,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace FitTrack.Integration;
 
 /// <summary>
-/// The volume of a session against the current prescription of its workout, exposed by the history
-/// envelope. The prescription in these tests is 4 x 10 x 50 kg, so the full prescribed volume is
-/// 2,000 kg and a closed workout with 60 kg records 4 x 10 x 60 = 2,400 kg on the performed side.
+/// The load comparison of a session against the current prescription of its workout, exposed by the
+/// history envelope. The prescription in these tests is 4 x 10 x 50 kg, so the representative load
+/// per set is 50 kg, and a closed session with four sets of 60 kg shows 50 on the prescribed side
+/// and 60 on the performed side — a load increase of 10 kg per exercise, not tonnage.
 /// </summary>
 public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<FitTrackApiFactory>
 {
@@ -38,23 +39,23 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
         var item = Assert.Single(history!.Items);
 
         Assert.NotNull(item.Volume);
-        Assert.Equal(2400m, item.Volume!.PerformedKilograms);
-        Assert.Equal(2000m, item.Volume.PrescribedKilograms);
-        Assert.Equal(400m, item.Volume.DeltaKilograms);
+        Assert.Equal(60m, item.Volume!.PerformedKilograms);
+        Assert.Equal(50m, item.Volume.PrescribedKilograms);
+        Assert.Equal(10m, item.Volume.DeltaKilograms);
         Assert.Equal(20m, item.Volume.DeltaPercent);
 
         var detail = Assert.Single(item.Volume.Exercises);
         Assert.Equal(exercise.Id, detail.ExerciseId);
         Assert.Equal(exercise.Name, detail.ExerciseName);
         Assert.Equal("matched", detail.Status);
-        Assert.Equal(2400m, detail.PerformedKilograms);
-        Assert.Equal(2000m, detail.PrescribedKilograms);
+        Assert.Equal(60m, detail.PerformedKilograms);
+        Assert.Equal(50m, detail.PrescribedKilograms);
 
         Assert.NotNull(history.Summary);
         Assert.Equal(1, history.Summary!.SessionCount);
         Assert.Equal(4, history.Summary.SetCount);
-        Assert.Equal(2400m, history.Summary.PerformedKilograms);
-        Assert.Equal(2000m, history.Summary.PrescribedKilograms);
+        Assert.Equal(60m, history.Summary.PerformedKilograms);
+        Assert.Equal(50m, history.Summary.PrescribedKilograms);
         Assert.Equal(0, history.Summary.SessionsWithoutPrescription);
     }
 
@@ -110,7 +111,7 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
         Assert.Null(item.FinishedAt);
         Assert.NotNull(item.Volume);
         Assert.Equal(0m, item.Volume!.PerformedKilograms);
-        Assert.Equal(2000m, item.Volume.PrescribedKilograms);
+        Assert.Equal(50m, item.Volume.PrescribedKilograms);
     }
 
     [RequiresPostgresFact]
@@ -147,7 +148,7 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
         Assert.Null(item.Volume);
         Assert.NotNull(history.Summary);
         Assert.Equal(1, history.Summary!.SessionsWithoutPrescription);
-        Assert.Equal(2400m, history.Summary.PerformedKilograms);
+        Assert.Equal(0m, history.Summary.PerformedKilograms);
         Assert.Equal(0m, history.Summary.PrescribedKilograms);
     }
 
@@ -194,6 +195,6 @@ public sealed class VolumeFlowTests(FitTrackApiFactory factory) : IClassFixture<
         Assert.Equal(legacy.Id, item.Id);
         Assert.NotNull(history.Summary);
         Assert.Equal(1, history.Summary!.SessionsWithoutPrescription);
-        Assert.Equal(500m, history.Summary.PerformedKilograms);
+        Assert.Equal(0m, history.Summary.PerformedKilograms);
     }
 }

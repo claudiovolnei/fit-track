@@ -54,18 +54,28 @@ else
             </article>
             <article class="stat">
                 <span class="stat-label">Volume feito</span>
-                <span class="stat-value">
-                    @DisplayText.Volume(_summary.PerformedKilograms)
-                    <small>Prescrito @DisplayText.Volume(_summary.PrescribedKilograms)</small>
-                </span>
+                @if (_summary.PrescribedKilograms > 0m)
+                {
+                    <span class="stat-value @(_summary.DeltaKilograms > 0 ? "is-up" : _summary.DeltaKilograms < 0 ? "is-down" : "")">
+                        @DisplayText.SignedLoad(_summary.DeltaKilograms)
+                        <small>Prescrito @DisplayText.Load(_summary.PrescribedKilograms) · Feito @DisplayText.Load(_summary.PerformedKilograms) · média por exercício</small>
+                    </span>
+                }
+                else
+                {
+                    <span class="stat-value">
+                        —
+                        <small>sem prescrição para comparar</small>
+                    </span>
+                }
             </article>
             <article class="stat">
                 <span class="stat-label">Aumento</span>
                 <span class="stat-value @(_summary.DeltaKilograms > 0 ? "is-up" : _summary.DeltaKilograms < 0 ? "is-down" : "")">
-                    @DisplayText.SignedVolume(_summary.DeltaKilograms)
-                    @if (_summary.DeltaPercent is { } percent)
+                    @(_summary.DeltaPercent is { } percent ? DisplayText.SignedPercent(percent) : "—")
+                    @if (_summary.DeltaPercent is null)
                     {
-                        <small> (@DisplayText.SignedPercent(percent))</small>
+                        <small>sem base de comparação</small>
                     }
                 </span>
             </article>

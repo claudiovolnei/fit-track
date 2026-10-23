@@ -325,6 +325,14 @@ Resumo no envelope de histórico (`/sessions` e `/athletes/{userId}/workouts` no
 
 ### 4.4 Fluxo de UI e textos
 
+> **Nota (2026-10-22):** o modelo de comparação desta seção (tonelagem:
+> feito versus prescrito em Σ carga × reps) foi substituído pela feature
+> `historico-volume-por-exercicio`. Hoje cada exercício compara a carga média
+> executada com a carga prescrita por set, o delta é a soma das diferenças de
+> carga (ex.: prescrito 40 kg → feito 48 kg = +8 kg) e o painel "Aumento"
+> mostra apenas o percentual. Os exemplos abaixo e o critério 4 (feito
+> 2.400 kg / prescrito 2.000 kg) descrevem o modelo anterior.
+
 - **`SessionCard.razor`** (usado por `/workouts` e `/athletes/{userId}/workouts`):
   - Com prescrição: `feito 1,5 t · prescrito 1,2 t · +300 kg (+25%)`, com cor de sucesso para delta positivo e de alerta para negativo.
   - Sem prescrição: `feito 1,5 t · sem prescrição para comparar`.

@@ -1,6 +1,9 @@
 namespace FitTrack.Integration.Contracts;
 
-/// <summary>One exercise compared against the current prescription.</summary>
+/// <summary>
+/// One exercise compared against the current prescription: the athlete's representative load (the
+/// average over the sets that carried load) against the prescription's load per set.
+/// </summary>
 public sealed record ExerciseVolumeResponse(
     Guid ExerciseId,
     string ExerciseName,
@@ -10,7 +13,10 @@ public sealed record ExerciseVolumeResponse(
     decimal? DeltaPercent,
     string Status);
 
-/// <summary>The session's load compared against the current prescription.</summary>
+/// <summary>
+/// The session's load compared against the current prescription: one load difference per comparable
+/// exercise, summed in kilograms of load.
+/// </summary>
 public sealed record WorkoutVolumeResponse(
     decimal PerformedKilograms,
     decimal PrescribedKilograms,

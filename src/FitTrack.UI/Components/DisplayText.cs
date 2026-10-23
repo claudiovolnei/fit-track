@@ -53,6 +53,17 @@ public static class DisplayText
             ? $"{kilograms / 1000m:0.#} t"
             : $"{kilograms:0} kg";
 
+    /// <summary>A representative load in kilograms with up to two decimals; never turns into tonnes.</summary>
+    public static string Load(decimal kilograms) => $"{kilograms:0.##} kg";
+
+    /// <summary>The same load with an explicit sign, for the per-exercise increase against the prescription.</summary>
+    public static string SignedLoad(decimal kilograms) =>
+        kilograms > 0m
+            ? $"+{Load(kilograms)}"
+            : kilograms < 0m
+                ? $"−{Load(-kilograms)}"
+                : "0 kg";
+
     /// <summary>The same volume with an explicit sign, for the increase against the prescription.</summary>
     public static string SignedVolume(decimal kilograms) =>
         kilograms > 0m
