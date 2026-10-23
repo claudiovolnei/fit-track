@@ -1,0 +1,62 @@
+@* The exercises prescribed for one workout of the series. Collapsed by default: a full
+   series shows up to five cards, and every list open at once turns "Hoje" into one long scroll. *@
+
+<button type="button" class="exercise-toggle" aria-expanded="@(Expanded ? "true" : "false")" aria-controls="@_listId"
+        @onclick="ToggleAsync">
+    <AppIcon Name="chevron-down" Size="16" />
+    <span>@(Expanded ? "Esconder exercícios" : "Mostrar exercícios")</span>
+</button>
+
+@if (Expanded)
+{
+    <ul id="@_listId" class="exercise-list">
+        @foreach (var prescribed in Exercises)
+        {
+            <li class="exercise-row">
+                <div>
+                    <span class="exercise-name">@prescribed.ExerciseName</span>
+                    <span class="exercise-meta">@prescribed.MuscleGroupName</span>
+                </div>
+                <div class="exercise-prescription">
+                    <strong>@prescribed.Sets × @prescribed.Repetitions</strong>
+                    <span>@Load(prescribed.LoadKilograms)</span>
+                    @if (prescribed.RestSeconds > 0)
+                    {
+                        <button type="button" class="chip chip--accent rest-chip"
+                                aria-label="@RestLabel(prescribed.ExerciseName, prescribed.RestSeconds)"
+                                @onclick="() => RestTimerRequested.InvokeAsync(prescribed)">
+                            ⏱ @(prescribed.RestSeconds)s
+                        </button>
+                    }
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<PrescribedExerciseResponse> Exercises { get; set; } = null!;
+
+    /// <summary>Whether the list is open. The screen owns it, so the state survives the redraws of its actions.</summary>
+    [Parameter]
+    public bool Expanded { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> ExpandedChanged { get; set; }
+
+    /// <summary>The screen opens the rest timer: the list only reports which exercise was touched.</summary>
+    [Parameter]
+    public EventCallback<PrescribedExerciseResponse> RestTimerRequested { get; set; }
+
+    private string _listId = $"exercise-list-{Guid.NewGuid():N}";
+
+    private Task ToggleAsync() => ExpandedChanged.InvokeAsync(!Expanded);
+
+    private static string Load(decimal? kilograms) =>
+        kilograms is { } load ? $"{load:0.##} kg" : "peso corporal";
+
+    /// <summary>What the screen reader reads on the chip: the rest prescribed for that exercise.</summary>
+    private static string RestLabel(string exerciseName, int seconds) =>
+        $"Descanso prescrito de {exerciseName}: {seconds} segundos";
+}

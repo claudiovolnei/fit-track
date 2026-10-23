@@ -106,29 +106,10 @@ else
 
                 @if (workout.Today is null)
                 {
-                    <ul class="exercise-list">
-                        @foreach (var prescribed in workout.Exercises)
-                        {
-                            <li class="exercise-row">
-                                <div>
-                                    <span class="exercise-name">@prescribed.ExerciseName</span>
-                                    <span class="exercise-meta">@prescribed.MuscleGroupName</span>
-                                </div>
-                                <div class="exercise-prescription">
-                                    <strong>@prescribed.Sets × @prescribed.Repetitions</strong>
-                                    <span>@Load(prescribed.LoadKilograms)</span>
-                                    @if (prescribed.RestSeconds > 0)
-                                    {
-                                        <button type="button" class="chip chip--accent rest-chip"
-                                                aria-label="@RestLabel(prescribed.ExerciseName, prescribed.RestSeconds)"
-                                                @onclick="() => OpenRestTimer(prescribed.ExerciseName, prescribed.RestSeconds)">
-                                            ⏱ @(prescribed.RestSeconds)s
-                                        </button>
-                                    }
-                                </div>
-                            </li>
-                        }
-                    </ul>
+                    <SeriesExerciseList Exercises="workout.Exercises"
+                                        Expanded="@IsExpanded(workout)"
+                                        ExpandedChanged="@(value => SetExpanded(workout, value))"
+                                        RestTimerRequested="@(prescribed => OpenRestTimer(prescribed.ExerciseName, prescribed.RestSeconds))" />
 
                     @if (_mine.IsExpired)
                     {
@@ -402,6 +383,12 @@ else
     /// <summary>The exercises whose values the athlete is adjusting right now.</summary>
     private readonly HashSet<(Guid WorkoutId, Guid ExerciseId)> _editing = [];
 
+    /// <summary>
+    /// The workouts whose prescribed exercises are open on the sheet. The list starts collapsed —
+    /// a full series is up to five cards, and the athlete opens the one they mean to do.
+    /// </summary>
+    private readonly HashSet<Guid> _expanded = [];
+
     private int? _restSeconds;
     private string _restExerciseName = string.Empty;
     private bool _finishing;
@@ -514,6 +501,22 @@ else
 
     private void StopEditing(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
         _editing.Remove((workout.Id, exerciseId));
+
+    /// <summary>Whether the prescribed list of the workout is open. The default for all is collapsed.</summary>
+    private bool IsExpanded(WorkoutSeriesWorkoutResponse workout) =>
+        _expanded.Contains(workout.Id);
+
+    private void SetExpanded(WorkoutSeriesWorkoutResponse workout, bool expanded)
+    {
+        if (expanded)
+        {
+            _expanded.Add(workout.Id);
+        }
+        else
+        {
+            _expanded.Remove(workout.Id);
+        }
+    }
 
     /// <summary>
     /// Opens the closing modal. The workout stays as it is until the athlete confirms: cancelling

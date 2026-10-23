@@ -156,7 +156,9 @@ svg {
 .app-main {
     flex: 1 1 auto;
     min-width: 0;
-    padding-top: var(--topbar-height);
+    /* The topbar sits under the iOS status bar in the standalone app, so both grow together
+       by the safe-area inset the device reports (0 where there is no notch). */
+    padding-top: calc(var(--topbar-height) + env(safe-area-inset-top));
     padding-bottom: calc(78px + env(safe-area-inset-bottom));
 }
 
@@ -183,8 +185,10 @@ svg {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    height: var(--topbar-height);
-    padding: 0 16px;
+    /* The inset keeps the brand and the actions clear of the iOS clock and battery;
+       on browsers without safe area the calculation reduces to the plain 62px height. */
+    height: calc(var(--topbar-height) + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 16px 0;
     border-bottom: 1px solid var(--border-soft);
     background: rgba(7, 10, 15, 0.82);
     backdrop-filter: blur(18px);
@@ -887,7 +891,10 @@ select {
     background: var(--bg-soft);
     color: var(--text);
     font-family: var(--font);
-    font-size: 0.95rem;
+    /* iOS Safari auto-zooms the page on focus when a text field is under 16px,
+       which reads as the content slipping past the screen edge on the iPhone.
+       A whole 1rem keeps every field above that threshold. */
+    font-size: 1rem;
     transition: border-color var(--transition), box-shadow var(--transition);
 }
 
@@ -1426,6 +1433,37 @@ input[type="checkbox"] {
     border-top: 1px solid var(--border-soft);
     color: var(--muted);
     font-size: 0.78rem;
+}
+
+/* Expand/collapse of the exercises (or the prescription) of a workout card. The chevron
+   follows the aria-expanded the button itself carries, so the CSS needs no extra class. */
+
+.exercise-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-soft);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.exercise-toggle .app-icon {
+    transition: transform var(--transition);
+}
+
+.exercise-toggle[aria-expanded="true"] .app-icon {
+    transform: rotate(180deg);
+}
+
+.exercise-toggle:hover,
+.exercise-toggle:focus-visible {
+    color: var(--text);
 }
 
 .exercise-list {

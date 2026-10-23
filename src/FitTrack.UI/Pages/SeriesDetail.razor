@@ -69,12 +69,26 @@ else
                     </div>
                 </div>
 
+                @* The editor of a full prescription is the tall part of the card: it opens on demand,
+                   while the name and the actions stay reachable with everything collapsed. *@
+                <button type="button" class="exercise-toggle"
+                        aria-expanded="@(IsPrescriptionOpen(workout) ? "true" : "false")" aria-controls="prescription-@workout.Id"
+                        @onclick="() => TogglePrescriptionAsync(workout)">
+                    <AppIcon Name="chevron-down" Size="16" />
+                    <span>@(IsPrescriptionOpen(workout) ? "Esconder prescrição" : "Ver prescrição")</span>
+                </button>
+
                 <div class="field" style="margin-top: 16px;">
                     <label for="workout-name-@workout.Id">Nome do treino</label>
                     <input id="workout-name-@workout.Id" maxlength="80" @bind="workout.Name" />
                 </div>
 
-                <PrescriptionEditor Catalog="_catalog" Rows="workout.Prescription" OnChanged="StateHasChanged" />
+                @if (IsPrescriptionOpen(workout))
+                {
+                    <div id="prescription-@workout.Id">
+                        <PrescriptionEditor Catalog="_catalog" Rows="workout.Prescription" OnChanged="StateHasChanged" />
+                    </div>
+                }
 
                 <div class="actions">
                     <button class="btn btn-primary" type="button"
@@ -149,6 +163,9 @@ else
     private bool _loading = true;
     private bool _busy;
 
+    /// <summary>The workouts whose prescription is open on the sheet. The default for all is collapsed.</summary>
+    private readonly HashSet<Guid> _prescriptionOpen = [];
+
     private string NextLabel => ((char)('A' + _workouts.Count)).ToString();
 
     private IReadOnlyList<WorkoutRow> FilteredWorkouts =>
@@ -167,6 +184,18 @@ else
     {
         _workoutSearch = string.Empty;
         return Task.CompletedTask;
+    }
+
+    /// <summary>Whether the editor of the prescription is open. The default for all is collapsed.</summary>
+    private bool IsPrescriptionOpen(WorkoutRow workout) =>
+        _prescriptionOpen.Contains(workout.Id);
+
+    private void TogglePrescriptionAsync(WorkoutRow workout)
+    {
+        if (!_prescriptionOpen.Add(workout.Id))
+        {
+            _prescriptionOpen.Remove(workout.Id);
+        }
     }
 
     protected override async Task OnInitializedAsync() => await RunAsync(ReloadAsync);
