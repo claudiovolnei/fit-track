@@ -81,4 +81,54 @@ internal static class Sheet
         new(BenchId, "Supino reto", Guid.NewGuid(), "Peito", true),
         new(RowId, "Remada curvada", Guid.NewGuid(), "Costas", true),
     ];
+
+    /// <summary>
+    /// A finished chest workout made of identical sets — the shape the history card groups
+    /// into one collapsed run. Nothing but the id changes between the sessions of a history.
+    /// </summary>
+    public static WorkoutSessionResponse ChestWorkout(
+        Guid id,
+        int sets = 4,
+        int repetitions = 20,
+        decimal loadKilograms = 20m,
+        string? notes = null) =>
+        new(
+            id,
+            new DateOnly(2026, 1, 5),
+            DateTimeOffset.UtcNow.AddMinutes(-90),
+            DateTimeOffset.UtcNow.AddMinutes(-48),
+            2520,
+            null,
+            [.. Enumerable.Range(0, sets).Select(_ => new PerformedSetResponse(BenchId, loadKilograms, repetitions))])
+        {
+            Notes = notes,
+        };
+
+    /// <summary>One page of the history in the shape the client unwraps.</summary>
+    public static WorkoutHistoryResponse History(
+        IReadOnlyList<WorkoutSessionResponse> sessions,
+        int page,
+        int totalCount,
+        int pageSize = 10)
+    {
+        var totalPages = pageSize <= 0 || totalCount == 0
+            ? 0
+            : (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new WorkoutHistoryResponse(
+            sessions,
+            page,
+            pageSize,
+            totalCount,
+            totalPages,
+            page > 1,
+            page < totalPages,
+            Summary: null);
+    }
+
+    /// <summary>The athlete's roster entry the trainer history screen reads first.</summary>
+    public static IReadOnlyList<AthleteResponse> Roster(Guid userId) =>
+    [
+        new(userId, "athlete@fittrack.local", null, null, 0),
+    ];
 }

@@ -1808,6 +1808,23 @@ input[type="checkbox"] {
     white-space: nowrap;
 }
 
+/* The collapsed group header of the history sets: a real button that reuses the
+   session row layout and the exercise-toggle chevron, rounded into one class. */
+.set-group-toggle {
+    margin: 0;
+    width: 100%;
+    font-size: 0.85rem;
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The aggregate sits as the row's right side: the chevron rides with it and both stand aligned. */
+.set-group-toggle > span:last-child {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 /* --------------------------------------------------------------------------
    Card grids (series and athletes)
    -------------------------------------------------------------------------- */

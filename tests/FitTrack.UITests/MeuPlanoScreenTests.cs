@@ -102,7 +102,7 @@ public sealed class SessionCardTests : ScreenTest
     }
 
     [Fact]
-    public void AWorkoutWithoutTheLevel_ShowsNeitherTheLevelNorTheNote()
+    public void AWorkoutWithoutTheNote_SaysItWasNotInformed()
     {
         var session = new WorkoutSessionResponse(
             Guid.NewGuid(),
@@ -117,6 +117,7 @@ public sealed class SessionCardTests : ScreenTest
             .Add(card => card.Session, session)
             .Add(card => card.ExerciseNames, new Dictionary<Guid, string>()));
 
-        Assert.DoesNotContain("Sobre o treino:", cut.Markup);
+        Assert.Contains("Sobre o treino:", cut.Markup);
+        Assert.Contains("não informado", cut.Markup);
     }
 }

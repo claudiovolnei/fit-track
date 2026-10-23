@@ -1,0 +1,85 @@
+@* The sets of one history card, grouped into runs of consecutive identical executions.
+   The screen owns the expansion state: this component only renders it and reports the key
+   of the group the user touched, so the state survives search and pagination redraws. *@
+
+<div class="session-sets-list">
+    @foreach (var run in Runs())
+    {
+        var index = run.Index;
+
+        @if (run.Run.SetIndexes.Count == 1)
+        {
+            @* A toggle for a single set aggregates nothing: the row renders as it always did. *@
+            @Row(run.Run.FirstSetIndex)
+        }
+        else
+        {
+            <button type="button"
+                    class="session-set-row set-group-toggle exercise-toggle"
+                    aria-expanded="@(ExpandedKeys.Contains(Key(index)) ? "true" : "false")"
+                    aria-controls="@ContainerId(index)"
+                    @onclick="() => GroupToggled.InvokeAsync(Key(index))">
+                <span>@ExerciseName(run.Run.ExerciseId)</span>
+                <span>@Aggregated(run.Run) <AppIcon Name="chevron-down" Size="15" /></span>
+            </button>
+
+            @if (ExpandedKeys.Contains(Key(index)))
+            {
+                <div id=@ContainerId(index)>
+                    @foreach (var setIndex in run.Run.SetIndexes)
+                    {
+                        @Row(setIndex)
+                    }
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public WorkoutSessionResponse Session { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<Guid, string> ExerciseNames { get; set; } = null!;
+
+    /// <summary>The expanded group keys, held by the screen that owns the state.</summary>
+    [Parameter]
+    public IReadOnlyCollection<string> ExpandedKeys { get; set; } = [];
+
+    /// <summary>The screen toggles the key on its set: the list only reports which group was touched.</summary>
+    [Parameter]
+    public EventCallback<string> GroupToggled { get; set; }
+
+    private string _listId = $"session-sets-{Guid.NewGuid():N}";
+
+    private string Key(int runIndex) => $"{Session.Id}:{runIndex}";
+
+    private string ContainerId(int runIndex) => $"{_listId}-{runIndex}";
+
+    private string ExerciseName(Guid exerciseId) =>
+        ExerciseNames.TryGetValue(exerciseId, out var name) ? name : exerciseId.ToString();
+
+    private static string Aggregated(SessionSetGroups.SetRun run) =>
+        $"{run.SetIndexes.Count} × {run.Repetitions} · {run.LoadKilograms.ToString("0.##")} kg";
+
+    private IEnumerable<(int Index, SessionSetGroups.SetRun Run)> Runs()
+    {
+        var groups = SessionSetGroups.Group(Session.Sets);
+
+        for (var i = 0; i < groups.Count; i++)
+        {
+            yield return (i, groups[i]);
+        }
+    }
+
+    private RenderFragment Row(int setIndex) => __builder =>
+    {
+        var set = Session.Sets[setIndex];
+
+        <div class="session-set-row">
+            <span><span class="muted">@(setIndex + 1)</span> @ExerciseName(set.ExerciseId)</span>
+            <span class="set-pill">@set.LoadKilograms.ToString("0.##") kg × @set.Repetitions</span>
+        </div>
+    };
+}

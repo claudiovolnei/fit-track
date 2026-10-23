@@ -228,6 +228,10 @@ Aplica-se a `/workouts` (atleta) e `/athletes/{userId}/workouts`
    o bloco mostra `+10 kg (+14,29 %)` e as linhas por exercício mostram as
    cargas prescritas/executadas por exercício.
 2. A tonelagem bruta do strip não muda com a feature.
+3. **Nota (2026-10-23):** a lista de séries do card (`.session-sets-list`) hoje
+   vem agrupada em runs recolhíveis pela feature
+   `historico-sets-recolhidos-comentario` — o strip e a comparação desta
+   feature não mudam com isso.
 
 ## 8. Semântica dos DTOs (forma inalterada)
 

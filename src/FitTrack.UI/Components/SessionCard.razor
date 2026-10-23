@@ -46,12 +46,9 @@
         </div>
     }
 
-    @if (!string.IsNullOrWhiteSpace(Session.Notes))
-    {
-        <p class="muted" style="margin: 12px 0 0; font-size: 0.84rem;">
-            <strong>Sobre o treino:</strong> @Session.Notes
-        </p>
-    }
+    <p class="muted" style="margin: 12px 0 0; font-size: 0.84rem;">
+        <strong>Sobre o treino:</strong> @(string.IsNullOrWhiteSpace(Session.Notes) ? "não informado" : Session.Notes)
+    </p>
 
     @if (Session.Sets.Count == 0)
     {
@@ -74,15 +71,8 @@
             </span>
         </div>
 
-        <div class="session-sets-list">
-            @foreach (var set in Session.Sets)
-            {
-                <div class="session-set-row">
-                    <span>@ExerciseName(set.ExerciseId)</span>
-                    <span class="set-pill">@set.LoadKilograms.ToString("0.##") kg × @set.Repetitions</span>
-                </div>
-            }
-        </div>
+        <SessionSetList Session="Session" ExerciseNames="ExerciseNames"
+                        ExpandedKeys="ExpandedKeys" GroupToggled="GroupToggled" />
     }
 
     @if (Session.Volume is { } volume)
@@ -136,11 +126,18 @@
     [Parameter, EditorRequired]
     public IReadOnlyDictionary<Guid, string> ExerciseNames { get; set; } = null!;
 
+    /// <summary>
+    /// The expanded group keys, forwarded to the sets list. The card holds no state of its own;
+    /// defaults keep the card working standalone with every group collapsed.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyCollection<string> ExpandedKeys { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<string> GroupToggled { get; set; }
+
     private decimal Volume =>
         Session.Sets.Sum(set => set.LoadKilograms * set.Repetitions);
-
-    private string ExerciseName(Guid exerciseId) =>
-        ExerciseNames.TryGetValue(exerciseId, out var name) ? name : exerciseId.ToString();
 
     private static string DeltaClass(decimal delta) =>
         delta > 0m ? "is-up" : delta < 0m ? "is-down" : string.Empty;

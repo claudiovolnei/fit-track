@@ -84,7 +84,8 @@ else
 
     @foreach (var session in _sessions)
     {
-        <SessionCard @key="session.Id" Session="session" ExerciseNames="_exerciseNames" />
+        <SessionCard @key="session.Id" Session="session" ExerciseNames="_exerciseNames"
+                     ExpandedKeys="_expandedGroups" GroupToggled="ToggleExpandedGroup" />
     }
 
     <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
@@ -105,6 +106,10 @@ else
     private int _page = 1;
     private int _totalCount;
     private int _loadVersion;
+
+    // The screen owns the expansions, keyed by session and run position, so they survive the
+    // full redraw that every search, page or reload rings through _loading.
+    private readonly HashSet<string> _expandedGroups = [];
 
     private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
 
@@ -181,5 +186,17 @@ else
         _search = string.Empty;
         _page = 1;
         await LoadAsync();
+    }
+
+    private void ToggleExpandedGroup(string key)
+    {
+        if (_expandedGroups.Contains(key))
+        {
+            _expandedGroups.Remove(key);
+        }
+        else
+        {
+            _expandedGroups.Add(key);
+        }
     }
 }
