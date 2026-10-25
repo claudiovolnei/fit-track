@@ -1,7 +1,9 @@
-@* Modal with a countdown for the rest between sets. The count lives in the component, so closing it
+﻿@* Modal with a countdown for the rest between sets. The count lives in the component, so closing it
    discards the count (the spec: the modal does not persist across close). The rule of the count lives
    in <see cref="RestCountdown"/>, a plain class with an injected clock, so it is testable on its own;
    this component only draws it and ticks it. *@
+
+@inject IJSRuntime JS
 
 <div class="modal-backdrop" @onclick="OnClose">
     <div class="modal-card" role="dialog" aria-modal="true" aria-label="Cronômetro de descanso"
@@ -17,6 +19,13 @@
                 <span>Descanso concluído</span>
             </div>
         }
+
+        <div class="actions" style="margin-top: 16px;">
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="ToggleAlarm"
+                    aria-pressed="@_alarmEnabled">
+                @(_alarmEnabled ? "Alarme: ligado" : "Alarme: desligado")
+            </button>
+        </div>
 
         <div class="actions" style="margin-top: 16px;">
             @if (!Countdown.Finished)
@@ -53,11 +62,34 @@
     private CancellationTokenSource? _cancellation;
     private Task? _ticking;
 
-    protected override void OnInitialized()
+    private bool _alarmEnabled = true;
+    private bool _alarmPlayed;
+    private bool _initialized;
+    private const string AlarmPreferenceKey = "fittrack.restAlarm.enabled";
+
+    protected override async Task OnInitializedAsync()
     {
+        try
+        {
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", AlarmPreferenceKey);
+            if (stored is not null)
+            {
+                _alarmEnabled = !string.Equals(stored, "false", StringComparison.OrdinalIgnoreCase);
+            }
+
+            await JS.InvokeVoidAsync("fitTrack.unlockRestAlarm");
+        }
+        catch
+        {
+            // JS may be unavailable (tests/prerender): keep the default and move on.
+        }
+
         Countdown = new RestCountdown(Seconds, () => DateTimeOffset.UtcNow);
+        _alarmPlayed = false;
 
         StartTicking();
+
+        _initialized = true;
     }
 
     /// <summary>
@@ -66,9 +98,15 @@
     /// </summary>
     protected override void OnParametersSet()
     {
+        if (!_initialized)
+        {
+            return;
+        }
+
         if (Countdown.Seconds != Seconds)
         {
             Countdown.Rearm(Seconds);
+            _alarmPlayed = false;
             StartTicking();
         }
     }
@@ -93,13 +131,31 @@
     private void Restart()
     {
         Countdown.Restart();
+        _alarmPlayed = false;
 
         StartTicking();
     }
 
+    private async Task ToggleAlarm()
+    {
+        _alarmEnabled = !_alarmEnabled;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", AlarmPreferenceKey, _alarmEnabled ? "true" : "false");
+            if (_alarmEnabled)
+            {
+                await JS.InvokeVoidAsync("fitTrack.unlockRestAlarm");
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
     /// <summary>
     /// Ticks the count. The await resumes on the renderer's context, so the render is scheduled where
-    /// it belongs — no dispatcher hop and no <c>async void</c> that could throw on the way out.
+    /// it belongs — no dispatcher hop — no <c>async void</c> that could throw on the way out.
     /// </summary>
     private async Task TickAsync(CancellationToken cancellationToken)
     {
@@ -128,6 +184,19 @@
         catch (InvalidOperationException)
         {
             // The render handle is no longer valid because the component was disposed.
+        }
+
+        if (!cancellationToken.IsCancellationRequested && Countdown.Finished && _alarmEnabled && !_alarmPlayed)
+        {
+            _alarmPlayed = true;
+            try
+            {
+                await JS.InvokeVoidAsync("fitTrack.playRestAlarm");
+            }
+            catch
+            {
+                // ignore
+            }
         }
     }
 

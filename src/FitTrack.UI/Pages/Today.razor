@@ -253,6 +253,20 @@ else
                                 @if (workout.Today.IsRunning && row.ExerciseId is { } id && IsEditing(workout, id))
                                 {
                                     <div class="set-log set-log--series">
+                                        <div class="actions" style="margin-bottom: 8px;">
+                                            <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick='() => ApplySetTemplate(workout, id, row, "drop")'>
+                                                Drop set
+                                            </button>
+                                            <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick='() => ApplySetTemplate(workout, id, row, "pyramid-up")'>
+                                                Pirâmide crescente
+                                            </button>
+                                            <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick='() => ApplySetTemplate(workout, id, row, "pyramid-down")'>
+                                                Pirâmide decrescente
+                                            </button>
+                                            <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick='() => ApplySetTemplate(workout, id, row, "normal")'>
+                                                Normal
+                                            </button>
+                                        </div>
                                         <div class="set-log__units" role="group" aria-label="Unidade de carga de @row.ExerciseName">
                                             <button type="button" class="unit-toggle @(IsBarra(workout, id) ? "" : "unit-toggle--active")"
                                                     @onclick='() => SetLoadUnit(workout, id, "kg")'>
@@ -890,6 +904,60 @@ else
         workout.Exercises
             .Where(prescribed => IsTicked(workout, prescribed.ExerciseId))
             .Sum(prescribed => prescribed.Sets);
+
+    private void ApplySetTemplate(WorkoutSeriesWorkoutResponse workout, Guid exerciseId, ComparisonRow row, string template)
+    {
+        var key = (workout.Id, exerciseId);
+
+        if (!_setReps.TryGetValue(key, out var reps) || reps.Count != row.Sets)
+        {
+            reps = Enumerable.Repeat(row.Repetitions, row.Sets).ToList();
+            _setReps[key] = reps;
+        }
+
+        if (!_setLoads.TryGetValue(key, out var loads) || loads.Count != row.Sets)
+        {
+            loads = Enumerable.Repeat(LoadValue(row.PrescribedLoad), row.Sets).ToList();
+            _setLoads[key] = loads;
+        }
+
+        var baseReps = reps.Count > 0 ? reps[0] : row.Repetitions;
+        var baseLoad = loads.Count > 0 ? loads[0] : LoadValue(row.PrescribedLoad);
+        var stepLoad = IsBarra(workout, exerciseId) ? BarWeightKilograms : 2.5m;
+
+        var clamped = false;
+
+        for (var i = 0; i < row.Sets; i++)
+        {
+            switch (template)
+            {
+                case "drop":
+                    if (baseReps < 1 || baseReps > 100) clamped = true;
+                    reps[i] = Math.Clamp(baseReps, 1, 100);
+                    loads[i] = Math.Max(0m, baseLoad - (stepLoad * i));
+                    break;
+                case "pyramid-up":
+                    if (baseReps - (2 * i) < 1 || baseReps - (2 * i) > 100) clamped = true;
+                    reps[i] = Math.Clamp(baseReps - (2 * i), 1, 100);
+                    loads[i] = baseLoad + (stepLoad * i);
+                    break;
+                case "pyramid-down":
+                    if (baseReps + (2 * i) < 1 || baseReps + (2 * i) > 100) clamped = true;
+                    reps[i] = Math.Clamp(baseReps + (2 * i), 1, 100);
+                    loads[i] = Math.Max(0m, baseLoad - (stepLoad * i));
+                    break;
+                default:
+                    reps[i] = Math.Clamp(row.Repetitions, 1, 100);
+                    loads[i] = LoadValue(row.PrescribedLoad);
+                    break;
+            }
+        }
+
+        if (clamped)
+        {
+            Toasts.Warning("Alguns valores foram ajustados para a faixa permitida.");
+        }
+    }
 
     private bool IsBarra(WorkoutSeriesWorkoutResponse workout, Guid exerciseId) =>
         _loadUnits.GetValueOrDefault((workout.Id, exerciseId)) == "barra";

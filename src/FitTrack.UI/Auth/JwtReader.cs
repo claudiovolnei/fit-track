@@ -8,7 +8,7 @@ namespace FitTrack.UI.Auth;
 /// Reads the claims the API put in the access token. The UI only decodes the payload to
 /// build the client-side identity; the API remains the only authority that validates it.
 /// </summary>
-internal static class JwtReader
+public static class JwtReader
 {
     /// <summary>
     /// The API issues the role under the .NET claim type, while the OpenID Connect convention
@@ -90,6 +90,52 @@ internal static class JwtReader
     private static JsonElement TryGetClaimValue(JsonElement root, string name)
     {
         return root.TryGetProperty(name, out var value) ? value : default;
+    }
+
+    /// <summary>
+    /// Whether the access token has expired according to its <c>exp</c> claim (UTC seconds).
+    /// A token without a valid <c>exp</c> is treated as expired, so a malformed token never
+    /// keeps the user authenticated.
+    /// </summary>
+    public static bool IsExpired(string token, DateTimeOffset now)
+    {
+        var expiration = GetExpiration(token);
+        return expiration is null || expiration.Value <= now;
+    }
+
+    /// <summary>Reads the <c>exp</c> claim as a UTC timestamp, or null when absent/invalid.</summary>
+    public static DateTimeOffset? GetExpiration(string token)
+    {
+        var segments = token.Split('.');
+        if (segments.Length < 2)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(DecodeBase64Url(segments[1]));
+            if (!document.RootElement.TryGetProperty("exp", out var exp))
+            {
+                return null;
+            }
+
+            if (exp.ValueKind == JsonValueKind.Number && exp.TryGetInt64(out var seconds))
+            {
+                return DateTimeOffset.FromUnixTimeSeconds(seconds);
+            }
+
+            if (exp.ValueKind == JsonValueKind.String && long.TryParse(exp.GetString(), out var parsed))
+            {
+                return DateTimeOffset.FromUnixTimeSeconds(parsed);
+            }
+
+            return null;
+        }
+        catch (Exception exception) when (exception is JsonException or FormatException or ArgumentOutOfRangeException or OverflowException)
+        {
+            return null;
+        }
     }
 
     private static byte[] DecodeBase64Url(string segment)
