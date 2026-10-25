@@ -95,15 +95,25 @@
 
         @if (volume.Exercises.Count > 0)
         {
-            <div class="volume-exercises">
-                @foreach (var exercise in volume.Exercises)
-                {
-                    <span>
-                        <strong>@exercise.ExerciseName</strong>
-                        @ExerciseVolumeText(exercise)
-                    </span>
-                }
-            </div>
+            <button type="button" class="exercise-toggle volume-exercises-toggle"
+                    aria-expanded="@(VolumeExpanded ? "true" : "false")"
+                    @onclick="() => VolumeToggled.InvokeAsync()">
+                <AppIcon Name="chevron-down" Size="14" />
+                <span>@(VolumeExpanded ? "Esconder por exercício" : $"Ver por exercício ({volume.Exercises.Count})")</span>
+            </button>
+
+            @if (VolumeExpanded)
+            {
+                <div class="volume-exercises">
+                    @foreach (var exercise in volume.Exercises)
+                    {
+                        <span>
+                            <strong>@exercise.ExerciseName</strong>
+                            @ExerciseVolumeText(exercise)
+                        </span>
+                    }
+                </div>
+            }
         }
     }
     else
@@ -135,6 +145,14 @@
 
     [Parameter]
     public EventCallback<string> GroupToggled { get; set; }
+
+    /// <summary>Whether the per-exercise volume list is open. The screen owns the state.</summary>
+    [Parameter]
+    public bool VolumeExpanded { get; set; }
+
+    /// <summary>Reports that the user toggled the per-exercise volume list.</summary>
+    [Parameter]
+    public EventCallback VolumeToggled { get; set; }
 
     private decimal Volume =>
         Session.Sets.Sum(set => set.LoadKilograms * set.Repetitions);

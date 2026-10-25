@@ -107,11 +107,14 @@ public sealed class FinishWorkout : IFinishWorkout
         // comes by.
         foreach (var entry in sent)
         {
-            if (entry.Repetitions is < 1 or > 100)
+            foreach (var set in entry.Sets)
             {
-                throw new DomainException(
-                    "set.repetitions.out_of_range",
-                    "The repetitions of a set have to be between 1 and 100.");
+                if (set.Repetitions is < 1 or > 100)
+                {
+                    throw new DomainException(
+                        "set.repetitions.out_of_range",
+                        "The repetitions of a set have to be between 1 and 100.");
+                }
             }
         }
 
@@ -121,11 +124,7 @@ public sealed class FinishWorkout : IFinishWorkout
         {
             return
             [
-                .. sent.Select(entry => new PerformedExercise(
-                    entry.ToExerciseId(),
-                    new Load(entry.LoadKilograms),
-                    new Repetitions(entry.Repetitions),
-                    PerformedExercise.MinSets)),
+                .. sent.Select(entry => entry.ToPerformedExercise()),
             ];
         }
 
@@ -158,11 +157,16 @@ public sealed class FinishWorkout : IFinishWorkout
                     "Every exercise of the workout has to be ticked before it closes.");
             }
 
+            if (entry.Sets.Count != prescribed.Sets)
+            {
+                throw new DomainException(
+                    "session.set.count.mismatch",
+                    "The number of performed sets must match the prescription.");
+            }
+
             performed.Add(new PerformedExercise(
                 prescribed.ExerciseId,
-                new Load(entry.LoadKilograms),
-                new Repetitions(entry.Repetitions),
-                prescribed.Sets));
+                entry.Sets.Select(set => (new Load(set.LoadKilograms), new Repetitions(set.Repetitions))).ToList()));
         }
 
         return performed;

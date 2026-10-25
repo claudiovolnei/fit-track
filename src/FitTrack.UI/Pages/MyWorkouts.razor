@@ -68,7 +68,7 @@ else
                 {
                     <span class="stat-value @(_summary.DeltaKilograms > 0 ? "is-up" : _summary.DeltaKilograms < 0 ? "is-down" : "")">
                         @DisplayText.SignedLoad(_summary.DeltaKilograms)
-                        <small>Prescrito @DisplayText.Load(_summary.PrescribedKilograms) · Feito @DisplayText.Load(_summary.PerformedKilograms) · média por exercício</small>
+                        <small>Prescrito @DisplayText.Load(_summary.PrescribedKilograms) · Feito @DisplayText.Load(_summary.PerformedKilograms) · média/exercício</small>
                     </span>
                 }
                 else
@@ -95,7 +95,9 @@ else
     @foreach (var session in _sessions)
     {
         <SessionCard @key="session.Id" Session="session" ExerciseNames="_exerciseNames"
-                     ExpandedKeys="_expandedGroups" GroupToggled="ToggleExpandedGroup" />
+                     ExpandedKeys="_expandedGroups" GroupToggled="ToggleExpandedGroup"
+                      VolumeExpanded="@_expandedVolumes.Contains(session.Id)"
+                      VolumeToggled="@(() => ToggleVolume(session.Id))" />
     }
 
     <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
@@ -116,6 +118,8 @@ else
     // The screen owns the expansions, keyed by session and run position, so they survive the
     // full redraw that every search, page or reload rings through _loading.
     private readonly HashSet<string> _expandedGroups = [];
+
+    private readonly HashSet<Guid> _expandedVolumes = [];
 
     private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
 
@@ -200,6 +204,14 @@ else
         else
         {
             _expandedGroups.Add(key);
+        }
+    }
+
+    private void ToggleVolume(Guid sessionId)
+    {
+        if (!_expandedVolumes.Add(sessionId))
+        {
+            _expandedVolumes.Remove(sessionId);
         }
     }
 }

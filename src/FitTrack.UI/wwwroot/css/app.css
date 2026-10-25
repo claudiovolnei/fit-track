@@ -1233,6 +1233,15 @@ input[type="checkbox"] {
     background: var(--surface);
 }
 
+@media (max-width: 759px) {
+    .stat {
+        padding: 12px;
+    }
+    .stat-grid {
+        gap: 8px;
+    }
+}
+
 .stat-label {
     display: block;
     color: var(--muted);
@@ -1803,8 +1812,15 @@ input[type="checkbox"] {
 
 .session-set-row > span:first-child {
     min-width: 0;
+    flex: 1 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.session-set-row > span:last-child,
+.set-group-toggle > span:last-child {
+    flex: 0 0 auto;
     white-space: nowrap;
 }
 
@@ -2906,3 +2922,11 @@ code {
     background: var(--accent);
     color: var(--on-accent, #0a0e14);
 }
+
+/* Ajuste por serie (historico/exercicio) */
+.set-log--series { flex-direction: column; align-items: stretch; gap: 10px; }
+.set-log__series-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.set-log__series-row .muted { min-width: 64px; font-size: 0.78rem; font-weight: 600; }
+.exercise-history { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px dashed var(--border-soft); border-radius: 10px; font-size: 0.78rem; color: var(--muted); }
+.exercise-history details summary { cursor: pointer; color: var(--text-soft); font-weight: 600; }
+.exercise-history ul { margin: 6px 0 0; padding-left: 16px; }

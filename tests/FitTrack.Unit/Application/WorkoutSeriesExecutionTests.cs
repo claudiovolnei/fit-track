@@ -705,7 +705,7 @@ public sealed class WorkoutSeriesExecutionTests
     /// What the screen sends for one marked exercise: the repetitions and the load the athlete used.
     /// </summary>
     private static PerformedExerciseInput Performed(ExerciseId exercise, int repetitions = 12, decimal load = 40m) =>
-        new(exercise.Value, repetitions, load);
+        new(exercise.Value, [new PerformedSetInput(repetitions, load), new PerformedSetInput(repetitions, load), new PerformedSetInput(repetitions, load)]);
 
     private async Task<(WorkoutSeries Series, WorkoutSeriesWorkout Workout)> SeedAssignedAsync(
         DateTimeOffset? assignedAt = null)

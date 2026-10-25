@@ -150,7 +150,7 @@ public sealed class SeriesRefusalTests
                 sessionId,
                 WorkoutIntensity.Moderado,
                 null,
-                [new PerformedExerciseInput(exercise.Value, 10, 40m)]),
+                [new PerformedExerciseInput(exercise.Value, [new PerformedSetInput(10, 40m)])]),
             CancellationToken.None);
 
     /// <summary>

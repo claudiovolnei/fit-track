@@ -74,8 +74,7 @@ internal static class SessionEndpoints
                 request.Notes,
                 [.. (request.Exercises ?? []).Select(exercise => new PerformedExerciseInput(
                     exercise.ExerciseId,
-                    exercise.Repetitions,
-                    exercise.LoadKilograms))]),
+                    [.. (exercise.Sets ?? []).Select(set => new PerformedSetInput(set.Repetitions, set.LoadKilograms))]))]),
             cancellationToken);
 
         return Results.Ok(session);

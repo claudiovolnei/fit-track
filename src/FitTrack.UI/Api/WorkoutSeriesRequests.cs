@@ -52,4 +52,6 @@ public sealed record FinishWorkoutRequest(
 /// Wire contract: one exercise the athlete did in the workout. The number of sets comes from the
 /// prescription — the athlete adjusts the effort, not the sheet.
 /// </summary>
-public sealed record PerformedExerciseRequest(Guid ExerciseId, int Repetitions, decimal LoadKilograms);
+public sealed record PerformedSetRequest(int Repetitions, decimal LoadKilograms);
+
+public sealed record PerformedExerciseRequest(Guid ExerciseId, IReadOnlyList<PerformedSetRequest> Sets);

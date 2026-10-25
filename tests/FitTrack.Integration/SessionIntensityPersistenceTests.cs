@@ -105,7 +105,7 @@ public sealed class SessionIntensityPersistenceTests
         var session = Running();
 
         session.Complete(
-            [new PerformedExercise(ExerciseId.New(), new Load(40m), new Repetitions(10), 3)],
+            [new PerformedExercise(ExerciseId.New(), [(new Load(40m), new Repetitions(10)), (new Load(40m), new Repetitions(10)), (new Load(40m), new Repetitions(10))])],
             intensity,
             notes,
             FinishedAt);

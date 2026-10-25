@@ -19,7 +19,7 @@
                     aria-expanded="@(ExpandedKeys.Contains(Key(index)) ? "true" : "false")"
                     aria-controls="@ContainerId(index)"
                     @onclick="() => GroupToggled.InvokeAsync(Key(index))">
-                <span>@ExerciseName(run.Run.ExerciseId)</span>
+                <span title="@ExerciseName(run.Run.ExerciseId)">@ExerciseName(run.Run.ExerciseId)</span>
                 <span>@Aggregated(run.Run) <AppIcon Name="chevron-down" Size="15" /></span>
             </button>
 
@@ -78,7 +78,7 @@
         var set = Session.Sets[setIndex];
 
         <div class="session-set-row">
-            <span><span class="muted">@(setIndex + 1)</span> @ExerciseName(set.ExerciseId)</span>
+            <span title="@ExerciseName(set.ExerciseId)"><span class="muted">@(setIndex + 1)</span> @ExerciseName(set.ExerciseId)</span>
             <span class="set-pill">@set.LoadKilograms.ToString("0.##") kg × @set.Repetitions</span>
         </div>
     };

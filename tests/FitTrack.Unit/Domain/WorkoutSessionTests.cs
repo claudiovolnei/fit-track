@@ -168,7 +168,7 @@ public sealed class WorkoutSessionTests
         var exercise = ExerciseId.New();
 
         session.Complete(
-            [new PerformedExercise(exercise, new Load(80m), new Repetitions(10), 3)],
+            [new PerformedExercise(exercise, [ (new Load(80m), new Repetitions(10)), (new Load(80m), new Repetitions(10)), (new Load(80m), new Repetitions(10)) ])],
             WorkoutIntensity.Intenso,
             new WorkoutNotes("Senti o ombro."),
             AnyStart.AddMinutes(42));
@@ -210,7 +210,7 @@ public sealed class WorkoutSessionTests
         var session = Start();
 
         session.Complete(
-            [new PerformedExercise(ExerciseId.New(), new Load(80m), new Repetitions(10), 3)],
+            [new PerformedExercise(ExerciseId.New(), [(new Load(80m), new Repetitions(10)), (new Load(80m), new Repetitions(10)), (new Load(80m), new Repetitions(10))])],
             WorkoutIntensity.Leve,
             null,
             AnyStart.AddMinutes(42));
@@ -232,7 +232,7 @@ public sealed class WorkoutSessionTests
     public void PerformedExercise_WithoutSets_Fails()
     {
         var exception = Assert.Throws<DomainException>(() =>
-            _ = new PerformedExercise(ExerciseId.New(), new Load(80m), new Repetitions(10), 0));
+            _ = new PerformedExercise(ExerciseId.New(), []));
 
         Assert.Equal("set.count.not_positive", exception.Code);
     }

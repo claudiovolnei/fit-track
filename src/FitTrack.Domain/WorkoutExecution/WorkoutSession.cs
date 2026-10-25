@@ -168,9 +168,9 @@ public sealed class WorkoutSession
 
         foreach (var exercise in exercises)
         {
-            for (var set = 0; set < exercise.Sets; set++)
+            foreach (var (load, repetitions) in exercise.Sets)
             {
-                RegisterSet(exercise.ExerciseId, exercise.Load, exercise.Repetitions);
+                RegisterSet(exercise.ExerciseId, load, repetitions);
             }
         }
 
