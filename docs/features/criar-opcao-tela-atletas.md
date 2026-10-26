@@ -7,7 +7,7 @@
 
 ## 1. Contexto e problema
 
-A tela de atletas (`AthleteWorkouts.razor`) exibe o histórico de treinos (`GET /athletes/{userId}/workouts`) e apresenta cards de sessão (`SessionCard.razor`). O endpoint de exclusão `DELETE /athletes/{userId}/workouts/{sessionId}` já existe (`AthleteWorkoutEndpoints.cs`) e exige política `AdminOnly`, mas a interface atual não expõe nenhuma ação de exclusão para o treinador. O personal precisa de uma opção visível (botão/menu) na tela do atleta para acionar esse endpoint, com confirmação e feedback, para excluir um treino já finalizado.
+A tela de atletas (`AthleteWorkouts.razor`) exibe o histórico de treinos (`GET /athletes/{userId}/workouts`) e apresenta cards de sessão (`SessionCard.razor`). O endpoint de exclusão `DELETE /athletes/{userId}/workouts/{sessionId}` já existe (`AthleteWorkoutEndpoints.cs`) e exige política `TrainerOrAdmin`, mas a interface atual não expõe nenhuma ação de exclusão para o treinador. O personal precisa de uma opção visível (botão/menu) na tela do atleta para acionar esse endpoint, com confirmação e feedback, para excluir um treino já finalizado.
 
 ## 2. Objetivo e valor
 
@@ -18,7 +18,7 @@ A tela de atletas (`AthleteWorkouts.razor`) exibe o histórico de treinos (`GET 
 ## 3. Atores envolvidos
 
 - **Personal Trainer** — visualiza o histórico do atleta (`/athletes/{userId}/workouts`) e aciona a exclusão de treino finalizado.
-- **Administrador** — já tem acesso ao endpoint (`AdminOnly`); a opção na UI também se aplica quando acessa o histórico do atleta.
+- **Administrador** — já tem acesso ao endpoint (`TrainerOrAdmin`); a opção na UI também se aplica quando acessa o histórico do atleta.
 - **Atleta** — não interage com a exclusão; apenas vê o histórico atualizado após a ação do treinador.
 - **Sistema (API)** — expõe `DELETE /athletes/{userId}/workouts/{sessionId}` (`204`, `404`, `409`, `403`).
 
@@ -54,7 +54,7 @@ A tela de atletas (`AthleteWorkouts.razor`) exibe o histórico de treinos (`GET 
 ## 6. Regras de negócio / invariantes
 
 - A exclusão só é permitida para sessões com `FinishedAt != null` (finalizadas). O endpoint já protege `409` para sessões rodando; a UI deve preferir ocultar a opção quando `IsRunning` é verdadeiro, mas se chamada por engano, respeitar o `409`.
-- A autorização é `AdminOnly` no endpoint; a UI deve condicionar a exibição à política do usuário atual (`RequireAuthorization(Policies.AdminOnly)` no endpoint, e na UI verificar o papel se necessário, embora a página `/athletes/{userId}/workouts` já exija `PersonalTrainer` ou `Admin`).
+- A autorização é `TrainerOrAdmin` no endpoint; a UI deve condicionar a exibição à política do usuário atual (`RequireAuthorization(Policies.TrainerOrAdmin)` no endpoint, e na UI verificar o papel se necessário, embora a página `/athletes/{userId}/workouts` já exija `PersonalTrainer` ou `Admin`).
 - A exclusão é física (`hard delete`), conforme o endpoint existente (`DeleteAthleteWorkout`).
 - Nenhum dado de prescrição (`WorkoutSeries`) é alterado; apenas a sessão (`WorkoutSession`) é removida.
 
@@ -82,7 +82,7 @@ A tela de atletas (`AthleteWorkouts.razor`) exibe o histórico de treinos (`GET 
 Reutiliza o endpoint existente:
 
 - `DELETE /athletes/{userId:guid}/workouts/{sessionId:guid}` → `204 No Content`
-  - Chamador: `AdminOnly` (política existente no endpoint).
+  - Chamador: `TrainerOrAdmin` (política existente no endpoint).
   - `204 No Content` — excluído com sucesso.
   - `404` — atleta ou sessão não existem, ou a sessão não pertence ao atleta informado.
   - `409 session.delete.not_finished` — a sessão ainda está rodando.
@@ -147,7 +147,7 @@ A UI mantém:
 
 ## 14. Riscos e dependências
 
-- **Endpoint existente (`AdminOnly`)**: a UI (`AthleteWorkouts.razor`) exige `PersonalTrainer` ou `Admin`, mas o endpoint exige `AdminOnly`. Se o personal não for `Admin`, a chamada retornará `403`. É necessário alinhar se o personal também pode excluir (atualmente o endpoint é `AdminOnly`). Se o objetivo é que o treinador (personal) também possa excluir, o endpoint precisa ser revisado (ex.: `RequirePersonalTrainerOrAdmin`). Se não, a opção só deve aparecer para `Admin`. **Decisão em aberto (D1)**.
+- **Endpoint existente (`TrainerOrAdmin`)**: a UI (`AthleteWorkouts.razor`) exige `PersonalTrainer` ou `Admin`, alinhado ao endpoint (`TrainerOrAdmin`). Nenhum conflito de autorização restante após resolução de D1.
 - **Estado do card**: a exclusão depende de `FinishedAt != null`. Se a lista local não refletir esse estado corretamente (ex.: cache desatualizado), a UI pode permitir a exclusão de uma sessão rodando (o endpoint protege com `409`, mas a experiência não é ideal).
 - **Recarregamento da lista**: após exclusão, a lista pode ser recarregada (`LoadAsync`) ou atualizado localmente. A recarga é mais segura para consistência.
 - **Confirmação**: sem modal, o risco de exclusão acidental é alto. A feature inclui modal obrigatório.
@@ -156,10 +156,10 @@ A UI mantém:
 
 | ID | Decisão | Recomendação |
 | --- | --- |
-| **D1** | O endpoint `DELETE /athletes/{userId}/workouts/{sessionId}` é `AdminOnly`. A tela `/athletes/{userId}/workouts` é acessível por `PersonalTrainer` e `Admin`. A opção de exclusão deve aparecer apenas para `Admin`, ou o endpoint deve ser alterado para permitir `PersonalTrainer` também? | Confirmar com o usuário se o personal pode excluir. Se sim, alterar o endpoint (`RequirePersonalTrainerOrAdmin`) ou criar uma política alternativa. Se não, a opção só aparece para `Admin`. |
+| **D1** | O endpoint `DELETE /athletes/{userId}/workouts/{sessionId}` é `TrainerOrAdmin`. A tela `/athletes/{userId}/workouts` é acessível por `PersonalTrainer` e `Admin`. A opção de exclusão deve aparecer apenas para `Admin`, ou o endpoint deve ser alterado para permitir `PersonalTrainer` também? | Confirmar com o usuário se o personal pode excluir. Se sim, alterar o endpoint (`RequirePersonalTrainerOrAdmin`) ou criar uma política alternativa. Se não, a opção só aparece para `Admin`. |
 | **D2** | A exclusão é física (`hard delete`). Deve haver uma mensagem explícita no modal confirmando que a ação é irreversível? | Sim; incluir texto claro no modal de confirmação (ex.: "Esta ação não pode ser desfeita."). |
 | **D3** | O card a ser removido é atualizado localmente (`_workouts.Remove`) ou via recarga completa (`LoadAsync`)? | Recarregar (`LoadAsync`) é mais simples e evita inconsistências; atualizar localmente é mais rápido. Recomendação: recarregar para garantir consistência com o servidor. |
-| **D4** | A opção de exclusão deve ser visível em todos os cards de treino finalizado ou apenas quando o usuário tem papel de `Admin` (se D1 mantiver `AdminOnly`)? | Condicionar a visibilidade ao papel do usuário atual, conforme a política do endpoint. |
+| **D4** | A opção de exclusão deve ser visível em todos os cards de treino finalizado ou apenas quando o usuário tem papel de `Admin` (se D1 mantiver `TrainerOrAdmin`)? | Condicionar a visibilidade ao papel do usuário atual, conforme a política do endpoint. |
 
 ## 16. Sugestão de próximo passo
 
