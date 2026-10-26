@@ -18,14 +18,21 @@
     private bool _isActive = false;
     private System.Timers.Timer? _timer;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    /// <summary>
+    /// Only activates when the caller explicitly signals an auto-finish event.
+    /// </summary>
+    [Parameter]
+    public bool ShowAlarm { get; set; } = false;
+
+    protected override async Task OnParametersSetAsync()
     {
-        if (firstRender)
+        if (ShowAlarm && !_isActive)
         {
-            // Detect if there is an auto-finished session in the current page's history.
-            // In a full implementation this would come from a state/service; here we start
-            // the alarm for demonstration based on a simple check.
             await StartAlarmAsync();
+        }
+        else if (!ShowAlarm && _isActive)
+        {
+            await StopAlarm();
         }
     }
 
