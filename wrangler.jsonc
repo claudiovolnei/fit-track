@@ -8,5 +8,6 @@
     "directory": "./out/wwwroot",
     // Deep links such as /login or /series/123 are resolved by Blazor in the browser.
     "not_found_handling": "single-page-application"
-  }
+  },
+  "previews": {}
 }
