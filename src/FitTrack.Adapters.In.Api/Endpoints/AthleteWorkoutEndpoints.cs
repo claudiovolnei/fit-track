@@ -11,7 +11,7 @@ internal static class AthleteWorkoutEndpoints
     {
         var group = app.MapGroup("/athletes")
             .WithTags("Athletes")
-            .RequireAuthorization(Policies.AdminOnly);
+            .RequireAuthorization(Policies.TrainerOrAdmin);
 
         group.MapDelete("/{userId:guid}/workouts/{sessionId:guid}", DeleteAthleteWorkoutAsync);
 

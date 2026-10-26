@@ -82,10 +82,21 @@ else
         </div>
     }
 
+    <ConfirmDelete @ref="_confirmDelete" OnConfirm="HandleDeleteConfirmed" />
+
     @foreach (var session in _sessions)
     {
         <SessionCard @key="session.Id" Session="session" ExerciseNames="_exerciseNames"
                      ExpandedKeys="_expandedGroups" GroupToggled="ToggleExpandedGroup" />
+
+        @if (!session.IsRunning)
+        {
+            <div style="margin-top: 8px; text-align: right;">
+                <button class="btn btn-danger btn-sm" @onclick="() => OpenDeleteModal(UserId, session.Id)">
+                    <AppIcon Name="trash" Size="14" /> Excluir treino
+                </button>
+            </div>
+        }
     }
 
     <Pagination Page="_page" PageSize="PageSize" TotalCount="_totalCount" PageChanged="GoToPageAsync" />
@@ -110,6 +121,9 @@ else
     // The screen owns the expansions, keyed by session and run position, so they survive the
     // full redraw that every search, page or reload rings through _loading.
     private readonly HashSet<string> _expandedGroups = [];
+    private ConfirmDelete _confirmDelete = null!;
+    private Guid _deleteAthleteId;
+    private Guid _deleteSessionId;
 
     private bool HasSearch => !string.IsNullOrWhiteSpace(_search);
 
@@ -197,6 +211,27 @@ else
         else
         {
             _expandedGroups.Add(key);
+        }
+    }
+
+    private void OpenDeleteModal(Guid athleteId, Guid sessionId)
+    {
+        _deleteAthleteId = athleteId;
+        _deleteSessionId = sessionId;
+        _confirmDelete.Show();
+    }
+
+    private async Task HandleDeleteConfirmed()
+    {
+        try
+        {
+            await Api.DeleteAthleteWorkoutAsync(_deleteAthleteId, _deleteSessionId);
+            Toasts.Success("Treino excluído com sucesso.");
+            await LoadAsync();
+        }
+        catch (ApiException exception)
+        {
+            Toasts.Error(ErrorMessages.Describe(exception));
         }
     }
 }
