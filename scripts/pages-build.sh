@@ -14,11 +14,25 @@ API_BASE_URL="${API_BASE_URL:-https://fittrack-api-claudiovolnei.onrender.com}"
 
 # The build runner occasionally drops the connection to Microsoft's CDN mid-download
 # (curl 56 killed a deploy on 2026-10-23), so both fetch steps retry before failing.
-curl -sS --fail --retry 5 --retry-delay 2 --retry-all-errors \
-  https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+# -L is required: https://dot.net/v1/dotnet-install.sh is a 301 with an empty body.
+# Without following the redirect, curl writes a 0-byte file, bash succeeds, and
+# `dotnet` is missing from PATH.
+INSTALLER="${TMPDIR:-/tmp}/dotnet-install.sh"
+curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
+  https://dot.net/v1/dotnet-install.sh -o "$INSTALLER"
+if [ ! -s "$INSTALLER" ]; then
+  echo "Installer download was empty; fetching CDN URL directly." >&2
+  curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
+    https://builds.dotnet.microsoft.com/dotnet/scripts/v1/dotnet-install.sh \
+    -o "$INSTALLER"
+fi
+if [ ! -s "$INSTALLER" ]; then
+  echo "ERROR: could not download dotnet-install.sh." >&2
+  exit 1
+fi
 
 for attempt in 1 2 3; do
-  if bash /tmp/dotnet-install.sh --channel "$DOTNET_VERSION" --install-dir "$HOME/.dotnet"; then
+  if bash "$INSTALLER" --channel "$DOTNET_VERSION" --install-dir "$HOME/.dotnet"; then
     break
   fi
 
@@ -31,6 +45,11 @@ export DOTNET_ROOT="$HOME/.dotnet"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 
+if [ ! -x "$DOTNET_ROOT/dotnet" ]; then
+  echo "ERROR: .NET SDK was not installed at $DOTNET_ROOT/dotnet." >&2
+  exit 1
+fi
+
 # appsettings.json is listed in the service-worker asset manifest with its hash, so it
 # must be rewritten before publish. Editing the published file would break the
 # offline cache install (integrity mismatch).
@@ -38,7 +57,7 @@ printf '{\n  "ApiBaseUrl": "%s"\n}\n' "$API_BASE_URL" \
   > src/FitTrack.Web/wwwroot/appsettings.json
 echo "API base URL: $API_BASE_URL"
 
-dotnet publish src/FitTrack.Web -c Release -o out --nologo
+"$DOTNET_ROOT/dotnet" publish src/FitTrack.Web -c Release -o out --nologo
 
 # Workers serve the assets directory as-is, so index.html must be at its root.
 # `dotnet publish -o out` puts the static site in out/wwwroot, which is what
