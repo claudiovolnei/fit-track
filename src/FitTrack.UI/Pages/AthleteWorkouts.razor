@@ -89,10 +89,18 @@ else
         <SessionCard @key="session.Id" Session="session" ExerciseNames="_exerciseNames"
                      ExpandedKeys="_expandedGroups" GroupToggled="ToggleExpandedGroup" />
 
-        @if (!session.IsRunning)
+        @if (session.IsRunning)
         {
             <div style="margin-top: 8px; text-align: right;">
-                <button class="btn btn-danger btn-sm" @onclick="() => OpenDeleteModal(UserId, session.Id)">
+                <button class="btn btn-danger btn-sm" @onclick="() => OpenDeleteModal(UserId, session.Id, true)">
+                    <AppIcon Name="trash" Size="14" /> Cancelar treino
+                </button>
+            </div>
+        }
+        else
+        {
+            <div style="margin-top: 8px; text-align: right;">
+                <button class="btn btn-danger btn-sm" @onclick="() => OpenDeleteModal(UserId, session.Id, false)">
                     <AppIcon Name="trash" Size="14" /> Excluir treino
                 </button>
             </div>
@@ -214,10 +222,13 @@ else
         }
     }
 
-    private void OpenDeleteModal(Guid athleteId, Guid sessionId)
+    private bool _deleteIsRunning = false;
+
+    private void OpenDeleteModal(Guid athleteId, Guid sessionId, bool isRunning = false)
     {
         _deleteAthleteId = athleteId;
         _deleteSessionId = sessionId;
+        _deleteIsRunning = isRunning;
         _confirmDelete.Show();
     }
 
@@ -225,7 +236,10 @@ else
     {
         try
         {
-            await Api.DeleteAthleteWorkoutAsync(_deleteAthleteId, _deleteSessionId);
+            if (_deleteIsRunning)
+                await Api.CancelAthleteWorkoutAsync(_deleteAthleteId, _deleteSessionId);
+            else
+                await Api.DeleteAthleteWorkoutAsync(_deleteAthleteId, _deleteSessionId);
             Toasts.Success("Treino excluído com sucesso.");
             await LoadAsync();
         }
