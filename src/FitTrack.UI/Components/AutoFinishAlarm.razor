@@ -1,0 +1,45 @@
+@* Presentation-only component for auto-finish alarm notification.
+   Receives AlarmActive (bool), Expiry (TimeSpan, optional), OnStop (EventCallback, optional).
+   Does NOT call any use case or API directly. Uses JS interop for audio/vibration. *@
+
+@implements IDisposable
+@inject IJSRuntime JS
+
+@if (AlarmActive)
+{
+    <div class="auto-finish-alarm" role="alert" aria-live="assertive">
+        <AppIcon Name="bell" Size="24" />
+        <span>Treino expirado — finalize a série</span>
+        <button class="btn btn-sm btn-ghost" type="button" @onclick="OnStopCallback">Parar</button>
+    </div>
+}
+
+@code {
+    [Parameter] public bool AlarmActive { get; set; }
+    [Parameter] public TimeSpan? Expiry { get; set; } = null;
+    [Parameter] public EventCallback? OnStop { get; set; } = null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && AlarmActive)
+        {
+            await JS.InvokeVoidAsync("startAutoFinishAlarm");
+        }
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            JS.InvokeVoidAsync("stopAutoFinishAlarm").AsTask().Wait();
+        }
+        catch { }
+    }
+
+    private async Task OnStopCallback()
+    {
+        await JS.InvokeVoidAsync("stopAutoFinishAlarm");
+        if (OnStop.HasValue)
+            await OnStop.Value.InvokeAsync();
+    }
+}
