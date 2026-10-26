@@ -933,21 +933,21 @@ else
             {
                 case "drop":
                     if (baseReps < 1 || baseReps > 100) clamped = true;
-                    reps[i] = Math.Clamp(baseReps, 1, 100);
+                    reps[i] = baseReps;
                     loads[i] = Math.Max(0m, baseLoad - (stepLoad * i));
                     break;
                 case "pyramid-up":
                     if (baseReps - (2 * i) < 1 || baseReps - (2 * i) > 100) clamped = true;
-                    reps[i] = Math.Clamp(baseReps - (2 * i), 1, 100);
+                    reps[i] = baseReps - (2 * i);
                     loads[i] = baseLoad + (stepLoad * i);
                     break;
                 case "pyramid-down":
                     if (baseReps + (2 * i) < 1 || baseReps + (2 * i) > 100) clamped = true;
-                    reps[i] = Math.Clamp(baseReps + (2 * i), 1, 100);
+                    reps[i] = baseReps + (2 * i);
                     loads[i] = Math.Max(0m, baseLoad - (stepLoad * i));
                     break;
                 default:
-                    reps[i] = Math.Clamp(row.Repetitions, 1, 100);
+                    reps[i] = row.Repetitions;
                     loads[i] = LoadValue(row.PrescribedLoad);
                     break;
             }
