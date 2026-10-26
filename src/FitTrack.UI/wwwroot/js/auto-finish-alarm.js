@@ -39,3 +39,32 @@ window.stopAutoFinishAlarm = function () {
         }
     } catch (e) { /* graceful degradation */ }
 };
+
+window.fitTrack.playRestAlarm = function () {
+    try {
+        if (navigator.vibrate) {
+            navigator.vibrate([800, 200, 800, 200, 800]);
+        }
+    } catch (e) { /* graceful degradation */ }
+
+    try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 1.2);
+        osc.stop(ctx.currentTime + 1.25);
+    } catch (e) { /* graceful degradation */ }
+};
+
+window.fitTrack.unlockRestAlarm = function () {
+    try {
+        new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { /* graceful degradation */ }
+};
