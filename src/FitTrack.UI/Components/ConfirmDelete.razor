@@ -1,0 +1,39 @@
+@if (_visible)
+{
+    <div class="modal-overlay" @onclick="Cancel" role="dialog" aria-modal="true">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <h3>Confirmar exclusão</h3>
+            <p>Esta ação não pode ser desfeita. Deseja excluir este treino finalizado?</p>
+            <div class="actions">
+                <button class="btn btn-secondary" @onclick="Cancel">Cancelar</button>
+                <button class="btn btn-danger" @onclick="Confirm">Excluir</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _visible = false;
+
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    public void Show() => _visible = true;
+
+    private async Task Confirm()
+    {
+        _visible = false;
+        if (OnConfirm.HasDelegate)
+            await OnConfirm.InvokeAsync();
+    }
+
+    private async Task Cancel()
+    {
+        _visible = false;
+        if (OnCancel.HasDelegate)
+            await OnCancel.InvokeAsync();
+    }
+}

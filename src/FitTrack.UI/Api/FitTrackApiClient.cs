@@ -210,6 +210,9 @@ public sealed class FitTrackApiClient(HttpClient httpClient)
             ListPath($"athletes/{userId}/workouts", search, page, pageSize),
             cancellationToken);
 
+    public Task DeleteAthleteWorkoutAsync(Guid athleteId, Guid sessionId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"athletes/{athleteId}/workouts/{sessionId}", cancellationToken);
+
     public Task<IReadOnlyList<UserAccountResponse>> GetUsersAsync(CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<UserAccountResponse>>("admin/users", cancellationToken);
 
