@@ -72,6 +72,7 @@ builder.Services.AddScoped<IStartWorkout, StartWorkout>();
 builder.Services.AddScoped<IFinishWorkout, FinishWorkout>();
 builder.Services.AddScoped<ICancelWorkout, CancelWorkout>();
 builder.Services.AddScoped<ICancelAthleteWorkout, CancelAthleteWorkout>();
+builder.Services.AddScoped<IDeleteAthleteWorkout, DeleteAthleteWorkout>();
 builder.Services.AddScoped<IAutoFinishExpiredWorkouts, AutoFinishExpiredWorkouts>();
 builder.Services.AddHostedService<AutoFinishExpiredWorkoutsHostedService>();
 
@@ -181,6 +182,7 @@ app.MapExerciseEndpoints();
 app.MapMuscleGroupEndpoints();
 app.MapSessionEndpoints();
 app.MapWorkoutSeriesEndpoints();
+app.MapAthleteWorkoutEndpoints();
 
 await app.RunAsync();
 

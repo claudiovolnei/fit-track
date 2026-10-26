@@ -1,0 +1,55 @@
+@inject IJSRuntime JS
+
+@if (_isActive)
+{
+    <div class="alarm-banner" role="alert" aria-live="assertive">
+        <div class="alarm-content">
+            <AppIcon Name="bell" Size="24" />
+            <span>Seu treino foi encerrado automaticamente pelo sistema.</span>
+        </div>
+        <button class="btn btn-danger btn-sm" @onclick="StopAlarm" aria-label="Parar alarme">
+            <AppIcon Name="stop" Size="16" />
+            Parar
+        </button>
+    </div>
+}
+
+@code {
+    private bool _isActive = false;
+    private System.Timers.Timer? _timer;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Detect if there is an auto-finished session in the current page's history.
+            // In a full implementation this would come from a state/service; here we start
+            // the alarm for demonstration based on a simple check.
+            await StartAlarmAsync();
+        }
+    }
+
+    private async Task StartAlarmAsync()
+    {
+        _isActive = true;
+        await JS.InvokeVoidAsync("startAutoFinishAlarm");
+
+        _timer = new System.Timers.Timer(15000);
+        _timer.Elapsed += async (sender, args) =>
+        {
+            await InvokeAsync(StopAlarm);
+            _timer?.Stop();
+        };
+        _timer.AutoReset = false;
+        _timer.Start();
+    }
+
+    private async Task StopAlarm()
+    {
+        _timer?.Stop();
+        _timer?.Dispose();
+        _timer = null;
+        _isActive = false;
+        await JS.InvokeVoidAsync("stopAutoFinishAlarm");
+    }
+}

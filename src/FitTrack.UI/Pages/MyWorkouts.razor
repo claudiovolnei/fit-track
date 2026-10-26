@@ -16,6 +16,8 @@
     </Actions>
 </PageHeader>
 
+<AutoFinishAlarm />
+
 <SearchField Value="@_search" ValueChanged="SearchAsync"
              Placeholder="Buscar treino por nome"
              AriaLabel="Buscar treino por nome" />
@@ -68,14 +70,18 @@ else
                 {
                     <span class="stat-value @(_summary.DeltaKilograms > 0 ? "is-up" : _summary.DeltaKilograms < 0 ? "is-down" : "")">
                         @DisplayText.SignedLoad(_summary.DeltaKilograms)
-                        <small>Prescrito @DisplayText.Load(_summary.PrescribedKilograms) · Feito @DisplayText.Load(_summary.PerformedKilograms) · média/exercício</small>
+                    </span>
+                    <span class="stat-detail">
+                        Prescrito @DisplayText.Load(_summary.PrescribedKilograms) · Feito @DisplayText.Load(_summary.PerformedKilograms) · média/exercício
                     </span>
                 }
                 else
                 {
                     <span class="stat-value">
                         —
-                        <small>sem prescrição para comparar</small>
+                    </span>
+                    <span class="stat-detail">
+                        sem prescrição para comparar
                     </span>
                 }
             </article>

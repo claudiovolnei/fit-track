@@ -1268,6 +1268,17 @@ input[type="checkbox"] {
     letter-spacing: 0;
 }
 
+.stat-detail {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.35;
+    flex-wrap: wrap;
+}
+
 @media (min-width: 760px) {
     .stat-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
