@@ -25,7 +25,8 @@ public class AutoFinishExpiredWorkoutsTests
             new WorkoutSeriesWorkoutId(Guid.NewGuid()));
         await repo.SaveAsync(session, CancellationToken.None);
 
-        var useCase = new AutoFinishExpiredWorkouts(repo, clock);
+        var seriesRepo = new InMemoryWorkoutSeriesRepository();
+        var useCase = new AutoFinishExpiredWorkouts(repo, seriesRepo, clock);
         var finished = await useCase.ExecuteAsync(CancellationToken.None);
 
         Assert.Equal(1, finished);
@@ -51,7 +52,8 @@ public class AutoFinishExpiredWorkoutsTests
             new WorkoutSeriesWorkoutId(Guid.NewGuid()));
         await repo.SaveAsync(session, CancellationToken.None);
 
-        var useCase = new AutoFinishExpiredWorkouts(repo, clock);
+        var seriesRepo = new InMemoryWorkoutSeriesRepository();
+        var useCase = new AutoFinishExpiredWorkouts(repo, seriesRepo, clock);
         var finished = await useCase.ExecuteAsync(CancellationToken.None);
 
         Assert.Equal(0, finished);
