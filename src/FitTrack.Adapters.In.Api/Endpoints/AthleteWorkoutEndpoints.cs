@@ -13,7 +13,8 @@ internal static class AthleteWorkoutEndpoints
             .WithTags("Athletes")
             .RequireAuthorization(Policies.TrainerOrAdmin);
 
-        group.MapDelete("/{userId:guid}/workouts/{sessionId:guid}", DeleteAthleteWorkoutAsync);
+        group.MapDelete("/{userId:guid}/workouts/{sessionId:guid}", DeleteAthleteWorkoutAsync)
+            .RequireAuthorization(Policies.TrainerOrAdmin);
 
         return app;
     }

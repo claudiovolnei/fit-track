@@ -20,7 +20,7 @@ public sealed class DeleteAthleteWorkout : IDeleteAthleteWorkout
 
     public async Task ExecuteAsync(DeleteAthleteWorkoutCommand command, CancellationToken cancellationToken)
     {
-        _currentUser.RequireAdmin("delete a finished workout");
+        _currentUser.RequirePersonalTrainerOrAdmin("delete a finished workout");
 
         var athleteId = new UserId(command.AthleteId);
         var session = await _sessions.GetByIdAsync(new WorkoutSessionId(command.SessionId), cancellationToken);
