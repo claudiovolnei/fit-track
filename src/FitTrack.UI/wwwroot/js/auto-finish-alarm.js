@@ -103,6 +103,8 @@ window.stopAutoFinishAlarm = function () {
     window._alarmState = {};
 };
 
+window.fitTrack = window.fitTrack || {};
+
 window.fitTrack.playRestAlarm = function () {
     try {
         if (navigator.vibrate) {
