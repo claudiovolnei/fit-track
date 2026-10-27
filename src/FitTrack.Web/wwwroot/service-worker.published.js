@@ -35,7 +35,17 @@ async function onFetch(event) {
     let cachedResponse = null;
     if (event.request.method === 'GET') {
         const cache = await caches.open(cacheName);
+        // Garantir que vamos buscar a requisição precisamente
+        // para evitar que assets estáticos (ex.: js) sejam servisidos por index.html
         cachedResponse = await cache.match(event.request);
+        if (!cachedResponse) {
+            // Se não encontrado pelo request direto, tentar normalizar o URL
+            // (ex.: normalizar o path para o manifest)
+            const normalizedURL = normalizeUrl(event.request.url);
+            if (normalizedURL !== event.request.url) {
+                cachedResponse = await cache.match(normalizedURL);
+            }
+        }
     }
     if (cachedResponse) {
         return cachedResponse;
@@ -53,4 +63,23 @@ async function onFetch(event) {
         }
         throw error;
     }
+}
+
+function normalizeUrl(url) {
+    // Tentar mapear o request.url para o asset do manifest se estiver em /_content/FitTrack.UI/
+    // para corresponder com as entradas do manifest (ex.: /_content/FitTrack.UI/js/auto-finish-alarm.js)
+    // Se o request.url está em /js/auto-finish-alarm.js mas manifest tem /_content/FitTrack.UI/js/auto-finish-alarm.js,
+    // adicionar /_content/FitTrack.UI/
+    const pattern = /\/js\/(auto-finish-alarm|avatar|combobox|rest-alarm)\.js$/;
+    const match = url.match(pattern);
+    if (match) {
+        return `/_content/FitTrack.UI/js/${match[1]}.js`;
+    }
+    // Se for um caminho CSS /css/app.css, o manifest tem /_content/FitTrack.UI/css/app.css
+    const cssPattern = /\/css\/app\.css$/;
+    if (cssPattern.test(url)) {
+        return `/_content/FitTrack.UI/css/app.css`;
+    }
+    // Outros assets estáticos que podem estar no manifest serão tratados pelo service worker-assets.js
+    return url;
 }
