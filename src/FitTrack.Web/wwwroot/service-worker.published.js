@@ -68,18 +68,17 @@ async function onFetch(event) {
 function normalizeUrl(url) {
     // Tentar mapear o request.url para o asset do manifest se estiver em /_content/FitTrack.UI/
     // para corresponder com as entradas do manifest (ex.: /_content/FitTrack.UI/js/auto-finish-alarm.js)
-    // Se o request.url está em /js/auto-finish-alarm.js mas manifest tem /_content/FitTrack.UI/js/auto-finish-alarm.js,
+    // Se o request.url está em /js/<name>.js mas manifest tem /_content/FitTrack.UI/js/<name>.js,
     // adicionar /_content/FitTrack.UI/
-    const pattern = /\/js\/(auto-finish-alarm|avatar|combobox|rest-alarm)\.js$/;
-    const match = url.match(pattern);
+    const jsPattern = /^\/js\/([^/]+)\.js$/;
+    const match = url.match(jsPattern);
     if (match) {
         return `/_content/FitTrack.UI/js/${match[1]}.js`;
     }
-    // Se for um caminho CSS /css/app.css, o manifest tem /_content/FitTrack.UI/css/app.css
-    const cssPattern = /\/css\/app\.css$/;
+    const cssPattern = /^\/css\/app\.css$/;
     if (cssPattern.test(url)) {
         return `/_content/FitTrack.UI/css/app.css`;
     }
-    // Outros assets estáticos que podem estar no manifest serão tratados pelo service worker-assets.js
+    // Outras assets estáticos são tratados pelo service worker-assets.js
     return url;
 }
